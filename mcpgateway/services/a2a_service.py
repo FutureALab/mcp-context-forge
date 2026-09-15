@@ -35,6 +35,7 @@ from mcpgateway.db import A2AAgentMetric, A2AAgentMetricsHourly, A2ATask, EmailT
 from mcpgateway.db import EmailTeamMember as DbEmailTeamMember
 from mcpgateway.db import fresh_db_session, get_for_update
 from mcpgateway.db import Tool as DbTool
+from mcpgateway.i18n import protocol_gettext
 from mcpgateway.observability import create_span, set_span_attribute, set_span_error
 from mcpgateway.plugins.utils import build_request_extensions, record_plugin_metrics
 from mcpgateway.schemas import A2AAgentAggregateMetrics, A2AAgentCreate, A2AAgentMetrics, A2AAgentRead, A2AAgentUpdate
@@ -1273,15 +1274,15 @@ class A2AAgentService(BaseService):
         agent = db.execute(query).scalar_one_or_none()
 
         if not agent:
-            raise A2AAgentNotFoundError(f"A2A Agent not found with ID: {agent_id}")
+            raise A2AAgentNotFoundError(protocol_gettext("A2A Agent not found with ID: {agent_id}", agent_id=agent_id))
 
         if not agent.enabled and not include_inactive:
-            raise A2AAgentNotFoundError(f"A2A Agent not found with ID: {agent_id}")
+            raise A2AAgentNotFoundError(protocol_gettext("A2A Agent not found with ID: {agent_id}", agent_id=agent_id))
 
         # SECURITY: Check visibility/team access
         # Return 404 (not 403) to avoid leaking existence of private agents
         if not await self._check_agent_access(db, agent, user_email, token_teams):
-            raise A2AAgentNotFoundError(f"A2A Agent not found with ID: {agent_id}")
+            raise A2AAgentNotFoundError(protocol_gettext("A2A Agent not found with ID: {agent_id}", agent_id=agent_id))
 
         # Delegate conversion and masking to convert_agent_to_read()
         return self.convert_agent_to_read(agent, db=db)
@@ -1423,7 +1424,7 @@ class A2AAgentService(BaseService):
             agent = get_for_update(db, DbA2AAgent, agent_id)
 
             if not agent:
-                raise A2AAgentNotFoundError(f"A2A Agent not found with ID: {agent_id}")
+                raise A2AAgentNotFoundError(protocol_gettext("A2A Agent not found with ID: {agent_id}", agent_id=agent_id))
 
             # Check ownership if user_email provided
             if user_email:
@@ -1765,7 +1766,7 @@ class A2AAgentService(BaseService):
                 agent = db.execute(query).scalar_one_or_none()
 
                 if not agent:
-                    raise A2AAgentNotFoundError(f"A2A Agent not found with ID: {agent_id}")
+                    raise A2AAgentNotFoundError(protocol_gettext("A2A Agent not found with ID: {agent_id}", agent_id=agent_id))
 
                 if user_email:
                     # First-Party
@@ -1852,7 +1853,7 @@ class A2AAgentService(BaseService):
                 agent = db.execute(query).scalar_one_or_none()
 
                 if not agent:
-                    raise A2AAgentNotFoundError(f"A2A Agent not found with ID: {agent_id}")
+                    raise A2AAgentNotFoundError(protocol_gettext("A2A Agent not found with ID: {agent_id}", agent_id=agent_id))
 
                 # Check ownership if user_email provided
                 if user_email:

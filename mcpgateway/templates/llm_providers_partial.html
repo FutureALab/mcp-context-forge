@@ -8,25 +8,25 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
       </svg>
-      LLM Providers
+      {{ _("LLM Providers") }}
     </h2>
-    <p class="text-blue-100 mb-4">Configure external LLM providers for the internal LLM Chat feature.</p>
+    <p class="text-blue-100 mb-4">{{ _("Configure external LLM providers for the internal LLM Chat feature.") }}</p>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div class="text-center">
         <div class="text-3xl font-bold">{{ providers|length }}</div>
-        <div class="text-blue-100 text-sm">Total Providers</div>
+        <div class="text-blue-100 text-sm">{{ _("Total Providers") }}</div>
       </div>
       <div class="text-center">
         <div class="text-3xl font-bold">{{ providers|selectattr('enabled')|list|length }}</div>
-        <div class="text-blue-100 text-sm">Enabled</div>
+        <div class="text-blue-100 text-sm">{{ _("Enabled") }}</div>
       </div>
       <div class="text-center">
         <div class="text-3xl font-bold">{{ providers|selectattr('health_status', 'eq', 'healthy')|list|length }}</div>
-        <div class="text-blue-100 text-sm">Healthy</div>
+        <div class="text-blue-100 text-sm">{{ _("Healthy") }}</div>
       </div>
       <div class="text-center">
         <div class="text-3xl font-bold">{{ providers|sum(attribute='model_count') }}</div>
-        <div class="text-blue-100 text-sm">Total Models</div>
+        <div class="text-blue-100 text-sm">{{ _("Total Models") }}</div>
       </div>
     </div>
   </div>
@@ -38,7 +38,7 @@
       <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>
-      Add Provider
+      {{ _("Add Provider") }}
     </button>
   </div>
 
@@ -50,25 +50,25 @@
           <tr>
             <th scope="col"
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-              Name</th>
+              {{ _("Name") }}</th>
             <th scope="col"
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-              Type</th>
+              {{ _("Type") }}</th>
             <th scope="col"
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-              API Base</th>
+              {{ _("API Base") }}</th>
             <th scope="col"
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-              Models</th>
+              {{ _("Models") }}</th>
             <th scope="col"
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-              Status</th>
+              {{ _("Status") }}</th>
             <th scope="col"
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-              Health</th>
+              {{ _("Health") }}</th>
             <th scope="col"
               class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-              Actions</th>
+              {{ _("Actions") }}</th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700"
@@ -102,12 +102,12 @@
                 {% if provider.enabled %}
                 <span
                   class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                  Enabled
+                  {{ _("Enabled") }}
                 </span>
                 {% else %}
                 <span
                   class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                  Disabled
+                  {{ _("Disabled") }}
                 </span>
                 {% endif %}
               </button>
@@ -121,7 +121,7 @@
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
               <button data-action-click="checkLLMProviderHealth" data-arg0="{{ provider.id|tojson_attr }}"
                 class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-2"
-                title="Check Health">
+                title="{{ _("Check Health") }}">
                 <svg class="h-5 w-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -129,7 +129,7 @@
               </button>
               <button data-action-click="fetchLLMProviderModels" data-arg0="{{ provider.id|tojson_attr }}"
                 class="text-cyan-600 hover:text-cyan-900 dark:text-cyan-400 dark:hover:text-cyan-300 mr-2"
-                title="List Available Models">
+                title="{{ _("List Available Models") }}">
                 <svg class="h-5 w-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -137,7 +137,7 @@
               </button>
               <button data-action-click="syncLLMProviderModels" data-arg0="{{ provider.id|tojson_attr }}"
                 class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2"
-                title="Sync Models to Database">
+                title="{{ _("Sync Models to Database") }}">
                 <svg class="h-5 w-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -167,15 +167,15 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No providers configured</h3>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by adding an LLM provider.</p>
+              <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("No providers configured") }}</h3>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ _("Get started by adding an LLM provider.") }}</p>
               <div class="mt-6">
                 <button data-action-click="showAddProviderModal"
                   class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
                   <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                   </svg>
-                  Add Provider
+                  {{ _("Add Provider") }}
                 </button>
               </div>
             </td>
@@ -188,7 +188,7 @@
 
   <!-- Provider Types Reference -->
   <div class="bg-white shadow rounded-lg p-6 dark:bg-gray-800">
-    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Supported Provider Types</h3>
+    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">{{ _("Supported Provider Types") }}</h3>
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
       {% for ptype in provider_types %}
       <div class="text-center p-3 bg-gray-50 rounded-lg dark:bg-gray-700">

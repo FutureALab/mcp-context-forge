@@ -65,6 +65,7 @@ from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request as starletteRequest
 from starlette.responses import Response as starletteResponse
@@ -105,6 +106,7 @@ from mcpgateway.db import refresh_slugs_on_startup, SessionLocal
 from mcpgateway.db import Tool as DbTool
 from mcpgateway.deprecations import RUST_MCP_RUNTIME_DEPRECATION_MESSAGE, VALIDATION_MIDDLEWARE_DEPRECATION_MESSAGE
 from mcpgateway.handlers.sampling import SamplingError, SamplingHandler
+from mcpgateway.i18n import catalog_mapping, default_locale, get_locale, gettext, ngettext, protocol_gettext, supported_locales
 from mcpgateway.middleware.auth_context_stack import register_auth_context_middleware
 from mcpgateway.middleware.client_disconnect import ClientDisconnectMiddleware
 from mcpgateway.middleware.compression import SSEAwareCompressMiddleware
@@ -112,6 +114,7 @@ from mcpgateway.middleware.correlation_id import CorrelationIDMiddleware
 from mcpgateway.middleware.forwarded_host import ForwardedHostMiddleware
 from mcpgateway.middleware.header_size_middleware import HeaderSizeMiddleware
 from mcpgateway.middleware.http_auth_middleware import HttpAuthMiddleware, run_pre_request_hooks
+from mcpgateway.middleware.i18n import I18nMiddleware
 from mcpgateway.middleware.protocol_version import MCPProtocolVersionMiddleware
 from mcpgateway.middleware.rate_limit_middleware import RateLimitMiddleware
 from mcpgateway.middleware.rbac import _ACCESS_DENIED_MSG, get_current_user_with_permissions, PermissionChecker, require_permission
@@ -1055,7 +1058,7 @@ async def _authorize_run_cancellation(request: Request, user, request_id: str, *
 
     if unauthorized:
         if as_jsonrpc_error:
-            raise JSONRPCError(-32003, "Not authorized to cancel this run", {"requestId": request_id})
+            raise JSONRPCError(-32003, protocol_gettext("Not authorized to cancel this run"), {"requestId": request_id})
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to cancel this run")
 
 
@@ -2672,6 +2675,28 @@ async def plugin_exception_handler(_request: Request, exc: PluginError):
     return ORJSONResponse(status_code=200, content={"error": json_rpc_error.model_dump()})
 
 
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(_request: Request, exc: StarletteHTTPException) -> ORJSONResponse:
+    """Return an HTTP error carrying a localized detail message.
+
+    Translating at this boundary applies one catalog lookup to every raise site,
+    including raise sites that do not wrap the message themselves. A detail
+    without a catalog entry passes through unchanged, so unknown messages keep
+    their current text.
+
+    Args:
+        _request: Incoming request, required by the handler signature.
+        exc: Exception raised by a route or dependency.
+
+    Returns:
+        JSON error response with the translated detail.
+    """
+    detail = exc.detail
+    if isinstance(detail, str) and detail:
+        detail = gettext(detail)
+    return ORJSONResponse({"detail": detail}, status_code=exc.status_code, headers=getattr(exc, "headers", None))
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, _exc: Exception) -> ORJSONResponse:
     """Catch-all handler for unhandled exceptions.
@@ -2854,6 +2879,7 @@ class AdminAuthMiddleware(BaseHTTPMiddleware):
         "/v1/admin/logout",
         "/v1/admin/forgot-password",
         "/v1/admin/reset-password",
+        "/v1/admin/language",  # Language switcher must work before sign-in
         "/admin/static",  # Legacy path
         "/v1/admin/static",  # Versioned path
     ]
@@ -3497,6 +3523,11 @@ if settings.db_query_log_enabled:
 else:
     logger.debug("📊 Database query logging disabled (enable with DB_QUERY_LOG_ENABLED=true)")
 
+# Locale resolution runs outside the route handlers and the inner middleware so
+# translated error responses (401/403/429) use the caller's language too.
+app.add_middleware(I18nMiddleware)
+logger.info(f"🌐 Internationalization enabled: locales={','.join(supported_locales())}, default={default_locale()}")
+
 # Client disconnect middleware — MUST be outermost (added last, runs first).
 # Cancels in-flight request handlers when the client (nginx) closes the connection,
 # preventing CLOSE_WAIT accumulation and associated memory leaks.
@@ -3572,6 +3603,19 @@ jinja_env.filters["tojson_attr"] = tojson_attr
 
 
 jinja_env.globals["csp_nonce"] = get_csp_nonce_from_request
+
+# Internationalization. The i18n extension enables {% trans %} blocks, and the
+# gettext callables read the request locale from a context variable at render
+# time. One shared environment therefore serves every locale without cloning.
+jinja_env.add_extension("jinja2.ext.i18n")
+jinja_env.install_gettext_callables(gettext, ngettext, newstyle=True)
+jinja_env.globals["_"] = gettext
+jinja_env.globals["gettext"] = gettext
+jinja_env.globals["ngettext"] = ngettext
+jinja_env.globals["supported_locales"] = supported_locales
+jinja_env.globals["current_locale"] = get_locale
+jinja_env.globals["default_locale"] = default_locale
+jinja_env.globals["catalog_mapping"] = catalog_mapping
 
 templates = Jinja2Templates(env=jinja_env)
 if not settings.templates_auto_reload:
@@ -10566,7 +10610,7 @@ async def _execute_rpc_tools_call(
     arguments = params.get("arguments", {})
     meta_data = params.get("_meta", None)
     if not name:
-        raise JSONRPCError(-32602, "Missing tool name in parameters", params)
+        raise JSONRPCError(-32602, protocol_gettext("Missing tool name in parameters"), params)
 
     # Layer-1 exception: run ownership is captured below from the raw context,
     # before admin-bypass normalization is applied.
@@ -10608,7 +10652,7 @@ async def _execute_rpc_tools_call(
         if settings.mcpgateway_tool_cancellation_enabled and run_id:
             run_status = await cancellation_service.get_status(run_id)
             if run_status and run_status.get("cancelled"):
-                raise JSONRPCError(-32800, f"Tool execution cancelled: {name}", {"requestId": run_id})
+                raise JSONRPCError(-32800, protocol_gettext("Tool execution cancelled: {name}", name=name), {"requestId": run_id})
 
         async def execute_tool():
             """Execute the tool invocation using the existing Python service layer.
@@ -10638,7 +10682,7 @@ async def _execute_rpc_tools_call(
                 )
             except (ToolNotFoundError, ValueError):
                 logger.error("Tool not found: %s", name)
-                raise JSONRPCError(-32601, f"Tool not found: {name}", None)
+                raise JSONRPCError(-32601, protocol_gettext("Tool not found: {name}", name=name), None)
 
         tool_task = asyncio.create_task(execute_tool())
 
@@ -10654,7 +10698,7 @@ async def _execute_rpc_tools_call(
             return result
         except asyncio.CancelledError as exc:
             logger.info("Tool execution cancelled for run_id=%s, tool=%s", run_id, name)
-            raise JSONRPCError(-32800, f"Tool execution cancelled: {name}", {"requestId": run_id, "partial": False}) from exc
+            raise JSONRPCError(-32800, protocol_gettext("Tool execution cancelled: {name}", name=name), {"requestId": run_id, "partial": False}) from exc
     finally:
         if settings.mcpgateway_tool_cancellation_enabled and run_id:
             await cancellation_service.unregister_run(run_id)

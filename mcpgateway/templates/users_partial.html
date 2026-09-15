@@ -15,35 +15,35 @@
           <div class="flex items-center gap-2 mb-2">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ user.full_name or "N/A" }}</h3>
             {% if user.is_admin %}
-            <span class="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full dark:bg-purple-900 dark:text-purple-200">Admin</span>
+            <span class="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full dark:bg-purple-900 dark:text-purple-200">{{ _("Admin") }}</span>
             {% endif %}
             {% if user.is_active %}
-            <span class="px-2 py-1 text-xs font-semibold text-green-600 bg-gray-100 dark:bg-gray-700 rounded-full">Active</span>
+            <span class="px-2 py-1 text-xs font-semibold text-green-600 bg-gray-100 dark:bg-gray-700 rounded-full">{{ _("Active") }}</span>
             {% else %}
-            <span class="px-2 py-1 text-xs font-semibold text-red-600 bg-gray-100 dark:bg-gray-700 rounded-full">Inactive</span>
+            <span class="px-2 py-1 text-xs font-semibold text-red-600 bg-gray-100 dark:bg-gray-700 rounded-full">{{ _("Inactive") }}</span>
             {% endif %}
             {% if user.email == current_user_email %}
-            <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">You</span>
+            <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-200">{{ _("You") }}</span>
             {% endif %}
             {% if user.is_last_admin %}
-            <span class="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full dark:bg-yellow-900 dark:text-yellow-200">Last Admin</span>
+            <span class="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full dark:bg-yellow-900 dark:text-yellow-200">{{ _("Last Admin") }}</span>
             {% endif %}
             {% if user.password_change_required %}
             <span class="px-2 py-1 text-xs font-semibold bg-orange-100 text-orange-800 rounded-full dark:bg-orange-900 dark:text-orange-200">
-              <i class="fas fa-key mr-1"></i>Password Change Required
+              <i class="fas fa-key mr-1"></i>{{ _("Password Change Required") }}
             </span>
             {% endif %}
             {% if user.is_locked %}
             <span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full dark:bg-red-900 dark:text-red-200">
-              <i class="fas fa-lock mr-1"></i>Locked
+              <i class="fas fa-lock mr-1"></i>{{ _("Locked") }}
             </span>
             {% endif %}
           </div>
           <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">📧 {{ user.email }}</p>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">🔐 Provider: {{ user.auth_provider }}</p>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">⚠️ Failed attempts: {{ user.failed_login_attempts }}</p>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">🔒 Locked until: {{ user.locked_until.strftime("%Y-%m-%d %H:%M") if user.locked_until else "N/A" }}</p>
-          <p class="text-sm text-gray-600 dark:text-gray-400">📅 Created: {{ user.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ _("🔐 Provider:") }} {{ user.auth_provider }}</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ _("⚠️ Failed attempts:") }} {{ user.failed_login_attempts }}</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ _("🔒 Locked until:") }} {{ user.locked_until.strftime("%Y-%m-%d %H:%M") if user.locked_until else "N/A" }}</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400">{{ _("📅 Created:") }} {{ user.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
         </div>
         <div class="flex gap-2 ml-4">
           <button
@@ -52,7 +52,7 @@
             hx-target="#user-edit-modal-content"
             hx-swap="innerHTML show:top"
           >
-            Edit
+            {{ _("Edit") }}
           </button>
           {% if not user.is_current_user and not user.is_last_admin %}
             {% if user.is_locked %}
@@ -63,7 +63,7 @@
               hx-target="closest .user-card"
               hx-swap="outerHTML"
             >
-              Unlock
+              {{ _("Unlock") }}
             </button>
             {% endif %}
             {% if not user.is_active %}
@@ -74,7 +74,7 @@
               hx-target="closest .user-card"
               hx-swap="outerHTML"
             >
-              Activate
+              {{ _("Activate") }}
             </button>
             {% else %}
             <button
@@ -84,14 +84,14 @@
               hx-target="closest .user-card"
               hx-swap="outerHTML"
             >
-              Deactivate
+              {{ _("Deactivate") }}
             </button>
             {% endif %}
           {% endif %}
           {% if not user.is_current_user and not user.is_last_admin %}
             {% if user.password_change_required %}
             <span class="px-3 py-1 text-sm font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border border-orange-300 dark:border-orange-600 rounded-md">
-              Password Change Required
+              {{ _("Password Change Required") }}
             </span>
             {% else %}
             <button
@@ -101,7 +101,7 @@
               hx-target="closest .user-card"
               hx-swap="outerHTML"
             >
-              Force Password Change
+              {{ _("Force Password Change") }}
             </button>
             {% endif %}
           {% endif %}
@@ -113,7 +113,7 @@
             hx-target="closest .user-card"
             hx-swap="outerHTML"
           >
-            Delete
+            {{ _("Delete") }}
           </button>
           {% endif %}
         </div>
@@ -123,7 +123,7 @@
   </div>
   {% else %}
   <div class="text-center py-8">
-    <p class="text-gray-500 dark:text-gray-400">No users found.</p>
+    <p class="text-gray-500 dark:text-gray-400">{{ _("No users found.") }}</p>
   </div>
   {% endif %}
 </div>

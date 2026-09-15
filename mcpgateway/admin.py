@@ -113,6 +113,7 @@ from mcpgateway.db import Server as DbServer
 from mcpgateway.db import SessionLocal
 from mcpgateway.db import Tool as DbTool
 from mcpgateway.db import utc_now
+from mcpgateway.i18n import default_locale, normalize_locale
 from mcpgateway.middleware.rbac import _ACCESS_DENIED_MSG, get_current_user_with_permissions, require_admin_permission, require_any_permission, require_permission
 from mcpgateway.routers.email_auth import create_access_token
 from mcpgateway.schemas import (
@@ -4402,6 +4403,33 @@ async def admin_ui(
 
     _set_admin_csrf_cookie(request, response, user_id=csrf_user_id, session_id=csrf_session_id)
     return response
+
+
+@admin_router.get("/language", include_in_schema=False)
+async def set_ui_language(request: Request) -> Response:
+    """Persist the visitor's language choice and return to the previous page.
+
+    The locale cookie is written by I18nMiddleware, so this handler only
+    validates the requested locale and issues the redirect. Unsafe redirect
+    targets are ignored to prevent open redirects.
+
+    Args:
+        request: Incoming request carrying the 'lang' and 'next' query parameters.
+
+    Returns:
+        A 303 redirect to the validated target page.
+    """
+    root_path = _resolve_root_path(request)
+    locale = normalize_locale(request.query_params.get("lang")) or default_locale()
+    target = request.query_params.get("next") or ""
+
+    # Reject absolute URLs, protocol-relative paths, and backslash tricks so the
+    # endpoint cannot be used as an open redirect.
+    if not target.startswith("/") or target.startswith("//") or "\\" in target or ":" in target:
+        target = "/admin"
+
+    LOGGER.info(f"🌐 Language switched to {locale} (next={target})")
+    return RedirectResponse(url=f"{root_path}{target}", status_code=303)
 
 
 @admin_router.get("/login")

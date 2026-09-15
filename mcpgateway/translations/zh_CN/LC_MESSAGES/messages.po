@@ -1,0 +1,4151 @@
+msgid ""
+msgstr "Project-Id-Version: ContextForge\nReport-Msgid-Bugs-To: \nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nLanguage: zh-CN\nPlural-Forms: nplurals=1; plural=0;\n"
+
+msgid ""
+msgstr "Project-Id-Version: ContextForge\nReport-Msgid-Bugs-To: \nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nLanguage: zh-CN\nPlural-Forms: nplurals=1; plural=0;\n"
+
+msgid "% utilized"
+msgstr "% 已使用"
+
+msgid "(array only)"
+msgstr "（仅数组）"
+
+msgid "(for password grant)"
+msgstr "（用于密码授权）"
+
+msgid "(http/https/ws/wss only),"
+msgstr "（仅支持 http/https/ws/wss），"
+
+msgid "(optional for DCR)"
+msgstr "（DCR 可选）"
+
+msgid "(optional)"
+msgstr "（可选）"
+
+msgid "). Admins can set any limit."
+msgstr "）。管理员可以设置任意上限。"
+
+msgid "* (All Agents)"
+msgstr "*（全部智能体）"
+
+msgid "* (all agents)"
+msgstr "*（全部智能体）"
+
+msgid "+ Add Binding"
+msgstr "+ 添加绑定"
+
+msgid "- must start with letter, only letters/numbers/dots/underscores/hyphens"
+msgstr "- 必须以字母开头，仅可包含字母/数字/点/下划线/连字符"
+
+msgid ". Admin users retain full access; non-admin users can only see"
+msgstr "。管理员保留完全访问权限；非管理员用户只能看到"
+
+msgid "0 logs"
+msgstr "0 条日志"
+
+msgid "0 prompts"
+msgstr "0 个提示词"
+
+msgid "0 resources"
+msgstr "0 个资源"
+
+msgid "0 tools"
+msgstr "0 个工具"
+
+msgid "1 Day"
+msgstr "1 天"
+
+msgid "1 Hour"
+msgstr "1 小时"
+
+msgid "1 hour"
+msgstr "1 小时"
+
+msgid "12 hours"
+msgstr "12 小时"
+
+msgid "15 Minutes"
+msgstr "15 分钟"
+
+msgid "168 hours (7 days)"
+msgstr "168 小时（7 天）"
+
+msgid "200 tools per import"
+msgstr "每次导入 200 个工具"
+
+msgid "2160 hours (90 days)"
+msgstr "2160 小时（90 天）"
+
+msgid "24 hours"
+msgstr "24 小时"
+
+msgid "24 hours (1 day)"
+msgstr "24 小时（1 天）"
+
+msgid "2xx Success"
+msgstr "2xx 成功"
+
+msgid "3xx Redirect"
+msgstr "3xx 重定向"
+
+msgid "4 hours"
+msgstr "4 小时"
+
+msgid "4xx Client Error"
+msgstr "4xx 客户端错误"
+
+msgid "5 Minutes"
+msgstr "5 分钟"
+
+msgid "5 minutes"
+msgstr "5 分钟"
+
+msgid "5xx Server Error"
+msgstr "5xx 服务端错误"
+
+msgid "6 Hours"
+msgstr "6 小时"
+
+msgid "72 hours (3 days)"
+msgstr "72 小时（3 天）"
+
+msgid "720 hours (30 days)"
+msgstr "720 小时（30 天）"
+
+msgid "8760 hours (365 days)"
+msgstr "8760 小时（365 天）"
+
+msgid "A2A Agent Plugin Bindings"
+msgstr "A2A 智能体插件绑定"
+
+msgid "A2A Agent not found with ID: {agent_id}"
+msgstr "未找到 ID 为 {agent_id} 的 A2A 智能体"
+
+msgid "A2A Agents"
+msgstr "A2A 智能体"
+
+msgid "A2A Agents Catalog"
+msgstr "A2A 智能体目录"
+
+msgid "A2A Plugin Bindings"
+msgstr "A2A 插件绑定"
+
+msgid "A2A Service"
+msgstr "A2A 服务"
+
+msgid "AI agent integration & workflows"
+msgstr "AI 智能体集成与工作流"
+
+msgid "API Base"
+msgstr "API 基础地址"
+
+msgid "API Base URL"
+msgstr "API 基础 URL"
+
+msgid "API Key"
+msgstr "API 密钥"
+
+msgid "API Key Required"
+msgstr "需要 API 密钥"
+
+msgid "API Key Value"
+msgstr "API 密钥值"
+
+msgid "API Token Management"
+msgstr "API 令牌管理"
+
+msgid "API Tokens"
+msgstr "API 令牌"
+
+msgid "API keys in URLs may appear in proxy logs, browser history, and server access logs. Consider using bearer tokens or headers instead (CWE-598)."
+msgstr "URL 中的 API 密钥可能出现在代理日志、浏览器历史和服务端访问日志中。建议改用 Bearer 令牌或请求头（CWE-598）。"
+
+msgid "API keys in URLs may appear in proxy logs, browser history, and server access logs. Only use when the upstream server requires this authentication method."
+msgstr "URL 中的 API 密钥可能出现在代理日志、浏览器历史和服务端访问日志中。仅当上游服务器要求此认证方式时才使用。"
+
+msgid "AWS Bedrock"
+msgstr ""
+
+msgid "Accept invitation"
+msgstr "接受邀请"
+
+msgid "Accept invitation: {invitation_url}"
+msgstr "接受邀请：{invitation_url}"
+
+msgid "Access denied"
+msgstr "拒绝访问"
+
+msgid "Account Protection"
+msgstr "账号保护"
+
+msgid "Account Temporarily Locked"
+msgstr "账号已被临时锁定"
+
+msgid "Action"
+msgstr "操作"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Activate"
+msgstr "启用"
+
+msgid "Active"
+msgstr "已启用"
+
+msgid "Active Connections"
+msgstr "活跃连接"
+
+msgid "Active Entities"
+msgstr "活跃实体"
+
+msgid "Active MCP transport and core ownership for this gateway instance."
+msgstr "此网关实例当前生效的 MCP 传输与核心归属。"
+
+msgid "Active Requests"
+msgstr "活跃请求"
+
+msgid "Add A2A Agent"
+msgstr "添加 A2A 智能体"
+
+msgid "Add Gateway"
+msgstr "添加网关"
+
+msgid "Add Header"
+msgstr "添加请求头"
+
+msgid "Add LLM Model"
+msgstr "添加 LLM 模型"
+
+msgid "Add LLM Provider"
+msgstr "添加 LLM 提供商"
+
+msgid "Add Model"
+msgstr "添加模型"
+
+msgid "Add New A2A Agent"
+msgstr "新增 A2A 智能体"
+
+msgid "Add New MCP Server or Gateway"
+msgstr "新增 MCP 服务器或网关"
+
+msgid "Add New Parameter"
+msgstr "新增参数"
+
+msgid "Add New Prompt"
+msgstr "新增提示词"
+
+msgid "Add New Resource"
+msgstr "新增资源"
+
+msgid "Add New Root"
+msgstr "新增根目录"
+
+msgid "Add New Server"
+msgstr "新增服务器"
+
+msgid "Add New Tool from REST API"
+msgstr "从 REST API 新增工具"
+
+msgid "Add Plugin Binding"
+msgstr "添加插件绑定"
+
+msgid "Add Prompt"
+msgstr "添加提示词"
+
+msgid "Add Provider"
+msgstr "添加提供商"
+
+msgid "Add Resource"
+msgstr "添加资源"
+
+msgid "Add Root"
+msgstr "添加根目录"
+
+msgid "Add Server"
+msgstr "添加服务器"
+
+msgid "Add Tool"
+msgstr "添加工具"
+
+msgid "Add a binding to configure plugin policies for A2A agents."
+msgstr "添加绑定以配置 A2A 智能体的插件策略。"
+
+msgid "Add models to your configured providers."
+msgstr "为您已配置的提供商添加模型。"
+
+msgid "Additional Attributes"
+msgstr "附加属性"
+
+msgid "Admin"
+msgstr "管理员"
+
+msgid "Admin privileges required"
+msgstr "需要管理员权限"
+
+msgid "Administrative tools for platform maintenance and data management. These operations are restricted to platform administrators."
+msgstr "用于平台维护与数据管理的管理工具。这些操作仅限平台管理员。"
+
+msgid "Administrator privileges"
+msgstr "管理员权限"
+
+msgid "Advanced: Add Passthrough"
+msgstr "高级：添加透传"
+
+msgid "Affinity"
+msgstr "亲和性"
+
+msgid "After creating this gateway, you'll need to:"
+msgstr "创建此网关后，您需要："
+
+msgid "Agent"
+msgstr "智能体"
+
+msgid "Agent Details"
+msgstr "智能体详情"
+
+msgid "Agent ID"
+msgstr "智能体 ID"
+
+msgid "Agent Name"
+msgstr "智能体名称"
+
+msgid "Agent Name is required."
+msgstr "智能体名称为必填项。"
+
+msgid "Agent Type"
+msgstr "智能体类型"
+
+msgid "Agent communication protocol"
+msgstr "智能体通信协议"
+
+msgid "Agents"
+msgstr "智能体"
+
+msgid "Agents (A2A)"
+msgstr "智能体（A2A）"
+
+msgid "Aggregates raw metrics into hourly summaries with percentiles (p50, p95, p99)."
+msgstr "将原始指标聚合为带分位数（p50、p95、p99）的每小时摘要。"
+
+msgid "Alias"
+msgstr "别名"
+
+msgid "Alias:"
+msgstr "别名："
+
+msgid "All Auth Types"
+msgstr "全部认证类型"
+
+msgid "All Authors"
+msgstr "全部作者"
+
+msgid "All Categories"
+msgstr "全部分类"
+
+msgid "All Components"
+msgstr "全部组件"
+
+msgid "All Hooks"
+msgstr "全部钩子"
+
+msgid "All Levels"
+msgstr "全部级别"
+
+msgid "All Methods"
+msgstr "全部方法"
+
+msgid "All Modes"
+msgstr "全部模式"
+
+msgid "All Providers"
+msgstr "全部提供商"
+
+msgid "All Status"
+msgstr "全部状态"
+
+msgid "All Tags"
+msgstr "全部标签"
+
+msgid "All Teams"
+msgstr "全部团队"
+
+msgid "All resources (admin users only)"
+msgstr "全部资源（仅管理员）"
+
+msgid "Already Registered"
+msgstr "已注册"
+
+msgid "Also delete hourly rollup data"
+msgstr "同时删除每小时汇总数据"
+
+msgid "An error occurred while changing your password. Please try again."
+msgstr "修改密码时发生错误，请重试。"
+
+msgid "Annotation badges:"
+msgstr "注解徽标："
+
+msgid "Annotations"
+msgstr "注解"
+
+msgid "Annotations (JSON)"
+msgstr "注解（JSON）"
+
+msgid "Annotations like readOnlyHint, destructiveHint are generally provided by the MCP server."
+msgstr "readOnlyHint、destructiveHint 等注解通常由 MCP 服务器提供。"
+
+msgid "Anthropic"
+msgstr ""
+
+msgid "Application"
+msgstr "应用"
+
+msgid "Application Information"
+msgstr "应用信息"
+
+msgid "Application Logs"
+msgstr "应用日志"
+
+msgid "Apply"
+msgstr "应用"
+
+msgid "Apply Filters"
+msgstr "应用筛选"
+
+msgid "Architecture Flow"
+msgstr "架构流程"
+
+msgid "Arguments (JSON)"
+msgstr "参数（JSON）"
+
+msgid "Assign Role"
+msgstr "分配角色"
+
+msgid "Assign Role to User"
+msgstr "为用户分配角色"
+
+msgid "Assistant"
+msgstr "助手"
+
+msgid "Associated Prompts"
+msgstr "关联提示词"
+
+msgid "Associated Resources"
+msgstr "关联资源"
+
+msgid "Associated Tools"
+msgstr "关联工具"
+
+msgid "Attribute Search"
+msgstr "属性搜索"
+
+msgid "Attributes:"
+msgstr "属性："
+
+msgid "Audience"
+msgstr "受众"
+
+msgid "Audit & Events"
+msgstr "审计与事件"
+
+msgid "Audit & Monitoring"
+msgstr "审计与监控"
+
+msgid "Auth"
+msgstr "认证"
+
+msgid "Auth Reuse"
+msgstr "认证复用"
+
+msgid "Auth Type"
+msgstr "认证类型"
+
+msgid "Auth Types:"
+msgstr "认证类型："
+
+msgid "Authentication"
+msgstr "认证"
+
+msgid "Authentication Type"
+msgstr "认证类型"
+
+msgid "Authentication Types"
+msgstr "认证类型"
+
+msgid "Authentication required"
+msgstr "需要身份认证"
+
+msgid "Authentication required but no auth method configured"
+msgstr "需要身份认证，但未配置任何认证方式"
+
+msgid "Author:"
+msgstr "作者："
+
+msgid "Authorization Code (User Delegation)"
+msgstr "授权码（用户委派）"
+
+msgid "Authorization Code Flow Setup"
+msgstr "授权码流程配置"
+
+msgid "Authorization Server URL"
+msgstr "授权服务器 URL"
+
+msgid "Authorization URL"
+msgstr "授权 URL"
+
+msgid "Authorization token required"
+msgstr "需要授权令牌"
+
+msgid "Authorization, X-Tenant-Id, X-Trace-Id"
+msgstr "Authorization, X-Tenant-Id, X-Trace-Id"
+
+msgid "Authors"
+msgstr "作者"
+
+msgid "Auto-filled based on provider type"
+msgstr "根据提供商类型自动填充"
+
+msgid "Auto-refresh"
+msgstr "自动刷新"
+
+msgid "Automatic unlock time:"
+msgstr "自动解锁时间："
+
+msgid "Automatically refresh expired tokens"
+msgstr "自动刷新过期令牌"
+
+msgid "Available"
+msgstr "可用"
+
+msgid "Available Models"
+msgstr "可用模型"
+
+msgid "Available Tools"
+msgstr "可用工具"
+
+msgid "Average"
+msgstr "平均"
+
+msgid "Avg"
+msgstr "平均"
+
+msgid "Avg Latency"
+msgstr "平均延迟"
+
+msgid "Avg Response Time"
+msgstr "平均响应时间"
+
+msgid "Azure OpenAI"
+msgstr ""
+
+msgid "Back to login"
+msgstr "返回登录"
+
+msgid "Background Jobs"
+msgstr "后台任务"
+
+msgid "Basic"
+msgstr "基础"
+
+msgid "Bearer Token"
+msgstr "Bearer 令牌"
+
+msgid "Body (JSON)"
+msgstr "请求体（JSON）"
+
+msgid "Boot Time:"
+msgstr "启动时间："
+
+msgid "Both operations run automatically in the background. Manual triggers are for immediate execution."
+msgstr "两项操作都会在后台自动运行。手动触发用于立即执行。"
+
+msgid "Bulk Import"
+msgstr "批量导入"
+
+msgid "Bulk Import Tools"
+msgstr "批量导入工具"
+
+msgid "Bundle Contents"
+msgstr "打包内容"
+
+msgid "Bytes Received"
+msgstr "接收字节数"
+
+msgid "Bytes Sent"
+msgstr "发送字节数"
+
+msgid "CPU Usage"
+msgstr "CPU 使用率"
+
+msgid "Cache"
+msgstr "缓存"
+
+msgid "Cache Hit Rate"
+msgstr "缓存命中率"
+
+msgid "Can Join"
+msgstr "可加入"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Cancel Request"
+msgstr "取消请求"
+
+msgid "Cannot delete the last remaining admin user"
+msgstr "无法删除最后一个管理员用户"
+
+msgid "Cannot delete your own account"
+msgstr "无法删除自己的账号"
+
+msgid "Capabilities"
+msgstr "能力"
+
+msgid "Catalog is currently disabled"
+msgstr "目录当前已禁用"
+
+msgid "Categories"
+msgstr "分类"
+
+msgid "Category"
+msgstr "分类"
+
+msgid "Change Password"
+msgstr "修改密码"
+
+msgid "Changing UUID will create a new server endpoint. Use with caution."
+msgstr "更改 UUID 会创建新的服务器端点，请谨慎操作。"
+
+msgid "Chat"
+msgstr "对话"
+
+msgid "Chat Completion"
+msgstr "对话补全"
+
+msgid "Check Health"
+msgstr "检查健康状态"
+
+msgid "Choose Import Method:"
+msgstr "选择导入方式："
+
+msgid "Choose an MCP server, then select the tools, resources, and prompts to configure your virtual server."
+msgstr "选择一个 MCP 服务器，然后选择要加入虚拟服务器的工具、资源和提示词。"
+
+msgid "Choose the configuration format for your MCP client:"
+msgstr "为您的 MCP 客户端选择配置格式："
+
+msgid "Clear"
+msgstr "清除"
+
+msgid "Clear All"
+msgstr "全部清除"
+
+msgid "Clear all selected MCP servers"
+msgstr "清除全部已选 MCP 服务器"
+
+msgid "Clear all selected MPC servers"
+msgstr "清除全部已选 MCP 服务器"
+
+msgid "Clear all selected prompts"
+msgstr "清除全部已选提示词"
+
+msgid "Clear all selected resources"
+msgstr "清除全部已选资源"
+
+msgid "Clear all selected tools"
+msgstr "清除全部已选工具"
+
+msgid "Click Refresh to load servers"
+msgstr "点击刷新以加载服务器"
+
+msgid "Click to upload"
+msgstr "点击上传"
+
+msgid "Click to upload JSON file"
+msgstr "点击上传 JSON 文件"
+
+msgid "Client Configuration"
+msgstr "客户端配置"
+
+msgid "Client Credentials (Machine-to-Machine)"
+msgstr "客户端凭据（机器对机器）"
+
+msgid "Client ID"
+msgstr "客户端 ID"
+
+msgid "Client Secret"
+msgstr "客户端密钥"
+
+msgid "Clients"
+msgstr "客户端"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Cohere"
+msgstr ""
+
+msgid "Comma-separated tags"
+msgstr "逗号分隔的标签"
+
+msgid "Command Line Alternative:"
+msgstr "命令行替代方式："
+
+msgid "Common Tool Chains"
+msgstr "常用工具链"
+
+msgid "Complete audit trail of all authentication events and activities"
+msgstr "所有认证事件与活动的完整审计追踪"
+
+msgid "Complete the OAuth consent flow with your provider"
+msgstr "在您的提供商处完成 OAuth 授权流程"
+
+msgid "Completion"
+msgstr "补全"
+
+msgid "Component"
+msgstr "组件"
+
+msgid "Compose custom MCP endpoints"
+msgstr "组合自定义 MCP 端点"
+
+msgid "Composite MCP endpoints"
+msgstr "复合 MCP 端点"
+
+msgid "Config (JSON)"
+msgstr "配置（JSON）"
+
+msgid "Configuration (sanitized)"
+msgstr "配置（已脱敏）"
+
+msgid "Configuration Export & Import"
+msgstr "配置导出与导入"
+
+msgid "Configuration JSON:"
+msgstr "配置 JSON："
+
+msgid "Configure REDIS_URL to enable caching."
+msgstr "配置 REDIS_URL 以启用缓存。"
+
+msgid "Configure available models for each provider."
+msgstr "为每个提供商配置可用模型。"
+
+msgid "Configure external LLM providers for the internal LLM Chat feature."
+msgstr "为内置 LLM 对话功能配置外部 LLM 提供商。"
+
+msgid "Configure per-agent plugin policies for A2A agents. Bindings control which plugins execute before and after A2A agent invocations."
+msgstr "为 A2A 智能体配置逐智能体的插件策略。绑定决定 A2A 智能体调用前后执行哪些插件。"
+
+msgid "Confirm Metrics Cleanup"
+msgstr "确认清理指标"
+
+msgid "Confirm Metrics Rollup"
+msgstr "确认汇总指标"
+
+msgid "Confirm New Password"
+msgstr "确认新密码"
+
+msgid "Confirm password"
+msgstr "确认密码"
+
+msgid "Confirm your new password"
+msgstr "请再次输入新密码"
+
+msgid "Conflict Strategy"
+msgstr "冲突处理策略"
+
+msgid "Connect"
+msgstr "连接"
+
+msgid "Connected"
+msgstr "已连接"
+
+msgid "Connections"
+msgstr "连接"
+
+msgid "Content"
+msgstr "内容"
+
+msgid "Content-Type"
+msgstr ""
+
+msgid "Context"
+msgstr "上下文"
+
+msgid "Context Window"
+msgstr "上下文窗口"
+
+msgid "ContextForge"
+msgstr ""
+
+msgid "ContextForge - Gateway Administration"
+msgstr "ContextForge - 网关管理"
+
+msgid "ContextForge icon"
+msgstr "ContextForge 图标"
+
+msgid "ContextForge logo"
+msgstr "ContextForge 标志"
+
+msgid "ContextForge team invitation"
+msgstr "ContextForge 团队邀请"
+
+msgid "Continue with"
+msgstr "继续使用"
+
+msgid "Convert existing REST API to an MCP Tool"
+msgstr "将现有 REST API 转换为 MCP 工具"
+
+msgid "Cookie authentication not allowed for API requests. Use Authorization header."
+msgstr "API 请求不允许使用 Cookie 认证，请改用 Authorization 请求头。"
+
+msgid "Core Platform"
+msgstr "核心平台"
+
+msgid "Cores"
+msgstr "核心"
+
+msgid "Correlation ID"
+msgstr "关联 ID"
+
+msgid "Count"
+msgstr "数量"
+
+msgid "Create A2A agents first, then configure plugin bindings for them."
+msgstr "请先创建 A2A 智能体，再为其配置插件绑定。"
+
+msgid "Create Binding"
+msgstr "创建绑定"
+
+msgid "Create New API Token"
+msgstr "创建新 API 令牌"
+
+msgid "Create New Team"
+msgstr "创建新团队"
+
+msgid "Create New User"
+msgstr "创建新用户"
+
+msgid "Create Team"
+msgstr "创建团队"
+
+msgid "Create Token"
+msgstr "创建令牌"
+
+msgid "Create User"
+msgstr "创建用户"
+
+msgid "Create and manage personal API tokens with scoped access controls"
+msgstr "创建并管理带范围访问控制的个人 API 令牌"
+
+msgid "Created"
+msgstr "已创建"
+
+msgid "Created By"
+msgstr "创建者"
+
+msgid "Created:"
+msgstr "创建时间："
+
+msgid "Critical"
+msgstr "严重"
+
+msgid "Ctrl/Cmd+K"
+msgstr ""
+
+msgid "Current Filters"
+msgstr "当前筛选条件"
+
+msgid "Current Password"
+msgstr "当前密码"
+
+msgid "Custom"
+msgstr "自定义"
+
+msgid "Custom Headers"
+msgstr "自定义请求头"
+
+msgid "Custom Name (Optional)"
+msgstr "自定义名称（可选）"
+
+msgid "Custom UUID (optional)"
+msgstr "自定义 UUID（可选）"
+
+msgid "Custom display name for your UI"
+msgstr "用于界面的自定义显示名称"
+
+msgid "Custom name for this server"
+msgstr "此服务器的自定义名称"
+
+msgid "Database"
+msgstr "数据库"
+
+msgid "Database Connection Pool"
+msgstr "数据库连接池"
+
+msgid "Deactivate"
+msgstr "停用"
+
+msgid "Debug"
+msgstr "调试"
+
+msgid "Default Model"
+msgstr "默认模型"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Delete ALL metrics (ignores retention)"
+msgstr "删除全部指标（忽略保留策略）"
+
+msgid "Delete Team"
+msgstr "删除团队"
+
+msgid "Delete binding"
+msgstr "删除绑定"
+
+msgid "Delete metrics older than:"
+msgstr "删除早于以下时间的指标："
+
+msgid "Deleted {count} tools"
+msgstr "已删除 {count} 个工具"
+
+msgid "Deleted:"
+msgstr "删除时间："
+
+msgid "Deprecated"
+msgstr "已弃用"
+
+msgid "Description"
+msgstr "描述"
+
+msgid "Description (optional)"
+msgstr "描述（可选）"
+
+msgid "Details"
+msgstr "详情"
+
+msgid "Development Team"
+msgstr "开发团队"
+
+msgid "Disable"
+msgstr "禁用"
+
+msgid "Disabled"
+msgstr "已禁用"
+
+msgid "Disconnect"
+msgstr "断开"
+
+msgid "Disconnected"
+msgstr "已断开"
+
+msgid "Discoverable by all users, others can request to join"
+msgstr "所有用户均可发现，其他人可以申请加入"
+
+msgid "Disk"
+msgstr "磁盘"
+
+msgid "Disk:"
+msgstr "磁盘："
+
+msgid "Display Name"
+msgstr "显示名称"
+
+msgid "Display Name (optional)"
+msgstr "显示名称（可选）"
+
+msgid "Display Name *"
+msgstr "显示名称 *"
+
+msgid "Domain Allowlist:"
+msgstr "域名允许列表："
+
+msgid "Download Support Bundle"
+msgstr "下载支持包"
+
+msgid "Dry Run (validate only)"
+msgstr "试运行（仅校验）"
+
+msgid "Duration"
+msgstr "耗时"
+
+msgid "Duration:"
+msgstr "持续时间："
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "Edit A2A Agent"
+msgstr "编辑 A2A 智能体"
+
+msgid "Edit Gateway"
+msgstr "编辑网关"
+
+msgid "Edit Prompt"
+msgstr "编辑提示词"
+
+msgid "Edit Resource"
+msgstr "编辑资源"
+
+msgid "Edit Root"
+msgstr "编辑根目录"
+
+msgid "Edit Server"
+msgstr "编辑服务器"
+
+msgid "Edit Settings"
+msgstr "编辑设置"
+
+msgid "Edit Tool"
+msgstr "编辑工具"
+
+msgid "Effective public MCP transport mounted in this gateway"
+msgstr "此网关当前生效的公共 MCP 传输"
+
+msgid "Email"
+msgstr "邮箱"
+
+msgid "Email Address *"
+msgstr "邮箱地址 *"
+
+msgid "Email address"
+msgstr "邮箱地址"
+
+msgid "Enable OAuth 2.0 for MCP Client Authentication"
+msgstr "为 MCP 客户端认证启用 OAuth 2.0"
+
+msgid "Enable Server Reflection"
+msgstr "启用服务器反思"
+
+msgid "Enable TLS"
+msgstr "启用 TLS"
+
+msgid "Enable plugins via PLUGINS_ENABLED=true and configure them in your plugins config file."
+msgstr "通过 PLUGINS_ENABLED=true 启用插件，并在插件配置文件中进行配置。"
+
+msgid "Enabled"
+msgstr "已启用"
+
+msgid "Enables zero-config federation without manual peer setup. The UAID embeds endpoint URL, protocol, and registry for automatic discovery."
+msgstr "无需手动配置对等节点即可实现零配置联邦。UAID 内嵌端点 URL、协议和注册表信息，用于自动发现。"
+
+msgid "End:"
+msgstr "结束："
+
+msgid "Endpoint"
+msgstr "端点"
+
+msgid "Endpoint URL"
+msgstr "端点 URL"
+
+msgid "Endpoint URL is required."
+msgstr "端点 URL 为必填项。"
+
+msgid "Enforce"
+msgstr "强制"
+
+msgid "Enforcing"
+msgstr "强制中"
+
+msgid "Enrich"
+msgstr "充实"
+
+msgid "Enrich Tools"
+msgstr "充实工具信息"
+
+msgid "Enriched Description"
+msgstr "充实后的描述"
+
+msgid "Enter a new password. Minimum length:"
+msgstr "请输入新密码。最小长度："
+
+msgid "Enter password"
+msgstr "请输入密码"
+
+msgid "Enter tags separated by commas. Tags help categorize and filter prompts."
+msgstr "输入以逗号分隔的标签。标签有助于对提示词进行分类和筛选。"
+
+msgid "Enter tags separated by commas. Tags help categorize and filter resources."
+msgstr "输入以逗号分隔的标签。标签有助于对资源进行分类和筛选。"
+
+msgid "Enter tags separated by commas. Tags help categorize and filter servers."
+msgstr "输入以逗号分隔的标签。标签有助于对服务器进行分类和筛选。"
+
+msgid "Enter tags separated by commas. Tags help categorize and filter tools."
+msgstr "输入以逗号分隔的标签。标签有助于对工具进行分类和筛选。"
+
+msgid "Enter the message/query to send to the A2A agent"
+msgstr "输入要发送给 A2A 智能体的消息/查询"
+
+msgid "Enter your API key"
+msgstr "请输入 API 密钥"
+
+msgid "Enter your account email and we will send a password reset link."
+msgstr "请输入您的账号邮箱，我们将发送密码重置链接。"
+
+msgid "Enter your current password"
+msgstr "请输入当前密码"
+
+msgid "Enter your email"
+msgstr "请输入邮箱"
+
+msgid "Enter your new password"
+msgstr "请输入新密码"
+
+msgid "Enter your password"
+msgstr "请输入密码"
+
+msgid "Enterprise Ready"
+msgstr "企业级就绪"
+
+msgid "Entity Types"
+msgstr "实体类型"
+
+msgid "Error"
+msgstr "错误"
+
+msgid "Error Count"
+msgstr "错误数"
+
+msgid "Error Rate"
+msgstr "错误率"
+
+msgid "Errors"
+msgstr "错误"
+
+msgid "Errors Only"
+msgstr "仅错误"
+
+msgid "Event Store"
+msgstr "事件存储"
+
+msgid "Everything stable"
+msgstr "一切正常"
+
+msgid "Execution Timeline"
+msgstr "执行时间线"
+
+msgid "Execution metrics recording is disabled"
+msgstr "执行指标记录已禁用"
+
+msgid "Executions"
+msgstr "执行次数"
+
+msgid "Existing rollups for those hours will be updated with current data."
+msgstr "这些小时已有的汇总数据将用当前数据更新。"
+
+msgid "Expand sidebar"
+msgstr "展开侧边栏"
+
+msgid "Expires In (Days)"
+msgstr "有效期（天）"
+
+msgid "Expires:"
+msgstr "过期时间："
+
+msgid "Expires: {expires_at}"
+msgstr "过期时间：{expires_at}"
+
+msgid "Export"
+msgstr "导出"
+
+msgid "Export Actions"
+msgstr "导出操作"
+
+msgid "Export Config"
+msgstr "导出配置"
+
+msgid "Export Configuration for"
+msgstr "导出配置："
+
+msgid "Export/Import"
+msgstr "导出/导入"
+
+msgid "Extensions"
+msgstr "扩展"
+
+msgid "Fail"
+msgstr "失败"
+
+msgid "Fail on conflicts"
+msgstr "遇到冲突时失败"
+
+msgid "Failed"
+msgstr "失败"
+
+msgid "Fallback invitation token: {token}"
+msgstr "备用邀请令牌：{token}"
+
+msgid "FastAPI Version"
+msgstr "FastAPI 版本"
+
+msgid "Federation"
+msgstr "联邦"
+
+msgid "Fetch Tools"
+msgstr "获取工具"
+
+msgid "Fetch available models"
+msgstr "获取可用模型"
+
+msgid "Filter Options"
+msgstr "筛选选项"
+
+msgid "Filter by Provider:"
+msgstr "按提供商筛选："
+
+msgid "Filter by Tags"
+msgstr "按标签筛选"
+
+msgid "Filter by tool name..."
+msgstr "按工具名称筛选..."
+
+msgid "Find teams..."
+msgstr "查找团队..."
+
+msgid "First"
+msgstr "首个"
+
+msgid "First Page"
+msgstr "首页"
+
+msgid "For REST clients and HTTP-based MCP integrations"
+msgstr "适用于 REST 客户端和基于 HTTP 的 MCP 集成"
+
+msgid "For cross-environment imports"
+msgstr "适用于跨环境导入"
+
+msgid "For frameworks supporting Server-Sent Events transport"
+msgstr "适用于支持 Server-Sent Events 传输的框架"
+
+msgid "For interactive MCP Apps use: text/html;profile=mcp-app"
+msgstr "交互式 MCP Apps 请使用：text/html;profile=mcp-app"
+
+msgid "For team-level access, select a specific team from the header above before creating a token."
+msgstr "如需团队级访问，请先在上方顶部选择具体团队，再创建令牌。"
+
+msgid "Force Password Change"
+msgstr "强制修改密码"
+
+msgid "Forgot Password - MCP Gateway"
+msgstr "忘记密码 - MCP 网关"
+
+msgid "Forgot password?"
+msgstr "忘记密码？"
+
+msgid "Forgot your password?"
+msgstr "忘记密码？"
+
+msgid "Found"
+msgstr "已找到"
+
+msgid "Frequency"
+msgstr "频率"
+
+msgid "Full Name *"
+msgstr "姓名 *"
+
+msgid "Function Calling"
+msgstr "函数调用"
+
+msgid "Functions"
+msgstr "函数"
+
+msgid "Gateway Administration"
+msgstr "网关管理"
+
+msgid "Gateway Details"
+msgstr "网关详情"
+
+msgid "Gateway ID"
+msgstr "网关 ID"
+
+msgid "Gateway Name"
+msgstr "网关名称"
+
+msgid "Gateway Peers"
+msgstr "对等网关"
+
+msgid "Gateway Service"
+msgstr "网关服务"
+
+msgid "Gateway unreachable"
+msgstr "网关不可达"
+
+msgid "Gateways"
+msgstr "网关"
+
+msgid "Generate"
+msgstr "生成"
+
+msgid "Generate Test Cases"
+msgstr "生成测试用例"
+
+msgid "Generate UAID for cross-gateway routing"
+msgstr "为跨网关路由生成 UAID"
+
+msgid "Generic"
+msgstr "通用"
+
+msgid "Get started by adding an LLM provider."
+msgstr "先添加一个 LLM 提供商即可开始。"
+
+msgid "Google Vertex AI"
+msgstr ""
+
+msgid "Grant Type"
+msgstr "授权类型"
+
+msgid "Groq"
+msgstr ""
+
+msgid "Gunicorn Status"
+msgstr "Gunicorn 状态"
+
+msgid "HTTP (REST clients)"
+msgstr "HTTP（REST 客户端）"
+
+msgid "HTTP Gateway"
+msgstr "HTTP 网关"
+
+msgid "HTTP Method"
+msgstr "HTTP 方法"
+
+msgid "HTTP Method:"
+msgstr "HTTP 方法："
+
+msgid "HTTP Status Distribution"
+msgstr "HTTP 状态分布"
+
+msgid "HTTP, WebSocket, SSE protocols"
+msgstr "HTTP、WebSocket、SSE 协议"
+
+msgid "Headers (JSON)"
+msgstr "请求头（JSON）"
+
+msgid "Health"
+msgstr "健康状态"
+
+msgid "Healthy"
+msgstr "健康"
+
+msgid "Hello {display_name},"
+msgstr "您好 {display_name}，"
+
+msgid "Hello, how are you?"
+msgstr "你好，最近怎么样？"
+
+msgid "High Performance"
+msgstr "高性能"
+
+msgid "High-level runtime mode"
+msgstr "高层运行时模式"
+
+msgid "Hook Points"
+msgstr "钩子点"
+
+msgid "Hooks:"
+msgstr "钩子："
+
+msgid "Host"
+msgstr "主机"
+
+msgid "Host:"
+msgstr "主机："
+
+msgid "Hourly rollup data will also be deleted."
+msgstr "每小时汇总数据也将被删除。"
+
+msgid "I Own"
+msgstr "我拥有的"
+
+msgid "I'm a Member"
+msgstr "我是成员"
+
+msgid "IBM watsonx"
+msgstr ""
+
+msgid "ID Type"
+msgstr "ID 类型"
+
+msgid "IP Restrictions (CIDR format)"
+msgstr "IP 限制（CIDR 格式）"
+
+msgid "Icon"
+msgstr "图标"
+
+msgid "Icon URL"
+msgstr "图标 URL"
+
+msgid "Idle"
+msgstr "空闲"
+
+msgid "If the account exists, a password reset link has been sent."
+msgstr "如果该账号存在，我们已发送密码重置链接。"
+
+msgid "If the link does not work, use this invitation token:"
+msgstr "如果链接无法打开，请使用以下邀请令牌："
+
+msgid "If this action was not performed by you, contact an administrator immediately."
+msgstr "如果这不是您本人的操作，请立即联系管理员。"
+
+msgid "If this was not you, reset your password immediately:"
+msgstr "如果这不是您本人的操作，请立即重置密码："
+
+msgid "If you did not request this change, you can safely ignore this email."
+msgstr "如果这不是您发起的请求，可以忽略本邮件。"
+
+msgid "Ignore"
+msgstr "忽略"
+
+msgid "Import File"
+msgstr "导入文件"
+
+msgid "Import Instructions"
+msgstr "导入说明"
+
+msgid "Import Preview"
+msgstr "导入预览"
+
+msgid "Import Tools"
+msgstr "导入工具"
+
+msgid "Import multiple tools from a JSON array. The system automatically fixes common formatting issues like tool name spaces and tag formats."
+msgstr "从 JSON 数组导入多个工具。系统会自动修正常见格式问题，例如工具名称中的空格和标签格式。"
+
+msgid "In Use"
+msgstr "使用中"
+
+msgid "In-Memory"
+msgstr "内存"
+
+msgid "Inactive"
+msgstr "未启用"
+
+msgid "Include Dependencies"
+msgstr "包含依赖"
+
+msgid "Include Inactive"
+msgstr "包含未启用"
+
+msgid "Info"
+msgstr "信息"
+
+msgid "Input Schema (JSON)"
+msgstr "输入 Schema（JSON）"
+
+msgid "Integration Type"
+msgstr "集成类型"
+
+msgid "Interval"
+msgstr "间隔"
+
+msgid "Invalid authentication credentials"
+msgstr "认证凭据无效"
+
+msgid "Invalid email or password"
+msgstr "邮箱或密码错误"
+
+msgid "Invitation to join {team_name} on ContextForge"
+msgstr "邀请您加入 ContextForge 上的 {team_name}"
+
+msgid "Invite New User by Email"
+msgstr "通过邮箱邀请新用户"
+
+msgid "Invite User to Team"
+msgstr "邀请用户加入团队"
+
+msgid "Issuer URL"
+msgstr "签发者 URL"
+
+msgid "JSON Data"
+msgstr "JSON 数据"
+
+msgid "JSON Input"
+msgstr "JSON 输入"
+
+msgid "JSON export files only"
+msgstr "仅支持 JSON 导出文件"
+
+msgid "JSON files only"
+msgstr "仅支持 JSON 文件"
+
+msgid "JWT auth, rate limiting, PII & OPA plugins"
+msgstr "JWT 认证、速率限制、PII 与 OPA 插件"
+
+msgid "John Smith"
+msgstr ""
+
+msgid "Join Requests"
+msgstr "加入申请"
+
+msgid "Join {team_name}"
+msgstr "加入 {team_name}"
+
+msgid "Joined:"
+msgstr "加入时间："
+
+msgid "Json Path Filter"
+msgstr "JSON 路径筛选"
+
+msgid "Keyspace Hits"
+msgstr "键空间命中"
+
+msgid "Keyspace Misses"
+msgstr "键空间未命中"
+
+msgid "LLM Chat"
+msgstr "LLM 对话"
+
+msgid "LLM Chat is currently disabled"
+msgstr "LLM 对话当前已禁用"
+
+msgid "LLM Configuration"
+msgstr "LLM 配置"
+
+msgid "LLM Model"
+msgstr "LLM 模型"
+
+msgid "LLM Models"
+msgstr "LLM 模型"
+
+msgid "LLM Providers"
+msgstr "LLM 提供商"
+
+msgid "LLM Settings"
+msgstr "LLM 设置"
+
+msgid "LLM Settings Tabs"
+msgstr "LLM 设置标签页"
+
+msgid "Language"
+msgstr "语言"
+
+msgid "Last"
+msgstr "最近"
+
+msgid "Last 1 Hour"
+msgstr "最近 1 小时"
+
+msgid "Last 24 Hours"
+msgstr "最近 24 小时"
+
+msgid "Last 3 Days"
+msgstr "最近 3 天"
+
+msgid "Last 6 Hours"
+msgstr "最近 6 小时"
+
+msgid "Last 7 Days"
+msgstr "最近 7 天"
+
+msgid "Last Admin"
+msgstr "最后一名管理员"
+
+msgid "Last Hour"
+msgstr "最近一小时"
+
+msgid "Last Owner"
+msgstr "最后所有者"
+
+msgid "Last Page"
+msgstr "末页"
+
+msgid "Last Reflection:"
+msgstr "上次反思："
+
+msgid "Last Seen"
+msgstr "最后活跃"
+
+msgid "Last Used"
+msgstr "最后使用"
+
+msgid "Last Used:"
+msgstr "最后使用："
+
+msgid "Leave Team"
+msgstr "退出团队"
+
+msgid "Leave blank to auto-generate"
+msgstr "留空则自动生成"
+
+msgid "Leave blank to keep existing"
+msgstr "留空则保持原值"
+
+msgid "Leave blank to retain the current secret (when editing)."
+msgstr "留空则保留当前密钥（编辑时）。"
+
+msgid "Leave blank to use default name"
+msgstr "留空则使用默认名称"
+
+msgid "Leave blank to use standard discovery from authorization server"
+msgstr "留空则使用授权服务器的标准发现机制"
+
+msgid "Leave empty for auto-registration via DCR"
+msgstr "留空则通过 DCR 自动注册"
+
+msgid "Leave empty for default"
+msgstr "留空则使用默认值"
+
+msgid "Leave empty for tokens that never expire"
+msgstr "留空表示令牌永不过期"
+
+msgid "Letters, numbers, spaces, underscores, periods, and dashes only"
+msgstr "仅允许字母、数字、空格、下划线、句点和短横线"
+
+msgid "Level"
+msgstr "级别"
+
+msgid "List Available Models"
+msgstr "列出可用模型"
+
+msgid "List Models"
+msgstr "列出模型"
+
+msgid "Live Stream"
+msgstr "实时流"
+
+msgid "Load Avg (15m)"
+msgstr "平均负载（15 分钟）"
+
+msgid "Load Avg (1m)"
+msgstr "平均负载（1 分钟）"
+
+msgid "Load Avg (5m)"
+msgstr "平均负载（5 分钟）"
+
+msgid "Loading A2A plugin bindings..."
+msgstr "正在加载 A2A 插件绑定..."
+
+msgid "Loading LLM models..."
+msgstr "正在加载 LLM 模型..."
+
+msgid "Loading LLM providers..."
+msgstr "正在加载 LLM 提供商..."
+
+msgid "Loading MCP Registry servers..."
+msgstr "正在加载 MCP 注册表服务器..."
+
+msgid "Loading MCP servers..."
+msgstr "正在加载 MCP 服务器..."
+
+msgid "Loading agents..."
+msgstr "正在加载智能体..."
+
+msgid "Loading gateways..."
+msgstr "正在加载网关..."
+
+msgid "Loading logs..."
+msgstr "正在加载日志..."
+
+msgid "Loading metrics dashboard..."
+msgstr "正在加载指标面板..."
+
+msgid "Loading more"
+msgstr "正在加载更多"
+
+msgid "Loading more agents..."
+msgstr "正在加载更多智能体..."
+
+msgid "Loading more gateways..."
+msgstr "正在加载更多网关..."
+
+msgid "Loading more prompts..."
+msgstr "正在加载更多提示词..."
+
+msgid "Loading more resources..."
+msgstr "正在加载更多资源..."
+
+msgid "Loading more servers..."
+msgstr "正在加载更多服务器..."
+
+msgid "Loading more teams..."
+msgstr "正在加载更多团队..."
+
+msgid "Loading more tools..."
+msgstr "正在加载更多工具..."
+
+msgid "Loading more users..."
+msgstr "正在加载更多用户..."
+
+msgid "Loading observability dashboard..."
+msgstr "正在加载可观测性面板..."
+
+msgid "Loading overview..."
+msgstr "正在加载概览..."
+
+msgid "Loading performance dashboard..."
+msgstr "正在加载性能面板..."
+
+msgid "Loading prompt metrics dashboard..."
+msgstr "正在加载提示词指标面板..."
+
+msgid "Loading prompt metrics..."
+msgstr "正在加载提示词指标..."
+
+msgid "Loading prompts..."
+msgstr "正在加载提示词..."
+
+msgid "Loading resource metrics dashboard..."
+msgstr "正在加载资源指标面板..."
+
+msgid "Loading resource metrics..."
+msgstr "正在加载资源指标..."
+
+msgid "Loading resources..."
+msgstr "正在加载资源..."
+
+msgid "Loading servers..."
+msgstr "正在加载服务器..."
+
+msgid "Loading statistics..."
+msgstr "正在加载统计信息..."
+
+msgid "Loading system metrics..."
+msgstr "正在加载系统指标..."
+
+msgid "Loading teams..."
+msgstr "正在加载团队..."
+
+msgid "Loading test panel..."
+msgstr "正在加载测试面板..."
+
+msgid "Loading tokens..."
+msgstr "正在加载令牌..."
+
+msgid "Loading tool metrics dashboard..."
+msgstr "正在加载工具指标面板..."
+
+msgid "Loading tool metrics..."
+msgstr "正在加载工具指标..."
+
+msgid "Loading tools..."
+msgstr "正在加载工具..."
+
+msgid "Loading top prompts..."
+msgstr "正在加载热门提示词..."
+
+msgid "Loading top resources..."
+msgstr "正在加载热门资源..."
+
+msgid "Loading top servers..."
+msgstr "正在加载热门服务器..."
+
+msgid "Loading top tools..."
+msgstr "正在加载热门工具..."
+
+msgid "Loading traces..."
+msgstr "正在加载链路..."
+
+msgid "Loading users..."
+msgstr "正在加载用户..."
+
+msgid "Locked"
+msgstr "已锁定"
+
+msgid "Login failed"
+msgstr "登录失败"
+
+msgid "Logout"
+msgstr "退出登录"
+
+msgid "MCP & AI Gateway"
+msgstr "MCP 与 AI 网关"
+
+msgid "MCP Prompts"
+msgstr "MCP 提示词"
+
+msgid "MCP Protocol"
+msgstr "MCP 协议"
+
+msgid "MCP Registry"
+msgstr "MCP 注册表"
+
+msgid "MCP Resources"
+msgstr "MCP 资源"
+
+msgid "MCP Runtime"
+msgstr "MCP 运行时"
+
+msgid "MCP Server Name"
+msgstr "MCP 服务器名称"
+
+msgid "MCP Server Name is required."
+msgstr "MCP 服务器名称为必填项。"
+
+msgid "MCP Server URL"
+msgstr "MCP 服务器 URL"
+
+msgid "MCP Server URL is required."
+msgstr "MCP 服务器 URL 为必填项。"
+
+msgid "MCP Servers"
+msgstr "MCP 服务器"
+
+msgid "MCP Servers & Federated Gateways (MCP Registry)"
+msgstr "MCP 服务器与联邦网关（MCP 注册表）"
+
+msgid "MCP Tools"
+msgstr "MCP 工具"
+
+msgid "MCP, A2A and REST gateway with advanced security & observability"
+msgstr "具备高级安全与可观测性的 MCP、A2A 与 REST 网关"
+
+msgid "MHz"
+msgstr ""
+
+msgid "MIME Type"
+msgstr "MIME 类型"
+
+msgid "Maintenance"
+msgstr "维护"
+
+msgid "Make some API requests to see observability data"
+msgstr "发起一些 API 请求以查看可观测性数据"
+
+msgid "Manage Agent-to-Agent compatible agents that can be integrated as tools"
+msgstr "管理可集成为工具的 Agent-to-Agent 兼容智能体"
+
+msgid "Manage Members"
+msgstr "管理成员"
+
+msgid "Manage gRPC services exposed as MCP tools via automatic reflection"
+msgstr "管理通过自动反射暴露为 MCP 工具的 gRPC 服务"
+
+msgid "Manage metrics data retention and aggregation. Cleanup removes old raw metrics, rollup creates hourly summaries for efficient historical queries."
+msgstr "管理指标数据的保留与聚合。清理会删除旧的原始指标，汇总会生成每小时摘要以便高效查询历史数据。"
+
+msgid "Manage user accounts and permissions"
+msgstr "管理用户账号与权限"
+
+msgid "Master PID"
+msgstr "主进程 PID"
+
+msgid "Max"
+msgstr "最大"
+
+msgid "Max Duration (ms)"
+msgstr "最长耗时（毫秒）"
+
+msgid "Max Duration:"
+msgstr "最长耗时："
+
+msgid "Max Output Tokens"
+msgstr "最大输出令牌数"
+
+msgid "Max Tokens"
+msgstr "最大令牌数"
+
+msgid "Max Tokens (Optional)"
+msgstr "最大令牌数（可选）"
+
+msgid "Maximum Members"
+msgstr "成员上限"
+
+msgid "Maximum:"
+msgstr "最大值："
+
+msgid "Medium"
+msgstr "中"
+
+msgid "Member"
+msgstr "成员"
+
+msgid "Memory"
+msgstr "内存"
+
+msgid "Memory (MB)"
+msgstr "内存（MB）"
+
+msgid "Memory:"
+msgstr "内存："
+
+msgid "Message"
+msgstr "消息"
+
+msgid "Method"
+msgstr "方法"
+
+msgid "Method:"
+msgstr "方法："
+
+msgid "Methods:"
+msgstr "方法："
+
+msgid "Metrics"
+msgstr "指标"
+
+msgid "Metrics & comprehensive logging"
+msgstr "指标与全面日志记录"
+
+msgid "Metrics Cleanup"
+msgstr "指标清理"
+
+msgid "Metrics Collection"
+msgstr "指标采集"
+
+msgid "Metrics Maintenance"
+msgstr "指标维护"
+
+msgid "Metrics Rollup"
+msgstr "指标汇总"
+
+msgid "Metrics Tabs"
+msgstr "指标标签页"
+
+msgid "Metrics maintenance is disabled"
+msgstr "指标维护已禁用"
+
+msgid "Middleware (Plugins)"
+msgstr "中间件（插件）"
+
+msgid "Middleware extensions"
+msgstr "中间件扩展"
+
+msgid "Min"
+msgstr "最小"
+
+msgid "Min Duration (ms)"
+msgstr "最短耗时（毫秒）"
+
+msgid "Min Duration:"
+msgstr "最短耗时："
+
+msgid "Missing tool name in parameters"
+msgstr "参数中缺少工具名称"
+
+msgid "Mistral"
+msgstr ""
+
+msgid "Mode"
+msgstr "模式"
+
+msgid "Model"
+msgstr "模型"
+
+msgid "Model ID"
+msgstr "模型 ID"
+
+msgid "Model ID *"
+msgstr "模型 ID *"
+
+msgid "Model Name"
+msgstr "模型名称"
+
+msgid "Models"
+msgstr "模型"
+
+msgid "Models are configured in LLM Settings"
+msgstr "模型在「LLM 设置」中配置"
+
+msgid "Monitoring"
+msgstr "监控"
+
+msgid "Most Error-Prone"
+msgstr "最易出错"
+
+msgid "Most Fetched"
+msgstr "获取最多"
+
+msgid "Most Rendered"
+msgstr "渲染最多"
+
+msgid "Most Used Tool"
+msgstr "使用最多的工具"
+
+msgid "Multi-Transport"
+msgstr "多传输"
+
+msgid "Multi-factor authentication and account lockout protection"
+msgstr "多因素认证与账号锁定保护"
+
+msgid "Multi-gateway networks with auto-discovery"
+msgstr "支持自动发现的多网关网络"
+
+msgid "Must use the origin configured by"
+msgstr "必须使用由以下配置指定的源"
+
+msgid "My Project"
+msgstr "我的项目"
+
+msgid "Name"
+msgstr "名称"
+
+msgid "Name *"
+msgstr "名称 *"
+
+msgid "Name is required."
+msgstr "名称为必填项。"
+
+msgid "Name:"
+msgstr "名称："
+
+msgid "Native ID Override (Optional)"
+msgstr "原生 ID 覆盖（可选）"
+
+msgid "Network"
+msgstr "网络"
+
+msgid "Never"
+msgstr "永不"
+
+msgid "New Password"
+msgstr "新密码"
+
+msgid "New Role"
+msgstr "新角色"
+
+msgid "New encryption secret (optional)"
+msgstr "新加密密钥（可选）"
+
+msgid "New password"
+msgstr "新密码"
+
+msgid "New:"
+msgstr "新增："
+
+msgid "Next"
+msgstr "下一个"
+
+msgid "Next Page"
+msgstr "下一页"
+
+msgid "Next ▶️"
+msgstr "下一页 ▶️"
+
+msgid "No A2A agents configured"
+msgstr "未配置 A2A 智能体"
+
+msgid "No Team (Global)"
+msgstr "无团队（全局）"
+
+msgid "No bindings configured"
+msgstr "未配置绑定"
+
+msgid "No data available"
+msgstr "暂无数据"
+
+msgid "No gRPC services registered yet."
+msgstr "尚未注册 gRPC 服务。"
+
+msgid "No models configured"
+msgstr "未配置模型"
+
+msgid "No models configured. Add models in the Models tab."
+msgstr "未配置模型。请在「模型」标签页中添加。"
+
+msgid "No plugins are currently loaded in the system."
+msgstr "系统当前未加载任何插件。"
+
+msgid "No plugins available"
+msgstr "无可用插件"
+
+msgid "No plugins found"
+msgstr "未找到插件"
+
+msgid "No providers configured"
+msgstr "未配置提供商"
+
+msgid "No servers found"
+msgstr "未找到服务器"
+
+msgid "No servers found in the selected team."
+msgstr "所选团队中未找到服务器。"
+
+msgid "No servers found."
+msgstr "未找到服务器。"
+
+msgid "No servers match your current filters."
+msgstr "没有服务器符合当前筛选条件。"
+
+msgid "No spans recorded for this trace"
+msgstr "此链路未记录任何 span"
+
+msgid "No tags"
+msgstr "无标签"
+
+msgid "No teams found"
+msgstr "未找到团队"
+
+msgid "No teams found. Create your first team using the button above."
+msgstr "未找到团队。请使用上方按钮创建第一个团队。"
+
+msgid "No tokens found. Create your first token above."
+msgstr "未找到令牌。请在上方创建第一个令牌。"
+
+msgid "No tools found."
+msgstr "未找到工具。"
+
+msgid "No tools selected"
+msgstr "未选择工具"
+
+msgid "No traces found"
+msgstr "未找到链路"
+
+msgid "No users found."
+msgstr "未找到用户。"
+
+msgid "No worker data available"
+msgstr "无工作进程数据"
+
+msgid "None"
+msgstr "无"
+
+msgid "None (default)"
+msgstr "无（默认）"
+
+msgid "Not Connected"
+msgstr "未连接"
+
+msgid "Not authorized to cancel this run"
+msgstr "无权取消本次运行"
+
+msgid "Note: The Agent will be created but tools won't work until OAuth authorization is completed."
+msgstr "注意：智能体会被创建，但在完成 OAuth 授权前工具将无法使用。"
+
+msgid "Note: The gateway will be created but tools won't work until OAuth authorization is completed."
+msgstr "注意：网关会被创建，但在完成 OAuth 授权前工具将无法使用。"
+
+msgid "Number of Agent test utterances"
+msgstr "智能体测试语句数量"
+
+msgid "Number of Test Cases"
+msgstr "测试用例数量"
+
+msgid "OAuth"
+msgstr ""
+
+msgid "OAuth 2.0"
+msgstr ""
+
+msgid "OAuth Config Required"
+msgstr "需要 OAuth 配置"
+
+msgid "OAuth audience parameter (for Atlassian, Auth0, etc.)"
+msgstr "OAuth audience 参数（用于 Atlassian、Auth0 等）"
+
+msgid "OAuth scopes to request (e.g., openid profile email)"
+msgstr "要请求的 OAuth 作用域（例如 openid profile email）"
+
+msgid "Observability"
+msgstr "可观测性"
+
+msgid "Observability Dashboard"
+msgstr "可观测性面板"
+
+msgid "Offline"
+msgstr "离线"
+
+msgid "Ollama"
+msgstr ""
+
+msgid "On Error"
+msgstr "出错时"
+
+msgid "Online"
+msgstr "在线"
+
+msgid "Only visible to members, invitation required to join"
+msgstr "仅成员可见，需邀请才能加入"
+
+msgid "OpenAI"
+msgstr ""
+
+msgid "OpenAI Compatible"
+msgstr "OpenAI 兼容"
+
+msgid "Operating System"
+msgstr "操作系统"
+
+msgid "Operational"
+msgstr "运行正常"
+
+msgid "Operations"
+msgstr "操作"
+
+msgid "Ops/sec"
+msgstr "次/秒"
+
+msgid "Optional Fields:"
+msgstr "可选字段："
+
+msgid "Optional JSON Schema for validating structured tool output. Leave empty if not needed."
+msgstr "用于校验结构化工具输出的可选 JSON Schema。不需要时留空。"
+
+msgid "Optional JSON Schema for validating structured tool output. Per MCP spec, servers should return structured results that conform to this schema."
+msgstr "用于校验结构化工具输出的可选 JSON Schema。按照 MCP 规范，服务器应返回符合此 schema 的结构化结果。"
+
+msgid "Optional alias"
+msgstr "可选别名"
+
+msgid "Optional, maximum 500 characters"
+msgstr "可选，最多 500 个字符"
+
+msgid "Optional. After authorization, redirect the browser to this URL. Leave blank to use the built-in success page."
+msgstr "可选。授权后将浏览器重定向到此 URL。留空则使用内置成功页面。"
+
+msgid "Options"
+msgstr "选项"
+
+msgid "Or continue with email"
+msgstr "或使用邮箱继续"
+
+msgid "Or upload JSON file"
+msgstr "或上传 JSON 文件"
+
+msgid "Organization"
+msgstr "组织"
+
+msgid "Original Description"
+msgstr "原始描述"
+
+msgid "Output Schema (JSON)"
+msgstr "输出 Schema（JSON）"
+
+msgid "Overall Health"
+msgstr "整体健康状态"
+
+msgid "Overflow"
+msgstr "溢出"
+
+msgid "Override the routing address in UAID. Leave empty to use endpoint URL. Use when gateway address differs from agent endpoint (e.g., gateway proxies to agent)."
+msgstr "覆盖 UAID 中的路由地址。留空则使用端点 URL。当网关地址与智能体端点不同时使用（例如网关代理到智能体）。"
+
+msgid "Overview"
+msgstr "概览"
+
+msgid "Owner"
+msgstr "所有者"
+
+msgid "P50 (Median)"
+msgstr "P50（中位数）"
+
+msgid "Page"
+msgstr "页"
+
+msgid "Passthrough Headers"
+msgstr "透传请求头"
+
+msgid "Passthrough Headers (Optional)"
+msgstr "透传请求头（可选）"
+
+msgid "Password"
+msgstr "密码"
+
+msgid "Password *"
+msgstr "密码 *"
+
+msgid "Password Change Required"
+msgstr "需要修改密码"
+
+msgid "Password Change Required - ContextForge"
+msgstr "需要修改密码 - ContextForge"
+
+msgid "Password Changed"
+msgstr "密码已修改"
+
+msgid "Password Requirements"
+msgstr "密码要求"
+
+msgid "Password Reset Request"
+msgstr "密码重置请求"
+
+msgid "Password Security"
+msgstr "密码安全"
+
+msgid "Password changed successfully! Redirecting..."
+msgstr "密码修改成功！正在跳转..."
+
+msgid "Password policy enabled:"
+msgstr "已启用密码策略："
+
+msgid "Password reset is currently disabled by the administrator."
+msgstr "密码重置当前已被管理员禁用。"
+
+msgid "Password reset is disabled"
+msgstr "密码重置已禁用"
+
+msgid "Password reset is disabled by the administrator."
+msgstr "管理员已禁用密码重置。"
+
+msgid "Password reset successful. Sign in with your new password."
+msgstr "密码重置成功，请使用新密码登录。"
+
+msgid "Password strength:"
+msgstr "密码强度："
+
+msgid "Passwords match"
+msgstr "两次密码一致"
+
+msgid "Paste JSON"
+msgstr "粘贴 JSON"
+
+msgid "Paste JSON Data"
+msgstr "粘贴 JSON 数据"
+
+msgid "Paste a JSON array or upload a"
+msgstr "粘贴 JSON 数组或上传"
+
+msgid "Path"
+msgstr "路径"
+
+msgid "Performance"
+msgstr "性能"
+
+msgid "Performance Monitor"
+msgstr "性能监控"
+
+msgid "Performance Tabs"
+msgstr "性能标签页"
+
+msgid "Performance aggregation level"
+msgstr "性能聚合级别"
+
+msgid "Permissions (comma-separated)"
+msgstr "权限（逗号分隔）"
+
+msgid "Permissions:"
+msgstr "权限："
+
+msgid "Permissive"
+msgstr "宽松"
+
+msgid "Personal workspace - no actions available"
+msgstr "个人工作区 - 无可用操作"
+
+msgid "Platform Details"
+msgstr "平台详情"
+
+msgid "Platform Maintenance"
+msgstr "平台维护"
+
+msgid "Please provide both email and password"
+msgstr "请同时填写邮箱和密码"
+
+msgid "Plugin"
+msgstr "插件"
+
+msgid "Plugin Details"
+msgstr "插件详情"
+
+msgid "Plugin Management"
+msgstr "插件管理"
+
+msgid "Plugins"
+msgstr "插件"
+
+msgid "Plugins are currently disabled"
+msgstr "插件当前已禁用"
+
+msgid "Pool Size"
+msgstr "连接池大小"
+
+msgid "Pool Utilization"
+msgstr "连接池使用率"
+
+msgid "Popular Tags"
+msgstr "热门标签"
+
+msgid "Post-OAuth Redirect URL"
+msgstr "OAuth 后重定向 URL"
+
+msgid "Press Enter to send"
+msgstr "按回车发送"
+
+msgid "Previous"
+msgstr "上一个"
+
+msgid "Previous Page"
+msgstr "上一页"
+
+msgid "Priority"
+msgstr "优先级"
+
+msgid "Priority:"
+msgstr "优先级："
+
+msgid "Private"
+msgstr "私有"
+
+msgid "Process metrics from last:"
+msgstr "处理以下时间范围内的指标："
+
+msgid "Processing import..."
+msgstr "正在处理导入..."
+
+msgid "Production API Access"
+msgstr "生产 API 访问"
+
+msgid "Production Ready"
+msgstr "生产可用"
+
+msgid "Progress"
+msgstr "进度"
+
+msgid "Prompt"
+msgstr "提示词"
+
+msgid "Prompt Details"
+msgstr "提示词详情"
+
+msgid "Prompt ID"
+msgstr "提示词 ID"
+
+msgid "Prompt Performance Metrics"
+msgstr "提示词性能指标"
+
+msgid "Prompt Service"
+msgstr "提示词服务"
+
+msgid "Prompt name is required."
+msgstr "提示词名称为必填项。"
+
+msgid "Prompts"
+msgstr "提示词"
+
+msgid "Prompts define reusable message templates with parameters from MCP servers. You can also add custom prompts, useful for driving LLM interactions or Tool input."
+msgstr "提示词定义可复用的消息模板，可带来自 MCP 服务器的参数。您也可以添加自定义提示词，用于驱动 LLM 交互或工具输入。"
+
+msgid "Protocol"
+msgstr "协议"
+
+msgid "Protocol Version"
+msgstr "协议版本"
+
+msgid "Provide a custom UUID if you need to preserve an existing server ID"
+msgstr "如需保留已有的服务器 ID，请提供自定义 UUID"
+
+msgid "Provider"
+msgstr "提供商"
+
+msgid "Provider *"
+msgstr "提供商 *"
+
+msgid "Provider Type *"
+msgstr "提供商类型 *"
+
+msgid "Provider-Specific Configuration"
+msgstr "提供商专属配置"
+
+msgid "Provider:"
+msgstr "提供商："
+
+msgid "Providers"
+msgstr "提供商"
+
+msgid "Proxy authentication header required"
+msgstr "需要代理认证请求头"
+
+msgid "Public"
+msgstr "公共"
+
+msgid "Public MCP"
+msgstr "公共 MCP"
+
+msgid "Public MCP traffic is still on the Python path. The Rust sidecar is present internally for managed rollout or safe fallback operation."
+msgstr "公共 MCP 流量仍走 Python 路径。Rust sidecar 在内部用于受控灰度或安全回退。"
+
+msgid "Public Transport"
+msgstr "公共传输"
+
+msgid "Public certificate files only (.pem, .crt, .cer, .cert)"
+msgstr "仅支持公开证书文件（.pem、.crt、.cer、.cert）"
+
+msgid "Public registration is disabled. Please contact an administrator to create an account."
+msgstr "公开注册已禁用，请联系管理员创建账号。"
+
+msgid "Public servers (virtual servers marked as public)"
+msgstr "公共服务器（标记为公开的虚拟服务器）"
+
+msgid "Public team • Owner:"
+msgstr "公共团队 • 所有者："
+
+msgid "Public tools, resources, and prompts"
+msgstr "公共工具、资源与提示词"
+
+msgid "Python Version"
+msgstr "Python 版本"
+
+msgid "Query"
+msgstr "查询"
+
+msgid "Query Name"
+msgstr "查询名称"
+
+msgid "Query Parameter (INSECURE)"
+msgstr "查询参数（不安全）"
+
+msgid "Query Parameter Name"
+msgstr "查询参数名称"
+
+msgid "Query Parameter Value"
+msgstr "查询参数值"
+
+msgid "Rank"
+msgstr "排名"
+
+msgid "Rate"
+msgstr "速率"
+
+msgid "Rate Limit"
+msgstr "速率限制"
+
+msgid "Raw JSON Response"
+msgstr "原始 JSON 响应"
+
+msgid "Re-Reflect"
+msgstr "重新反思"
+
+msgid "Reachability"
+msgstr "可达性"
+
+msgid "Reachable"
+msgstr "可达"
+
+msgid "Real-time system metrics showing counts across all entity types. Useful for capacity planning and system monitoring."
+msgstr "展示各类实体数量的实时系统指标，可用于容量规划与系统监控。"
+
+msgid "Redirect URI"
+msgstr "重定向 URI"
+
+msgid "Redis Cache"
+msgstr "Redis 缓存"
+
+msgid "Redis cache is not configured or unavailable."
+msgstr "Redis 缓存未配置或不可用。"
+
+msgid "Reflection Enabled"
+msgstr "已启用反思"
+
+msgid "Refresh"
+msgstr "刷新"
+
+msgid "Refresh Tools"
+msgstr "刷新工具"
+
+msgid "Refresh catalog"
+msgstr "刷新目录"
+
+msgid "Refresh from MCPs"
+msgstr "从 MCP 刷新"
+
+msgid "Register New gRPC Service"
+msgstr "注册新 gRPC 服务"
+
+msgid "Register Server"
+msgstr "注册服务器"
+
+msgid "Register external MCP Servers (SSE/HTTP) to retrieve their tools/resources/prompts."
+msgstr "注册外部 MCP 服务器（SSE/HTTP）以获取其工具/资源/提示词。"
+
+msgid "Register gRPC Service"
+msgstr "注册 gRPC 服务"
+
+msgid "Registered"
+msgstr "已注册"
+
+msgid "Registered A2A Agents"
+msgstr "已注册的 A2A 智能体"
+
+msgid "Registered gRPC Services"
+msgstr "已注册的 gRPC 服务"
+
+msgid "Registered tool endpoints"
+msgstr "已注册的工具端点"
+
+msgid "Registry Name"
+msgstr "注册表名称"
+
+msgid "Rename conflicting items"
+msgstr "重命名冲突项"
+
+msgid "Render Prompt"
+msgstr "渲染提示词"
+
+msgid "Rendered Prompt"
+msgstr "渲染结果"
+
+msgid "Rendering prompt..."
+msgstr "正在渲染提示词..."
+
+msgid "Replay"
+msgstr "重放"
+
+msgid "Replay / Resume"
+msgstr "重放 / 恢复"
+
+msgid "Req/sec"
+msgstr "次/秒"
+
+msgid "Request"
+msgstr "请求"
+
+msgid "Request Statistics"
+msgstr "请求统计"
+
+msgid "Request Type"
+msgstr "请求类型"
+
+msgid "Request a new reset link"
+msgstr "重新申请重置链接"
+
+msgid "Request to Join"
+msgstr "申请加入"
+
+msgid "Requests"
+msgstr "请求"
+
+msgid "Requests/Second"
+msgstr "请求/秒"
+
+msgid "Required Fields:"
+msgstr "必填字段："
+
+msgid "Required for Resource Owner Password Credentials grant type (Keycloak)."
+msgstr "资源所有者密码凭据授权类型（Keycloak）所需。"
+
+msgid "Reset Password"
+msgstr "重置密码"
+
+msgid "Reset Password - ContextForge"
+msgstr "重置密码 - ContextForge"
+
+msgid "Reset your ContextForge password"
+msgstr "重置您的 ContextForge 密码"
+
+msgid "Resource (Audience)"
+msgstr "资源（受众）"
+
+msgid "Resource Details"
+msgstr "资源详情"
+
+msgid "Resource Owner Password Credentials (Keycloak/Legacy)"
+msgstr "资源所有者密码凭据（Keycloak/旧版）"
+
+msgid "Resource Performance Metrics"
+msgstr "资源性能指标"
+
+msgid "Resource Service"
+msgstr "资源服务"
+
+msgid "Resource URI"
+msgstr "资源 URI"
+
+msgid "Resources"
+msgstr "资源"
+
+msgid "Resources are reusable data assets from MCP servers-like text, code, or media. You can also add custom resources that Tools and Prompts can reference by URI."
+msgstr "资源是来自 MCP 服务器的可复用数据资产，例如文本、代码或媒体。您也可以添加自定义资源，供工具和提示词通过 URI 引用。"
+
+msgid "Response"
+msgstr "响应"
+
+msgid "Response Time (ms)"
+msgstr "响应时间（毫秒）"
+
+msgid "Response Times"
+msgstr "响应时间"
+
+msgid "Result"
+msgstr "结果"
+
+msgid "Results Limit"
+msgstr "结果数量上限"
+
+msgid "Return to the admin panel to see authorization status"
+msgstr "返回管理面板以查看授权状态"
+
+msgid "Revoke"
+msgstr "吊销"
+
+msgid "Revoked"
+msgstr "已吊销"
+
+msgid "Role"
+msgstr "角色"
+
+msgid "Root Details"
+msgstr "根目录详情"
+
+msgid "Root Directories"
+msgstr "根目录"
+
+msgid "Roots"
+msgstr "根"
+
+msgid "Roots define the base folders accessible for file-based Resources. They enable MCP servers to browse local content."
+msgstr "根目录定义基于文件的资源可访问的基础文件夹，使 MCP 服务器能够浏览本地内容。"
+
+msgid "Run Test"
+msgstr "运行测试"
+
+msgid "Run Tool"
+msgstr "运行工具"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Rust Build Included"
+msgstr "已包含 Rust 构建"
+
+msgid "Rust binaries are included in the image, but the MCP runtime is disabled"
+msgstr "镜像中包含 Rust 二进制文件，但 MCP 运行时已禁用"
+
+msgid "Rust build available"
+msgstr "Rust 构建可用"
+
+msgid "Rust sidecar is present, but the public MCP path is still using Python semantics"
+msgstr "Rust sidecar 已存在，但公共 MCP 路径仍使用 Python 语义"
+
+msgid "S. No."
+msgstr "序号"
+
+msgid "SSE (LangChain, LlamaIndex)"
+msgstr "SSE（LangChain、LlamaIndex）"
+
+msgid "SSO authentication failed. Please try again"
+msgstr "SSO 认证失败，请重试"
+
+msgid "SSO authentication was cancelled"
+msgstr "SSO 认证已取消"
+
+msgid "Sample JSON Template:"
+msgstr "JSON 示例模板："
+
+msgid "Save Changes"
+msgstr "保存更改"
+
+msgid "Save Model"
+msgstr "保存模型"
+
+msgid "Save Provider"
+msgstr "保存提供商"
+
+msgid "Save Query"
+msgstr "保存查询"
+
+msgid "Save current filters as a query"
+msgstr "将当前筛选条件保存为查询"
+
+msgid "Schema Builder"
+msgstr "Schema 构建器"
+
+msgid "Scoped to Server:"
+msgstr "限定到服务器："
+
+msgid "Scopes"
+msgstr "作用域"
+
+msgid "Scopes (space-separated)"
+msgstr "作用域（空格分隔）"
+
+msgid "Search"
+msgstr "搜索"
+
+msgid "Search / Correlation ID"
+msgstr "搜索 / 关联 ID"
+
+msgid "Search across servers, gateways, tools, resources, prompts, agents, and roots..."
+msgstr "跨服务器、网关、工具、资源、提示词、智能体和根目录搜索..."
+
+msgid "Search across tools, prompts, resources, servers, gateways, agents, and roots (Ctrl/Cmd+K)"
+msgstr "跨工具、提示词、资源、服务器、网关、智能体和根目录搜索（Ctrl/Cmd+K）"
+
+msgid "Search agents..."
+msgstr "搜索智能体..."
+
+msgid "Search for MCP servers..."
+msgstr "搜索 MCP 服务器..."
+
+msgid "Search for prompts..."
+msgstr "搜索提示词..."
+
+msgid "Search for resources..."
+msgstr "搜索资源..."
+
+msgid "Search for tools..."
+msgstr "搜索工具..."
+
+msgid "Search gateways..."
+msgstr "搜索网关..."
+
+msgid "Search in attributes..."
+msgstr "在属性中搜索..."
+
+msgid "Search or paste correlation ID..."
+msgstr "搜索或粘贴关联 ID..."
+
+msgid "Search plugins by name, description, or author..."
+msgstr "按名称、描述或作者搜索插件..."
+
+msgid "Search prompts..."
+msgstr "搜索提示词..."
+
+msgid "Search resources..."
+msgstr "搜索资源..."
+
+msgid "Search servers via tags..."
+msgstr "按标签搜索服务器..."
+
+msgid "Search servers..."
+msgstr "搜索服务器..."
+
+msgid "Search teams..."
+msgstr "搜索团队..."
+
+msgid "Search tokens by name..."
+msgstr "按名称搜索令牌..."
+
+msgid "Search tools..."
+msgstr "搜索工具..."
+
+msgid "Secure by Design"
+msgstr "安全设计"
+
+msgid "Secured by ContextForge Authentication"
+msgstr "由 ContextForge 认证保护"
+
+msgid "Security"
+msgstr "安全"
+
+msgid "Security Notice"
+msgstr "安全提示"
+
+msgid "Security Warning:"
+msgstr "安全警告："
+
+msgid "Select All"
+msgstr "全选"
+
+msgid "Select Existing User"
+msgstr "选择已有用户"
+
+msgid "Select JSON File"
+msgstr "选择 JSON 文件"
+
+msgid "Select Model (configure in Settings → LLM Settings)"
+msgstr "选择模型（在「设置 → LLM 设置」中配置）"
+
+msgid "Select Team"
+msgstr "选择团队"
+
+msgid "Select User"
+msgstr "选择用户"
+
+msgid "Select Virtual Server"
+msgstr "选择虚拟服务器"
+
+msgid "Select a model..."
+msgstr "选择模型..."
+
+msgid "Select a plugin"
+msgstr "选择插件"
+
+msgid "Select a team"
+msgstr "选择团队"
+
+msgid "Select a team..."
+msgstr "选择团队..."
+
+msgid "Select a user..."
+msgstr "选择用户..."
+
+msgid "Select a virtual server from the toolbar and configure your LLM settings to begin chatting"
+msgstr "从工具栏选择虚拟服务器并配置 LLM 设置即可开始对话"
+
+msgid "Select all MCP servers"
+msgstr "全选 MCP 服务器"
+
+msgid "Select all prompts"
+msgstr "全选提示词"
+
+msgid "Select all resources"
+msgstr "全选资源"
+
+msgid "Select all tools"
+msgstr "全选工具"
+
+msgid "Select an agent"
+msgstr "选择智能体"
+
+msgid "Select existing user..."
+msgstr "选择已有用户..."
+
+msgid "Select provider"
+msgstr "选择提供商"
+
+msgid "Select provider first..."
+msgstr "请先选择提供商..."
+
+msgid "Select provider type"
+msgstr "选择提供商类型"
+
+msgid "Select tools and perform batch operations like enrichment and validation."
+msgstr "选择工具并执行充实、校验等批量操作。"
+
+msgid "Selected Tools"
+msgstr "已选工具"
+
+msgid "Send Invitation"
+msgstr "发送邀请"
+
+msgid "Send Reset Link"
+msgstr "发送重置链接"
+
+msgid "Separate multiple tags with commas. Tags will be automatically normalized (lowercase, spaces→hyphens)."
+msgstr "多个标签以逗号分隔。标签会自动规范化（转为小写，空格→连字符）。"
+
+msgid "Separate multiple tags with commas. Tags will be automatically normalized."
+msgstr "多个标签以逗号分隔。标签会自动规范化。"
+
+msgid "Server Details"
+msgstr "服务器详情"
+
+msgid "Server ID"
+msgstr "服务器 ID"
+
+msgid "Server ID (Limit to specific server)"
+msgstr "服务器 ID（限定到特定服务器）"
+
+msgid "Server Name (optional)"
+msgstr "服务器名称（可选）"
+
+msgid "Server Service"
+msgstr "服务器服务"
+
+msgid "Server URL"
+msgstr "服务器 URL"
+
+msgid "Server URL is required."
+msgstr "服务器 URL 为必填项。"
+
+msgid "Server error. Please try again"
+msgstr "服务器错误，请重试"
+
+msgid "Server is registered but OAuth configuration is required before activation"
+msgstr "服务器已注册，但需先完成 OAuth 配置才能启用"
+
+msgid "Server-scoped"
+msgstr "服务器范围"
+
+msgid "Servers"
+msgstr "服务器"
+
+msgid "Service Name"
+msgstr "服务名称"
+
+msgid "Service Name is required."
+msgstr "服务名称为必填项。"
+
+msgid "Service Status"
+msgstr "服务状态"
+
+msgid "Services Status"
+msgstr "服务状态"
+
+msgid "Services:"
+msgstr "服务："
+
+msgid "Session"
+msgstr "会话"
+
+msgid "Session Auth Reuse"
+msgstr "会话认证复用"
+
+msgid "Session Core"
+msgstr "会话核心"
+
+msgid "Sessions & Activity"
+msgstr "会话与活动"
+
+msgid "Set"
+msgstr "设置"
+
+msgid "Set DB_METRICS_RECORDING_ENABLED=true in your environment to record tool/resource/prompt/server execution metrics to the database."
+msgstr "在环境中设置 DB_METRICS_RECORDING_ENABLED=true，即可将工具/资源/提示词/服务器的执行指标记录到数据库。"
+
+msgid "Set PLUGINS_ENABLED=true in your environment to enable plugin functionality."
+msgstr "在环境中设置 PLUGINS_ENABLED=true 以启用插件功能。"
+
+msgid "Shadow / safe fallback"
+msgstr "影子 / 安全回退"
+
+msgid "Share with team (visible to all users)"
+msgstr "与团队共享（所有用户可见）"
+
+msgid "Show Details"
+msgstr "显示详情"
+
+msgid "Show Inactive"
+msgstr "显示未启用"
+
+msgid "Show Validation Rules"
+msgstr "显示校验规则"
+
+msgid "Show:"
+msgstr "显示："
+
+msgid "Sign In"
+msgstr "登录"
+
+msgid "Sign In - ContextForge"
+msgstr "登录 - ContextForge"
+
+msgid "Skip conflicting items"
+msgstr "跳过冲突项"
+
+msgid "Slowest Prompt"
+msgstr "最慢提示词"
+
+msgid "Slowest Resource"
+msgstr "最慢资源"
+
+msgid "Slowest Tool"
+msgstr "最慢工具"
+
+msgid "Source"
+msgstr "来源"
+
+msgid "Spaces in names, tag strings → arrays, case normalization"
+msgstr "名称中的空格、标签字符串 → 数组、大小写规范化"
+
+msgid "Standard UUID"
+msgstr "标准 UUID"
+
+msgid "Start a Conversation"
+msgstr "开始对话"
+
+msgid "Start typing to search all entities."
+msgstr "开始输入即可搜索所有实体。"
+
+msgid "Start:"
+msgstr "开始："
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Status:"
+msgstr "状态："
+
+msgid "Store access tokens for reuse"
+msgstr "存储访问令牌以供复用"
+
+msgid "Stream"
+msgstr "流"
+
+msgid "Streamable HTTP"
+msgstr ""
+
+msgid "Streaming"
+msgstr "流式"
+
+msgid "Strong password"
+msgstr "强密码"
+
+msgid "Strong password policies with automatic expiration and complexity requirements"
+msgstr "强密码策略，含自动过期与复杂度要求"
+
+msgid "Success"
+msgstr "成功"
+
+msgid "Success Only"
+msgstr "仅成功"
+
+msgid "Success Rate"
+msgstr "成功率"
+
+msgid "Successful"
+msgstr "成功"
+
+msgid "Supported Provider Types"
+msgstr "支持的提供商类型"
+
+msgid "Swap Used"
+msgstr "已用交换空间"
+
+msgid "Switch the header selector back to"
+msgstr "将顶部选择器切换回"
+
+msgid "Sync Models to Database"
+msgstr "同步模型到数据库"
+
+msgid "System"
+msgstr "系统"
+
+msgid "System Diagnostics"
+msgstr "系统诊断"
+
+msgid "System Health"
+msgstr "系统健康状态"
+
+msgid "System Logs"
+msgstr "系统日志"
+
+msgid "System Metrics"
+msgstr "系统指标"
+
+msgid "System Overview"
+msgstr "系统概览"
+
+msgid "System Resources"
+msgstr "系统资源"
+
+msgid "System Users"
+msgstr "系统用户"
+
+msgid "TLS Certificate Path"
+msgstr "TLS 证书路径"
+
+msgid "TLS Key Path"
+msgstr "TLS 私钥路径"
+
+msgid "Tags"
+msgstr "标签"
+
+msgid "Target:"
+msgstr "目标："
+
+msgid "Team"
+msgstr "团队"
+
+msgid "Team Join Requests"
+msgstr "团队加入申请"
+
+msgid "Team Name"
+msgstr "团队名称"
+
+msgid "Team Visibility"
+msgstr "团队可见性"
+
+msgid "Team-level scoping enabled."
+msgstr "已启用团队级范围限定。"
+
+msgid "Team-scoped servers, tools, resources, and prompts"
+msgstr "团队范围内的服务器、工具、资源和提示词"
+
+msgid "Team:"
+msgstr "团队："
+
+msgid "Teams"
+msgstr "团队"
+
+msgid "Teams you own, are a member of, and can join"
+msgstr "您拥有、已加入以及可加入的团队"
+
+msgid "Technical Name"
+msgstr "技术名称"
+
+msgid "Temperature"
+msgstr "温度"
+
+msgid "Temperature (0-2)"
+msgstr "温度（0-2）"
+
+msgid "Template"
+msgstr "模板"
+
+msgid "Test"
+msgstr "测试"
+
+msgid "Test A2A Agent"
+msgstr "测试 A2A 智能体"
+
+msgid "Test Agent"
+msgstr "测试智能体"
+
+msgid "Test Gateway Connectivity"
+msgstr "测试网关连通性"
+
+msgid "Test LLM Models"
+msgstr "测试 LLM 模型"
+
+msgid "Test Message"
+msgstr "测试消息"
+
+msgid "Test Model"
+msgstr "测试模型"
+
+msgid "Test Prompt"
+msgstr "测试提示词"
+
+msgid "Test Resource"
+msgstr "测试资源"
+
+msgid "Test Tool"
+msgstr "测试工具"
+
+msgid "Test Type"
+msgstr "测试类型"
+
+msgid "Test configured LLM providers and models."
+msgstr "测试已配置的 LLM 提供商和模型。"
+
+msgid "Testing agent, please wait"
+msgstr "正在测试智能体，请稍候"
+
+msgid "The OAuth 2.0 authorization server URL (e.g., your Identity Provider)"
+msgstr "OAuth 2.0 授权服务器 URL（例如您的身份提供商）"
+
+msgid "The OAuth Authorization Server issuer URL. Required for DCR (Dynamic Client Registration)."
+msgstr "OAuth 授权服务器签发者 URL。DCR（动态客户端注册）所需。"
+
+msgid "The OAuth Authorization Server issuer URL. Required for DCR."
+msgstr "OAuth 授权服务器签发者 URL。DCR 所需。"
+
+msgid "The OAuth provider's authorization endpoint URL"
+msgstr "OAuth 提供商的授权端点 URL"
+
+msgid "The bundle has been automatically sanitized, but please review the contents before sharing with support or external parties."
+msgstr "该支持包已自动脱敏，但在提供给支持团队或外部方之前请先检查内容。"
+
+msgid "The header team selector is global. It filters tools, servers, prompts, and other tabs to that team context."
+msgstr "顶部团队选择器是全局的，会将工具、服务器、提示词等标签页筛选到该团队上下文。"
+
+msgid "This action cannot be undone."
+msgstr "此操作无法撤销。"
+
+msgid "This image includes Rust MCP artifacts, but the runtime is currently disabled and the public MCP path remains Python-only."
+msgstr "此镜像包含 Rust MCP 产物，但运行时当前已禁用，公共 MCP 路径仍仅使用 Python。"
+
+msgid "This invitation expires at {expires_at}."
+msgstr "本邀请将于 {expires_at} 过期。"
+
+msgid "This is the global catalog of MCP Tools available. You can also add custom tools from REST APIs. Create a Virtual Server using one of these tools."
+msgstr "这里是可用的 MCP 工具全局目录。您也可以从 REST API 添加自定义工具。使用其中任一工具创建虚拟服务器。"
+
+msgid "This link expires in {expires_minutes} minutes and can only be used once."
+msgstr "该链接将在 {expires_minutes} 分钟后过期，且只能使用一次。"
+
+msgid "This message was sent to {recipient_email} by ContextForge."
+msgstr "本邮件由 ContextForge 发送至 {recipient_email}。"
+
+msgid "This must match the redirect URI configured in your OAuth application"
+msgstr "此值必须与 OAuth 应用中配置的重定向 URI 一致"
+
+msgid "This token will be scoped to:"
+msgstr "此令牌的范围将限定为："
+
+msgid "This will aggregate raw metrics from the last"
+msgstr "这将聚合以下时间范围内的原始指标："
+
+msgid "This will delete all metrics older than"
+msgstr "这将删除早于以下时间的全部指标："
+
+msgid "Threads"
+msgstr "线程"
+
+msgid "Time"
+msgstr "时间"
+
+msgid "Time Range"
+msgstr "时间范围"
+
+msgid "Time:"
+msgstr "时间："
+
+msgid "Timestamp"
+msgstr "时间戳"
+
+msgid "To enable metrics cleanup and rollup, set"
+msgstr "要启用指标清理与汇总，请设置"
+
+msgid "Together AI"
+msgstr ""
+
+msgid "Token"
+msgstr "令牌"
+
+msgid "Token Endpoint URL (optional)"
+msgstr "令牌端点 URL（可选）"
+
+msgid "Token Management"
+msgstr "令牌管理"
+
+msgid "Token Name *"
+msgstr "令牌名称 *"
+
+msgid "Token Name is required."
+msgstr "令牌名称为必填项。"
+
+msgid "Token Scope"
+msgstr "令牌作用域"
+
+msgid "Token Scoping (Optional)"
+msgstr "令牌范围限定（可选）"
+
+msgid "Token URL"
+msgstr "令牌 URL"
+
+msgid "Token Usage"
+msgstr "令牌用量"
+
+msgid "Token can access all resources (public, team, and private) within this team."
+msgstr "令牌可以访问此团队内的全部资源（公共、团队和私有）。"
+
+msgid "Token expiration is required by server policy (REQUIRE_TOKEN_EXPIRATION=true)."
+msgstr "服务器策略要求令牌必须设置过期时间（REQUIRE_TOKEN_EXPIRATION=true）。"
+
+msgid "Token management options for Authorization Code flow"
+msgstr "授权码流程的令牌管理选项"
+
+msgid "Tokens created without selecting a team are"
+msgstr "未选择团队而创建的令牌"
+
+msgid "Too many requests. Please try again later."
+msgstr "请求过于频繁，请稍后重试。"
+
+msgid "Tool Chain"
+msgstr "工具链"
+
+msgid "Tool Details"
+msgstr "工具详情"
+
+msgid "Tool Error Rates"
+msgstr "工具错误率"
+
+msgid "Tool ID"
+msgstr "工具 ID"
+
+msgid "Tool Name"
+msgstr "工具名称"
+
+msgid "Tool Operations"
+msgstr "工具运维"
+
+msgid "Tool Performance Metrics"
+msgstr "工具性能指标"
+
+msgid "Tool Service"
+msgstr "工具服务"
+
+msgid "Tool execution cancelled: {name}"
+msgstr "工具执行已取消：{name}"
+
+msgid "Tool is Manually Deactivated"
+msgstr "工具已被手动停用"
+
+msgid "Tool not found: {name}"
+msgstr "未找到工具：{name}"
+
+msgid "ToolOps"
+msgstr "工具运维"
+
+msgid "Tools"
+msgstr "工具"
+
+msgid "Tools frequently invoked together in the same trace"
+msgstr "在同一条链路中经常一起调用的工具"
+
+msgid "Top 10"
+msgstr "前 10"
+
+msgid "Top 100"
+msgstr "前 100"
+
+msgid "Top 20"
+msgstr "前 20"
+
+msgid "Top 5"
+msgstr "前 5"
+
+msgid "Top 50"
+msgstr "前 50"
+
+msgid "Top N Limit"
+msgstr "前 N 条上限"
+
+msgid "Top Performers"
+msgstr "表现最佳"
+
+msgid "Top Performers Tabs"
+msgstr "表现最佳标签页"
+
+msgid "Total"
+msgstr "总计"
+
+msgid "Total Count"
+msgstr "总数"
+
+msgid "Total Executions"
+msgstr "执行总数"
+
+msgid "Total Models"
+msgstr "模型总数"
+
+msgid "Total Plugins"
+msgstr "插件总数"
+
+msgid "Total Providers"
+msgstr "提供商总数"
+
+msgid "Total Requests"
+msgstr "请求总数"
+
+msgid "Total Servers"
+msgstr "服务器总数"
+
+msgid "Total Teams"
+msgstr "团队总数"
+
+msgid "Total Tools"
+msgstr "工具总数"
+
+msgid "Total Users"
+msgstr "用户总数"
+
+msgid "Total Workers"
+msgstr "工作进程总数"
+
+msgid "Trace Details"
+msgstr "链路详情"
+
+msgid "Trace Name"
+msgstr "链路名称"
+
+msgid "Transport Type"
+msgstr "传输类型"
+
+msgid "Troubleshooting Support"
+msgstr "故障排查支持"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "URI is required."
+msgstr "URI 为必填项。"
+
+msgid "URL is required."
+msgstr "URL 为必填项。"
+
+msgid "Universal Agent ID (UAID) Settings"
+msgstr "通用智能体 ID（UAID）设置"
+
+msgid "Universal Agent ID - Cross-gateway routing enabled"
+msgstr "通用智能体 ID - 已启用跨网关路由"
+
+msgid "Unlock"
+msgstr "解锁"
+
+msgid "Unreachable"
+msgstr "不可达"
+
+msgid "Update existing items"
+msgstr "更新已有项"
+
+msgid "Updated"
+msgstr "已更新"
+
+msgid "Updated:"
+msgstr "更新时间："
+
+msgid "Upload CA certificate"
+msgstr "上传 CA 证书"
+
+msgid "Upload File"
+msgstr "上传文件"
+
+msgid "Upload JSON File"
+msgstr "上传 JSON 文件"
+
+msgid "Upload a file"
+msgstr "上传文件"
+
+msgid "Uptime"
+msgstr "运行时长"
+
+msgid "Uptime:"
+msgstr "运行时长："
+
+msgid "Usage"
+msgstr "用量"
+
+msgid "Usage Stats"
+msgstr "用量统计"
+
+msgid "Usage:"
+msgstr "用量："
+
+msgid "Use one-time authentication"
+msgstr "使用一次性认证"
+
+msgid "Use the secure link below to choose a new password:"
+msgstr "请使用以下安全链接设置新密码："
+
+msgid "Used"
+msgstr "已用"
+
+msgid "User"
+msgstr "用户"
+
+msgid "User Agent:"
+msgstr "用户代理："
+
+msgid "User Email"
+msgstr "用户邮箱"
+
+msgid "User Management"
+msgstr "用户管理"
+
+msgid "User authentication required"
+msgstr "需要用户身份认证"
+
+msgid "User not found"
+msgstr "未找到用户"
+
+msgid "User:"
+msgstr "用户："
+
+msgid "Username"
+msgstr "用户名"
+
+msgid "Users"
+msgstr "用户"
+
+msgid "Validate"
+msgstr "校验"
+
+msgid "Validate JSON"
+msgstr "校验 JSON"
+
+msgid "Version"
+msgstr "版本"
+
+msgid "Version Info"
+msgstr "版本信息"
+
+msgid "Version Information"
+msgstr "版本信息"
+
+msgid "View"
+msgstr "查看"
+
+msgid "View Descriptions"
+msgstr "查看描述"
+
+msgid "View Details →"
+msgstr "查看详情 →"
+
+msgid "View Methods"
+msgstr "查看方法"
+
+msgid "View Plugins"
+msgstr "查看插件"
+
+msgid "View Tools"
+msgstr "查看工具"
+
+msgid "View Virtual Servers"
+msgstr "查看虚拟服务器"
+
+msgid "View the most frequently used tools, resources, prompts, and servers with paginated results."
+msgstr "查看使用最频繁的工具、资源、提示词和服务器，结果支持分页。"
+
+msgid "Virtual MCP Servers"
+msgstr "虚拟 MCP 服务器"
+
+msgid "Virtual Servers"
+msgstr "虚拟服务器"
+
+msgid "Virtual Servers let you combine Tools, Resources, and Prompts into an MCP Server with its own API key (see API Tokens)."
+msgstr "虚拟服务器可将工具、资源和提示词组合成一个拥有独立 API 密钥的 MCP 服务器（参见「API 令牌」）。"
+
+msgid "Visibility"
+msgstr "可见性"
+
+msgid "Vision"
+msgstr "视觉"
+
+msgid "WARNING: This will permanently delete ALL metrics data!"
+msgstr "警告：这将永久删除全部指标数据！"
+
+msgid "Warning"
+msgstr "警告"
+
+msgid "We received a request to reset your ContextForge password."
+msgstr "我们收到了重置您 ContextForge 密码的请求。"
+
+msgid "Welcome"
+msgstr "欢迎"
+
+msgid "When enabled, MCP clients can authenticate using browser-based OAuth/SSO per RFC 9728."
+msgstr "启用后，MCP 客户端可按照 RFC 9728 使用浏览器 OAuth/SSO 进行认证。"
+
+msgid "When enabled, public items from across the platform are shown alongside your team's items in the selectors below."
+msgstr "启用后，下方选择器中会同时显示平台范围内的公共项与您团队的项。"
+
+msgid "Will be auto-filled when you select a provider type"
+msgstr "选择提供商类型后将自动填充"
+
+msgid "Worker Processes"
+msgstr "工作进程"
+
+msgid "Workers"
+msgstr "工作进程"
+
+msgid "Workflow State"
+msgstr "工作流状态"
+
+msgid "Yes"
+msgstr "是"
+
+msgid "Yes, Delete"
+msgstr "是，删除"
+
+msgid "Yes, Run Rollup"
+msgstr "是，执行汇总"
+
+msgid "You"
+msgstr "您"
+
+msgid "You are a member • Owner:"
+msgstr "您是成员 • 所有者："
+
+msgid "You own this team"
+msgstr "您拥有此团队"
+
+msgid "Your API Tokens"
+msgstr "您的 API 令牌"
+
+msgid "Your ContextForge account was temporarily locked"
+msgstr "您的 ContextForge 账号已被临时锁定"
+
+msgid "Your ContextForge account was temporarily locked after repeated failed sign-in attempts."
+msgstr "由于多次登录失败，您的 ContextForge 账号已被临时锁定。"
+
+msgid "Your ContextForge password was changed"
+msgstr "您的 ContextForge 密码已修改"
+
+msgid "Your ContextForge password was changed successfully."
+msgstr "您的 ContextForge 密码已成功修改。"
+
+msgid "Your account has too many team memberships for cookie-based authentication. Please contact your administrator."
+msgstr "您的账号所属团队过多，无法使用基于 Cookie 的认证。请联系管理员。"
+
+msgid "Your own private or team-scoped resources"
+msgstr "您自己的私有或团队范围资源"
+
+msgid "Your password has expired and must be changed to continue."
+msgstr "您的密码已过期，必须修改后才能继续。"
+
+msgid "Your password will be securely encrypted and stored"
+msgstr "您的密码将被加密安全存储"
+
+msgid "Your personal team • Private workspace"
+msgstr "您的个人团队 • 私有工作区"
+
+msgid "admin@example.com"
+msgstr ""
+
+msgid "ai,assistant,production (comma-separated)"
+msgstr "ai,assistant,production（逗号分隔）"
+
+msgid "basic, bearer, authheaders, oauth, or none"
+msgstr "basic、bearer、authheaders、oauth 或 none"
+
+msgid "displayName, description, auth_type, auth_value, headers, input_schema, jsonpath_filter, tags"
+msgstr ""
+
+msgid "e.g., GET /api/tools"
+msgstr "例如 GET /api/tools"
+
+msgid "e.g., Slow Requests Last Hour"
+msgstr "例如：最近一小时内的慢请求"
+
+msgid "e.g., api,data-processing,external (comma-separated)"
+msgstr "例如 api,data-processing,external（逗号分隔）"
+
+msgid "e.g., api_key"
+msgstr ""
+
+msgid "e.g., data,content,media (comma-separated)"
+msgstr "例如 data,content,media（逗号分隔）"
+
+msgid "e.g., development,production,api-gateway (comma-separated)"
+msgstr "例如 development,production,api-gateway（逗号分隔）"
+
+msgid "e.g., documentation,api-spec,template (comma-separated)"
+msgstr "例如 documentation,api-spec,template（逗号分隔）"
+
+msgid "e.g., greeting,template,conversation (comma-separated)"
+msgstr "例如 greeting,template,conversation（逗号分隔）"
+
+msgid "e.g., production,external,api-gateway (comma-separated)"
+msgstr "例如 production,external,api-gateway（逗号分隔）"
+
+msgid "e.g., tavilyApiKey"
+msgstr ""
+
+msgid "file:///path/to/directory"
+msgstr ""
+
+msgid "gRPC Services"
+msgstr "gRPC 服务"
+
+msgid "gRPC Services Registry"
+msgstr "gRPC 服务注册表"
+
+msgid "gRPC Target (host:port)"
+msgstr "gRPC 目标（host:port）"
+
+msgid "hours into hourly summaries."
+msgstr "小时聚合为每小时摘要。"
+
+msgid "http://gateway.example.com:4445"
+msgstr ""
+
+msgid "http://localhost:3003 or https://oauth.example.com"
+msgstr ""
+
+msgid "https://a2aagent.example.com/oauth/callback"
+msgstr ""
+
+msgid "https://api.example.com or your-client-id"
+msgstr ""
+
+msgid "https://api.example.com/agent"
+msgstr ""
+
+msgid "https://gateway.example.com/oauth/callback"
+msgstr ""
+
+msgid "https://idp.example.com"
+msgstr ""
+
+msgid "https://idp.example.com/oauth/token"
+msgstr ""
+
+msgid "https://oauth.example.com/authorize"
+msgstr ""
+
+msgid "https://oauth.example.com/token"
+msgstr ""
+
+msgid "in .env to control which domains can be used."
+msgstr "在 .env 中配置以控制可使用哪些域名。"
+
+msgid "in your environment."
+msgstr "在您的环境中。"
+
+msgid "localhost:50051"
+msgstr ""
+
+msgid "models available"
+msgstr "个可用模型"
+
+msgid "name, url, integration_type, request_type"
+msgstr ""
+
+msgid "not scoped to any team"
+msgstr "未限定到任何团队"
+
+msgid "openid profile email"
+msgstr ""
+
+msgid "or drag and drop"
+msgstr "或拖拽文件到此处"
+
+msgid "per page"
+msgstr "每页"
+
+msgid "production,api,staging"
+msgstr ""
+
+msgid "public resources"
+msgstr "公共资源"
+
+msgid "repo read:user (space-separated)"
+msgstr "repo read:user（空格分隔）"
+
+msgid "requires an API key to connect."
+msgstr "需要 API 密钥才能连接。"
+
+msgid "systemadmin@system.com"
+msgstr ""
+
+msgid "to enable catalog-backed server operations."
+msgstr "以启用基于目录的服务器操作。"
+
+msgid "to navigate"
+msgstr "进行导航"
+
+msgid "to view servers outside this team scope."
+msgstr "以查看此团队范围之外的服务器。"
+
+msgid "tools ready for import"
+msgstr "个工具可导入"
+
+msgid "tools.read, resources.read, tools.execute"
+msgstr ""
+
+msgid "user@example.com"
+msgstr ""
+
+msgid "{inviter_name} invited you to join {team_name} as {role}."
+msgstr "{inviter_name} 邀请您以 {role} 的身份加入 {team_name}。"
+
+msgid "ℹ️ About UAIDs:"
+msgstr "ℹ️ 关于 UAID："
+
+msgid "← Back"
+msgstr "← 返回"
+
+msgid "⏳ Pending Approvals"
+msgstr "⏳ 待审批"
+
+msgid "⏳ Requested to Join"
+msgstr "⏳ 已申请加入"
+
+msgid "◀️ Prev"
+msgstr "◀️ 上一页"
+
+msgid "● Active"
+msgstr "● 已启用"
+
+msgid "● Inactive"
+msgstr "● 未启用"
+
+msgid "● Offline"
+msgstr "● 离线"
+
+msgid "● Online"
+msgstr "● 在线"
+
+msgid "⚙️ Advanced Filters"
+msgstr "⚙️ 高级筛选"
+
+msgid "⚙️ Redis Not Configured"
+msgstr "⚙️ Redis 未配置"
+
+msgid "⚠ Since you are not a member of this team, team content won't be visible. Defaulting to All Teams."
+msgstr "⚠ 由于您不是此团队的成员，团队内容将不可见。已默认切换为「全部团队」。"
+
+msgid "⚠️ Case Sensitive:"
+msgstr "⚠️ 区分大小写："
+
+msgid "⚠️ Destructive"
+msgstr "⚠️ 破坏性操作"
+
+msgid "⚠️ Failed attempts:"
+msgstr "⚠️ 失败尝试次数："
+
+msgid "⚠️ NOTE: Authentication won't be stored in the gateway. Configure Passthrough headers for reuse. Health checks will be disabled."
+msgstr "⚠️ 注意：认证信息不会存储在网关中。如需复用，请配置透传请求头。健康检查将被禁用。"
+
+msgid "⚡ Execute Import"
+msgstr "⚡ 执行导入"
+
+msgid "⚡ Performance"
+msgstr "⚡ 性能"
+
+msgid "✅ Active"
+msgstr "✅ 已启用"
+
+msgid "✅ Connected"
+msgstr "✅ 已连接"
+
+msgid "✅ Reachable"
+msgstr "✅ 可达"
+
+msgid "✅ Required:"
+msgstr "✅ 必填："
+
+msgid "✅ This token CAN access:"
+msgstr "✅ 此令牌可以访问："
+
+msgid "❌ Connection Failed"
+msgstr "❌ 连接失败"
+
+msgid "❌ Inactive"
+msgstr "❌ 未启用"
+
+msgid "❌ Most Errors"
+msgstr "❌ 错误最多"
+
+msgid "❌ Non-admin tokens CANNOT access:"
+msgstr "❌ 非管理员令牌不能访问："
+
+msgid "❌ Not Allowed:"
+msgstr "❌ 不允许："
+
+msgid "❌ Unreachable"
+msgstr "❌ 不可达"
+
+msgid "🌍 Public"
+msgstr "🌍 公共"
+
+msgid "🌍Public"
+msgstr "🌍公共"
+
+msgid "🌐 All Teams"
+msgstr "🌐 全部团队"
+
+msgid "🌐 External Access"
+msgstr "🌐 外部访问"
+
+msgid "🎫 OAuth Tokens"
+msgstr "🎫 OAuth 令牌"
+
+msgid "🏠 Personal"
+msgstr "🏠 个人"
+
+msgid "🏢 Organizational"
+msgstr "🏢 组织"
+
+msgid "🐍 Python"
+msgstr ""
+
+msgid "🐍 Python MCP Core"
+msgstr "🐍 Python MCP 核心"
+
+msgid "👑 Admins"
+msgstr "👑 管理员"
+
+msgid "👤 Total Users"
+msgstr "👤 用户总数"
+
+msgid "👥 My Teams"
+msgstr "👥 我的团队"
+
+msgid "👥 Team"
+msgstr "👥 团队"
+
+msgid "👥 Total Teams"
+msgstr "👥 团队总数"
+
+msgid "👥 Users & Teams"
+msgstr "👥 用户与团队"
+
+msgid "👥Team"
+msgstr "👥团队"
+
+msgid "💡 Leave empty if the server supports DCR - credentials will be auto-registered"
+msgstr "💡 如果服务器支持 DCR，请留空 - 凭据将自动注册"
+
+msgid "💡 Use:"
+msgstr "💡 用法："
+
+msgid "💡Everything stable."
+msgstr "💡一切正常。"
+
+msgid "💡Gateway is Manually Deactivated"
+msgstr "💡网关已被手动停用"
+
+msgid "💡Gateway is Not Reachable"
+msgstr "💡网关不可达"
+
+msgid "💡The host gateway for this tool is unreachable."
+msgstr "💡此工具的宿主网关不可达。"
+
+msgid "💡Tool is Manually Deactivated."
+msgstr "💡工具已被手动停用。"
+
+msgid "💬 MCP Messages"
+msgstr "💬 MCP 消息"
+
+msgid "💬 Prompt Metrics"
+msgstr "💬 提示词指标"
+
+msgid "💬 Prompts"
+msgstr "💬 提示词"
+
+msgid "💾 Download JSON"
+msgstr "💾 下载 JSON"
+
+msgid "💾 Save Query"
+msgstr "💾 保存查询"
+
+msgid "📅 Created:"
+msgstr "📅 创建时间："
+
+msgid "📈 Activity"
+msgstr "📈 活动"
+
+msgid "📉 Slowest Endpoints"
+msgstr "📉 最慢端点"
+
+msgid "📊 Advanced Metrics"
+msgstr "📊 高级指标"
+
+msgid "📊 Gantt Chart"
+msgstr "📊 甘特图"
+
+msgid "📊 Highest Volume"
+msgstr "📊 请求量最高"
+
+msgid "📊 Import Results"
+msgstr "📊 导入结果"
+
+msgid "📊 Import Status"
+msgstr "📊 导入状态"
+
+msgid "📊 Import Summary"
+msgstr "📊 导入摘要"
+
+msgid "📊 Overview"
+msgstr "📊 概览"
+
+msgid "📊 Total Metrics"
+msgstr "📊 指标总数"
+
+msgid "📋 Audit Logs"
+msgstr "📋 审计日志"
+
+msgid "📋 Copy to Clipboard"
+msgstr "📋 复制到剪贴板"
+
+msgid "📋 Export Selected Types"
+msgstr "📋 导出所选类型"
+
+msgid "📋 JSON Validation Rules"
+msgstr "📋 JSON 校验规则"
+
+msgid "📋 Recent Import Operations"
+msgstr "📋 最近的导入操作"
+
+msgid "📋 Saved Queries"
+msgstr "📋 已保存的查询"
+
+msgid "📋 Selective Import"
+msgstr "📋 选择性导入"
+
+msgid "📋 Simple View"
+msgstr "📋 简洁视图"
+
+msgid "📋 System Logs"
+msgstr "📋 系统日志"
+
+msgid "📋 Traces"
+msgstr "📋 链路"
+
+msgid "📖 Read-Only"
+msgstr "📖 只读"
+
+msgid "📚 Resource Metrics"
+msgstr "📚 资源指标"
+
+msgid "📝 Audit Trail"
+msgstr "📝 审计追踪"
+
+msgid "📝 Token Logs"
+msgstr "📝 令牌日志"
+
+msgid "📡 Subscriptions"
+msgstr "📡 订阅"
+
+msgid "📤 Export Configuration"
+msgstr "📤 导出配置"
+
+msgid "📥 Bulk Import Information"
+msgstr "📥 批量导入说明"
+
+msgid "📥 Download Sample"
+msgstr "📥 下载示例"
+
+msgid "📥 Export All Configuration"
+msgstr "📥 导出全部配置"
+
+msgid "📥 Import Configuration"
+msgstr "📥 导入配置"
+
+msgid "📦 Resources"
+msgstr "📦 资源"
+
+msgid "📧 Team Invitations"
+msgstr "📧 团队邀请"
+
+msgid "📩 Join Requests"
+msgstr "📩 加入申请"
+
+msgid "🔄 Idempotent"
+msgstr "🔄 幂等"
+
+msgid "🔄 MCP Sessions"
+msgstr "🔄 MCP 会话"
+
+msgid "🔄 Refresh"
+msgstr "🔄 刷新"
+
+msgid "🔌 MCP Resources"
+msgstr "🔌 MCP 资源"
+
+msgid "🔍 Discover"
+msgstr "🔍 发现"
+
+msgid "🔍 Search Logs"
+msgstr "🔍 搜索日志"
+
+msgid "🔍 Validate Import"
+msgstr "🔍 校验导入"
+
+msgid "🔐 Authorize"
+msgstr "🔐 授权"
+
+msgid "🔐 Provider:"
+msgstr "🔐 提供商："
+
+msgid "🔑 SSO Providers"
+msgstr "🔑 SSO 提供商"
+
+msgid "🔒 Auth Events"
+msgstr "🔒 认证事件"
+
+msgid "🔒 Locked until:"
+msgstr "🔒 锁定至："
+
+msgid "🔒 Private"
+msgstr "🔒 私有"
+
+msgid "🔒 Security"
+msgstr "🔒 安全"
+
+msgid "🔒Private"
+msgstr "🔒私有"
+
+msgid "🔗 Trace Correlation ID"
+msgstr "🔗 链路关联 ID"
+
+msgid "🔥 Flame Graph"
+msgstr "🔥 火焰图"
+
+msgid "🔧 Advanced Filters"
+msgstr "🔧 高级筛选"
+
+msgid "🔧 Auto-Fixed:"
+msgstr "🔧 自动修复："
+
+msgid "🔧 Fetch Tools"
+msgstr "🔧 获取工具"
+
+msgid "🔧 MCP Tool Name"
+msgstr "🔧 MCP 工具名称"
+
+msgid "🔧 MCP Tools"
+msgstr "🔧 MCP 工具"
+
+msgid "🔧 Tool Metrics"
+msgstr "🔧 工具指标"
+
+msgid "🔹 Optional:"
+msgstr "🔹 可选："
+
+msgid "🖥️ Server Metrics"
+msgstr "🖥️ 服务器指标"
+
+msgid "🗑️ Clear All Filters"
+msgstr "🗑️ 清除全部筛选"
+
+msgid "🛡️ Security Events"
+msgstr "🛡️ 安全事件"
+
+msgid "🤖 A2A Metrics"
+msgstr "🤖 A2A 指标"
+
+msgid "🤝 Team Members"
+msgstr "🤝 团队成员"
+
+msgid "🦀 Rust"
+msgstr ""
+
+msgid "🦀 Rust MCP Core"
+msgstr "🦀 Rust MCP 核心"

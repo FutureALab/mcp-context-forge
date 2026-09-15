@@ -56,6 +56,7 @@ class PasswordChangeEnforcementMiddleware(BaseHTTPMiddleware):
     EXEMPT_PATHS = frozenset(
         {
             "/admin/change-password-required",
+            "/admin/language",
             "/admin/login",
             "/auth/email/change-password",
             "/auth/email/logout",

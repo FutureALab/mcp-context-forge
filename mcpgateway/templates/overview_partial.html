@@ -6,14 +6,14 @@
       <svg class="h-8 w-8 mr-3 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
       </svg>
-      System Overview
+      {{ _("System Overview") }}
     </h2>
     <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
       <span class="flex items-center">
         <svg class="h-4 w-4 mr-1 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        Uptime: {% set hours = uptime_seconds // 3600 %}{% set minutes = (uptime_seconds % 3600) // 60 %}{% if hours > 0 %}{{ hours }}h {{ minutes }}m{% else %}{{ minutes }}m {{ uptime_seconds % 60 }}s{% endif %}
+        {{ _("Uptime:") }} {% set hours = uptime_seconds // 3600 %}{% set minutes = (uptime_seconds % 3600) // 60 %}{% if hours > 0 %}{{ hours }}h {{ minutes }}m{% else %}{{ minutes }}m {{ uptime_seconds % 60 }}s{% endif %}
       </span>
       <span>v{{ version }}</span>
     </div>
@@ -27,37 +27,36 @@
     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
       <div>
         <div class="text-sm font-medium text-gray-500 dark:text-gray-400">
-          MCP Runtime
+          {{ _("MCP Runtime") }}
         </div>
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <span
             id="overview-mcp-core-badge"
             class="px-3 py-1 rounded-full text-sm font-medium {% if mcp_runtime.mounted == 'rust' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200{% else %}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200{% endif %}"
-            title="Effective public MCP transport mounted in this gateway"
+            title="{{ _("Effective public MCP transport mounted in this gateway") }}"
           >
-            {% if mcp_runtime.mounted == 'rust' %}🦀 Rust MCP Core{% else %}🐍
-            Python MCP Core{% endif %}
+            {% if mcp_runtime.mounted == 'rust' %}{{ _("🦀 Rust MCP Core") }}{% else %}{{ _("🐍 Python MCP Core") }}{% endif %}
           </span>
           <span
             id="overview-mcp-runtime-mode-badge"
             class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-            title="High-level runtime mode"
+            title="{{ _("High-level runtime mode") }}"
           >
             {{ mcp_runtime.mode | replace('-', ' ') }}
           </span>
           {% if mcp_runtime.mode == 'rust-managed' and mcp_runtime.mounted == 'python' %}
           <span
             class="px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-            title="Rust sidecar is present, but the public MCP path is still using Python semantics"
+            title="{{ _("Rust sidecar is present, but the public MCP path is still using Python semantics") }}"
           >
-            Shadow / safe fallback
+            {{ _("Shadow / safe fallback") }}
           </span>
           {% elif mcp_runtime.mode == 'python-rust-built-disabled' %}
           <span
             class="px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200"
-            title="Rust binaries are included in the image, but the MCP runtime is disabled"
+            title="{{ _("Rust binaries are included in the image, but the MCP runtime is disabled") }}"
           >
-            Rust build available
+            {{ _("Rust build available") }}
           </span>
           {% endif %}
         </div>
@@ -66,50 +65,50 @@
       <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
         <div class="rounded-lg bg-gray-50 dark:bg-gray-700 px-3 py-2">
           <div class="text-xs font-medium text-gray-500 dark:text-gray-400">
-            Public MCP
+            {{ _("Public MCP") }}
           </div>
           <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {% if mcp_runtime.mounted == 'rust' %}🦀 Rust{% else %}🐍 Python{% endif %}
+            {% if mcp_runtime.mounted == 'rust' %}{{ _("🦀 Rust") }}{% else %}{{ _("🐍 Python") }}{% endif %}
           </div>
         </div>
         <div class="rounded-lg bg-gray-50 dark:bg-gray-700 px-3 py-2">
           <div class="text-xs font-medium text-gray-500 dark:text-gray-400">
-            Session
+            {{ _("Session") }}
           </div>
           <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {% if mcp_runtime.session_core_mode == 'rust' %}🦀 Rust{% else %}🐍 Python{% endif %}
+            {% if mcp_runtime.session_core_mode == 'rust' %}{{ _("🦀 Rust") }}{% else %}{{ _("🐍 Python") }}{% endif %}
           </div>
         </div>
         <div class="rounded-lg bg-gray-50 dark:bg-gray-700 px-3 py-2">
           <div class="text-xs font-medium text-gray-500 dark:text-gray-400">
-            Replay
+            {{ _("Replay") }}
           </div>
           <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {% if mcp_runtime.resume_core_mode == 'rust' %}🦀 Rust{% else %}🐍 Python{% endif %}
+            {% if mcp_runtime.resume_core_mode == 'rust' %}{{ _("🦀 Rust") }}{% else %}{{ _("🐍 Python") }}{% endif %}
           </div>
         </div>
         <div class="rounded-lg bg-gray-50 dark:bg-gray-700 px-3 py-2">
           <div class="text-xs font-medium text-gray-500 dark:text-gray-400">
-            Live Stream
+            {{ _("Live Stream") }}
           </div>
           <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {% if mcp_runtime.live_stream_core_mode == 'rust' %}🦀 Rust{% else %}🐍 Python{% endif %}
+            {% if mcp_runtime.live_stream_core_mode == 'rust' %}{{ _("🦀 Rust") }}{% else %}{{ _("🐍 Python") }}{% endif %}
           </div>
         </div>
         <div class="rounded-lg bg-gray-50 dark:bg-gray-700 px-3 py-2">
           <div class="text-xs font-medium text-gray-500 dark:text-gray-400">
-            Affinity
+            {{ _("Affinity") }}
           </div>
           <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {% if mcp_runtime.affinity_core_mode == 'rust' %}🦀 Rust{% else %}🐍 Python{% endif %}
+            {% if mcp_runtime.affinity_core_mode == 'rust' %}{{ _("🦀 Rust") }}{% else %}{{ _("🐍 Python") }}{% endif %}
           </div>
         </div>
         <div class="rounded-lg bg-gray-50 dark:bg-gray-700 px-3 py-2">
           <div class="text-xs font-medium text-gray-500 dark:text-gray-400">
-            Auth Reuse
+            {{ _("Auth Reuse") }}
           </div>
           <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {% if mcp_runtime.session_auth_reuse_mode == 'rust' %}🦀 Rust{% else %}🐍 Python{% endif %}
+            {% if mcp_runtime.session_auth_reuse_mode == 'rust' %}{{ _("🦀 Rust") }}{% else %}{{ _("🐍 Python") }}{% endif %}
           </div>
         </div>
       </div>
@@ -123,7 +122,7 @@
       <div class="flex items-center justify-between">
         <div>
           <div class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ "{:,}".format(total_executions|int) }}</div>
-          <div class="text-sm text-blue-700 dark:text-blue-300 mt-1">Total Executions</div>
+          <div class="text-sm text-blue-700 dark:text-blue-300 mt-1">{{ _("Total Executions") }}</div>
         </div>
         <div class="text-blue-500 dark:text-blue-400">
           <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,7 +137,7 @@
       <div class="flex items-center justify-between">
         <div>
           <div class="text-2xl font-bold text-green-900 dark:text-green-100">{{ "%.1f"|format(success_rate) }}%</div>
-          <div class="text-sm text-green-700 dark:text-green-300 mt-1">Success Rate</div>
+          <div class="text-sm text-green-700 dark:text-green-300 mt-1">{{ _("Success Rate") }}</div>
         </div>
         <div class="text-green-500 dark:text-green-400">
           <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,7 +152,7 @@
       <div class="flex items-center justify-between">
         <div>
           <div class="text-2xl font-bold text-amber-900 dark:text-amber-100">{{ "%.0f"|format(avg_latency_ms) }}ms</div>
-          <div class="text-sm text-amber-700 dark:text-amber-300 mt-1">Avg Latency</div>
+          <div class="text-sm text-amber-700 dark:text-amber-300 mt-1">{{ _("Avg Latency") }}</div>
         </div>
         <div class="text-amber-500 dark:text-amber-400">
           <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,7 +167,7 @@
       <div class="flex items-center justify-between">
         <div>
           <div class="text-2xl font-bold text-purple-900 dark:text-purple-100">{{ servers_active + tools_active + prompts_active + resources_active }}</div>
-          <div class="text-sm text-purple-700 dark:text-purple-300 mt-1">Active Entities</div>
+          <div class="text-sm text-purple-700 dark:text-purple-300 mt-1">{{ _("Active Entities") }}</div>
         </div>
         <div class="text-purple-500 dark:text-purple-400">
           <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -181,7 +180,7 @@
 
   <!-- Architecture Flow Diagram -->
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 overflow-x-auto">
-    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Architecture Flow</h3>
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{{ _("Architecture Flow") }}</h3>
     <div class="min-w-[800px]">
       <svg id="overview-architecture" class="w-full" viewBox="0 0 900 440" xmlns="http://www.w3.org/2000/svg">
         <!-- Definitions for gradients and markers -->
@@ -209,7 +208,7 @@
 
           <!-- Virtual Servers Box -->
           <rect x="20" y="120" width="120" height="140" rx="8" class="fill-blue-50 dark:fill-blue-900/30 stroke-blue-300 dark:stroke-blue-700" stroke-width="2"/>
-          <text x="80" y="150" class="fill-blue-700 dark:fill-blue-300 text-sm font-semibold" text-anchor="middle">Virtual Servers</text>
+          <text x="80" y="150" class="fill-blue-700 dark:fill-blue-300 text-sm font-semibold" text-anchor="middle">{{ _("Virtual Servers") }}</text>
           <text x="80" y="175" class="fill-blue-600 dark:fill-blue-400 text-xs" text-anchor="middle">🔗</text>
 
           <!-- Count Badge -->
@@ -229,10 +228,10 @@
           <!-- ContextForge Header -->
           <rect x="320" y="60" width="260" height="50" rx="12" class="fill-indigo-500"/>
           <rect x="320" y="90" width="260" height="20" class="fill-indigo-500"/>
-          <text x="450" y="92" class="fill-white text-base font-bold" text-anchor="middle">ContextForge</text>
+          <text x="450" y="92" class="fill-white text-base font-bold" text-anchor="middle">{{ _("ContextForge") }}</text>
 
           <!-- Plugins Section -->
-          <text x="340" y="140" class="fill-indigo-700 dark:fill-indigo-300 text-sm font-semibold">Middleware (Plugins)</text>
+          <text x="340" y="140" class="fill-indigo-700 dark:fill-indigo-300 text-sm font-semibold">{{ _("Middleware (Plugins)") }}</text>
 
           <!-- Plugin badges -->
           <rect x="340" y="155" width="220" height="30" rx="6" class="fill-purple-100 dark:fill-purple-900/30 stroke-purple-300 dark:stroke-purple-700" stroke-width="1"/>
@@ -249,11 +248,11 @@
           <!-- Features row -->
           <g transform="translate(340, 275)">
             <rect width="60" height="24" rx="4" class="fill-green-100 dark:fill-green-900/30"/>
-            <text x="30" y="16" class="fill-green-700 dark:fill-green-300 text-xs" text-anchor="middle">Auth</text>
+            <text x="30" y="16" class="fill-green-700 dark:fill-green-300 text-xs" text-anchor="middle">{{ _("Auth") }}</text>
             <rect x="70" width="70" height="24" rx="4" class="fill-green-100 dark:fill-green-900/30"/>
-            <text x="105" y="16" class="fill-green-700 dark:fill-green-300 text-xs" text-anchor="middle">Rate Limit</text>
+            <text x="105" y="16" class="fill-green-700 dark:fill-green-300 text-xs" text-anchor="middle">{{ _("Rate Limit") }}</text>
             <rect x="150" width="70" height="24" rx="4" class="fill-green-100 dark:fill-green-900/30"/>
-            <text x="185" y="16" class="fill-green-700 dark:fill-green-300 text-xs" text-anchor="middle">Metrics</text>
+            <text x="185" y="16" class="fill-green-700 dark:fill-green-300 text-xs" text-anchor="middle">{{ _("Metrics") }}</text>
           </g>
         </g>
 
@@ -265,12 +264,12 @@
           <!-- Database Status -->
           <rect x="335" y="355" width="110" height="45" rx="6" class="{% if db_reachable %}fill-green-50 dark:fill-green-900/30 stroke-green-300 dark:stroke-green-700{% else %}fill-red-50 dark:fill-red-900/30 stroke-red-300 dark:stroke-red-700{% endif %}" stroke-width="2"/>
           <text x="390" y="375" class="{% if db_reachable %}fill-green-700 dark:fill-green-300{% else %}fill-red-700 dark:fill-red-300{% endif %} text-xs font-semibold" text-anchor="middle">{{ db_dialect | capitalize }}</text>
-          <text x="390" y="392" class="{% if db_reachable %}fill-green-600 dark:fill-green-400{% else %}fill-red-600 dark:fill-red-400{% endif %} text-xs" text-anchor="middle">{% if db_reachable %}Connected{% else %}Disconnected{% endif %}</text>
+          <text x="390" y="392" class="{% if db_reachable %}fill-green-600 dark:fill-green-400{% else %}fill-red-600 dark:fill-red-400{% endif %} text-xs" text-anchor="middle">{% if db_reachable %}{{ _("Connected") }}{% else %}{{ _("Disconnected") }}{% endif %}</text>
 
           <!-- Cache Status -->
           <rect x="455" y="355" width="110" height="45" rx="6" class="{% if cache_type == 'redis' %}{% if redis_reachable %}fill-green-50 dark:fill-green-900/30 stroke-green-300 dark:stroke-green-700{% else %}fill-red-50 dark:fill-red-900/30 stroke-red-300 dark:stroke-red-700{% endif %}{% else %}fill-gray-50 dark:fill-gray-700 stroke-gray-300 dark:stroke-gray-600{% endif %}" stroke-width="2"/>
           <text x="510" y="375" class="{% if cache_type == 'redis' %}{% if redis_reachable %}fill-green-700 dark:fill-green-300{% else %}fill-red-700 dark:fill-red-300{% endif %}{% else %}fill-gray-700 dark:fill-gray-300{% endif %} text-xs font-semibold" text-anchor="middle">{{ cache_type | capitalize }}</text>
-          <text x="510" y="392" class="{% if cache_type == 'redis' %}{% if redis_reachable %}fill-green-600 dark:fill-green-400{% else %}fill-red-600 dark:fill-red-400{% endif %}{% else %}fill-gray-500 dark:fill-gray-400{% endif %} text-xs" text-anchor="middle">{% if cache_type == 'redis' %}{% if redis_reachable %}Connected{% else %}Disconnected{% endif %}{% else %}In-Memory{% endif %}</text>
+          <text x="510" y="392" class="{% if cache_type == 'redis' %}{% if redis_reachable %}fill-green-600 dark:fill-green-400{% else %}fill-red-600 dark:fill-red-400{% endif %}{% else %}fill-gray-500 dark:fill-gray-400{% endif %} text-xs" text-anchor="middle">{% if cache_type == 'redis' %}{% if redis_reachable %}{{ _("Connected") }}{% else %}{{ _("Disconnected") }}{% endif %}{% else %}{{ _("In-Memory") }}{% endif %}</text>
 
           <!-- Connection line from ContextForge to Infrastructure -->
           <line x1="450" y1="320" x2="450" y2="355" class="stroke-gray-300 dark:stroke-gray-600" stroke-width="2" stroke-dasharray="4,4"/>
@@ -283,29 +282,29 @@
 
           <!-- MCP Servers -->
           <rect x="700" y="50" width="120" height="55" rx="6" class="fill-teal-50 dark:fill-teal-900/30 stroke-teal-300 dark:stroke-teal-700" stroke-width="2"/>
-          <text x="760" y="72" class="fill-teal-700 dark:fill-teal-300 text-xs font-semibold" text-anchor="middle">MCP Servers</text>
+          <text x="760" y="72" class="fill-teal-700 dark:fill-teal-300 text-xs font-semibold" text-anchor="middle">{{ _("MCP Servers") }}</text>
           <text x="760" y="92" class="fill-teal-600 dark:fill-teal-400 text-sm font-bold" text-anchor="middle">{{ gateways_active }}/{{ gateways_total }}</text>
 
           {% if a2a_enabled %}
           <!-- A2A Agents -->
           <rect x="700" y="115" width="120" height="55" rx="6" class="fill-orange-50 dark:fill-orange-900/30 stroke-orange-300 dark:stroke-orange-700" stroke-width="2"/>
-          <text x="760" y="137" class="fill-orange-700 dark:fill-orange-300 text-xs font-semibold" text-anchor="middle">A2A Agents</text>
+          <text x="760" y="137" class="fill-orange-700 dark:fill-orange-300 text-xs font-semibold" text-anchor="middle">{{ _("A2A Agents") }}</text>
           <text x="760" y="157" class="fill-orange-600 dark:fill-orange-400 text-sm font-bold" text-anchor="middle">{{ a2a_active }}/{{ a2a_total }}</text>
           {% endif %}
 
           <!-- Tools -->
           <rect x="700" y="180" width="120" height="55" rx="6" class="fill-rose-50 dark:fill-rose-900/30 stroke-rose-300 dark:stroke-rose-700" stroke-width="2"/>
-          <text x="760" y="202" class="fill-rose-700 dark:fill-rose-300 text-xs font-semibold" text-anchor="middle">Tools</text>
+          <text x="760" y="202" class="fill-rose-700 dark:fill-rose-300 text-xs font-semibold" text-anchor="middle">{{ _("Tools") }}</text>
           <text x="760" y="222" class="fill-rose-600 dark:fill-rose-400 text-sm font-bold" text-anchor="middle">{{ tools_active }}/{{ tools_total }}</text>
 
           <!-- Prompts -->
           <rect x="700" y="245" width="120" height="55" rx="6" class="fill-cyan-50 dark:fill-cyan-900/30 stroke-cyan-300 dark:stroke-cyan-700" stroke-width="2"/>
-          <text x="760" y="267" class="fill-cyan-700 dark:fill-cyan-300 text-xs font-semibold" text-anchor="middle">Prompts</text>
+          <text x="760" y="267" class="fill-cyan-700 dark:fill-cyan-300 text-xs font-semibold" text-anchor="middle">{{ _("Prompts") }}</text>
           <text x="760" y="287" class="fill-cyan-600 dark:fill-cyan-400 text-sm font-bold" text-anchor="middle">{{ prompts_active }}/{{ prompts_total }}</text>
 
           <!-- Resources -->
           <rect x="700" y="310" width="120" height="55" rx="6" class="fill-lime-50 dark:fill-lime-900/30 stroke-lime-300 dark:stroke-lime-700" stroke-width="2"/>
-          <text x="760" y="332" class="fill-lime-700 dark:fill-lime-300 text-xs font-semibold" text-anchor="middle">Resources</text>
+          <text x="760" y="332" class="fill-lime-700 dark:fill-lime-300 text-xs font-semibold" text-anchor="middle">{{ _("Resources") }}</text>
           <text x="760" y="352" class="fill-lime-600 dark:fill-lime-400 text-sm font-bold" text-anchor="middle">{{ resources_active }}/{{ resources_total }}</text>
         </g>
 
@@ -329,7 +328,7 @@
   <!-- Quick Stats Grid -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <!-- Virtual Servers Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow" data-action-click="showTab" data-arg0="catalog" data-action-keydown="handleKeydown" tabindex="0" role="button" aria-label="View Virtual Servers">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow" data-action-click="showTab" data-arg0="catalog" data-action-keydown="handleKeydown" tabindex="0" role="button" aria-label="{{ _("View Virtual Servers") }}">
       <div class="flex items-center justify-between">
         <div class="flex items-center">
           <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg mr-3">
@@ -338,8 +337,8 @@
             </svg>
           </div>
           <div>
-            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">Virtual Servers</h4>
-            <p class="text-xs text-gray-500 dark:text-gray-400">Composite MCP endpoints</p>
+            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ _("Virtual Servers") }}</h4>
+            <p class="text-xs text-gray-500 dark:text-gray-400">{{ _("Composite MCP endpoints") }}</p>
           </div>
         </div>
         <div class="text-right">
@@ -350,7 +349,7 @@
     </div>
 
     <!-- Tools Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow" data-action-click="showTab" data-arg0="tools" data-action-keydown="handleKeydown" tabindex="0" role="button" aria-label="View Tools">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow" data-action-click="showTab" data-arg0="tools" data-action-keydown="handleKeydown" tabindex="0" role="button" aria-label="{{ _("View Tools") }}">
       <div class="flex items-center justify-between">
         <div class="flex items-center">
           <div class="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg mr-3">
@@ -360,8 +359,8 @@
             </svg>
           </div>
           <div>
-            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">Tools</h4>
-            <p class="text-xs text-gray-500 dark:text-gray-400">Registered tool endpoints</p>
+            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ _("Tools") }}</h4>
+            <p class="text-xs text-gray-500 dark:text-gray-400">{{ _("Registered tool endpoints") }}</p>
           </div>
         </div>
         <div class="text-right">
@@ -372,7 +371,7 @@
     </div>
 
     <!-- Plugins Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow" data-action-click="showTab" data-arg0="plugins" data-action-keydown="handleKeydown" tabindex="0" role="button" aria-label="View Plugins">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow" data-action-click="showTab" data-arg0="plugins" data-action-keydown="handleKeydown" tabindex="0" role="button" aria-label="{{ _("View Plugins") }}">
       <div class="flex items-center justify-between">
         <div class="flex items-center">
           <div class="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg mr-3">
@@ -381,8 +380,8 @@
             </svg>
           </div>
           <div>
-            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">Plugins</h4>
-            <p class="text-xs text-gray-500 dark:text-gray-400">Middleware extensions</p>
+            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ _("Plugins") }}</h4>
+            <p class="text-xs text-gray-500 dark:text-gray-400">{{ _("Middleware extensions") }}</p>
           </div>
         </div>
         <div class="text-right">

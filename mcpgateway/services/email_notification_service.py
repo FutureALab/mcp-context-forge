@@ -24,6 +24,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape, TemplateNot
 # First-Party
 from mcpgateway.common.validators import SecurityValidator
 from mcpgateway.config import settings
+from mcpgateway.i18n import get_locale, gettext, LocaleContext, ngettext
 from mcpgateway.schemas import EmailDeliveryStatus
 from mcpgateway.services.logging_service import LoggingService
 
@@ -71,6 +72,12 @@ class AuthEmailNotificationService:
         """Initialize template rendering for authentication emails."""
         template_dir = Path(__file__).resolve().parents[1] / "templates"
         self._jinja = Environment(loader=FileSystemLoader(str(template_dir)), autoescape=select_autoescape(["html", "xml"]))
+        # One shared environment renders every locale. The gettext callables read
+        # the locale bound per send call, so no environment clone is needed.
+        self._jinja.add_extension("jinja2.ext.i18n")
+        self._jinja.install_gettext_callables(gettext, ngettext, newstyle=True)
+        self._jinja.globals["_"] = gettext
+        self._jinja.globals["current_locale"] = get_locale
 
     @staticmethod
     def _smtp_password() -> Optional[str]:
@@ -95,7 +102,7 @@ class AuthEmailNotificationService:
         """
         return bool(getattr(settings, "smtp_enabled", False) and getattr(settings, "smtp_host", None) and getattr(settings, "smtp_from_email", None))
 
-    def _render_template(self, template_name: str, context: Dict[str, Any], fallback_title: str, fallback_body: str) -> str:
+    def _render_template(self, template_name: str, context: Dict[str, Any], fallback_title: str, fallback_body: str, locale: Optional[str] = None) -> str:
         """Render an email template with graceful fallback.
 
         Args:
@@ -103,13 +110,16 @@ class AuthEmailNotificationService:
             context: Rendering context values.
             fallback_title: Fallback HTML title when template fails.
             fallback_body: Fallback body text when template fails.
+            locale: Recipient locale. None keeps the locale already bound, which
+                is the requester locale for request-triggered email.
 
         Returns:
             str: Rendered HTML email body.
         """
         try:
-            template = self._jinja.get_template(template_name)
-            return template.render(**context)
+            with LocaleContext(locale):
+                template = self._jinja.get_template(template_name)
+                return template.render(**context)
         except TemplateNotFound:
             logger.warning("Email template %s not found. Using fallback template.", template_name)
         except Exception as exc:
@@ -211,6 +221,7 @@ class AuthEmailNotificationService:
         invitation_url: str,
         expires_at: str,
         token: str,
+        locale: Optional[str] = None,
     ) -> bool:
         """Send a team invitation email.
 
@@ -222,11 +233,25 @@ class AuthEmailNotificationService:
             invitation_url: Trusted frontend acceptance URL.
             expires_at: Invitation expiry timestamp.
             token: Raw invitation token included as fallback.
+            locale: Recipient locale. None keeps the locale already bound.
 
         Returns:
             bool: True when message is sent successfully.
         """
-        subject = f"Invitation to join {team_name} on ContextForge"
+        with LocaleContext(locale):
+            subject = gettext("Invitation to join {team_name} on ContextForge", team_name=team_name)
+            text_body = (
+                "\n\n".join(
+                    [
+                        gettext("ContextForge team invitation"),
+                        gettext("{inviter_name} invited you to join {team_name} as {role}.", inviter_name=inviter_name, team_name=team_name, role=role),
+                        gettext("Accept invitation: {invitation_url}", invitation_url=invitation_url),
+                        gettext("Expires: {expires_at}", expires_at=expires_at),
+                        gettext("Fallback invitation token: {token}", token=token),
+                    ]
+                )
+                + "\n"
+            )
         html_body = self._render_template(
             template_name="team_invitation_email.html",
             context={
@@ -240,13 +265,7 @@ class AuthEmailNotificationService:
             },
             fallback_title="Team invitation",
             fallback_body=f"{inviter_name} invited you to join {team_name} as {role}. Accept: {invitation_url}\nExpires: {expires_at}\nToken: {token}",
-        )
-        text_body = (
-            "ContextForge team invitation\n\n"
-            f"{inviter_name} invited you to join {team_name} as {role}.\n\n"
-            f"Accept invitation: {invitation_url}\n"
-            f"Expires: {expires_at}\n\n"
-            f"Fallback invitation token: {token}\n"
+            locale=locale,
         )
         return await self._send_email(to_email, subject, html_body, text_body)
 
@@ -260,6 +279,7 @@ class AuthEmailNotificationService:
         invitation_url: str,
         expires_at: str,
         token: str,
+        locale: Optional[str] = None,
     ) -> EmailDeliveryStatus:
         """Deliver a persisted invitation without exposing transport failures.
 
@@ -272,6 +292,7 @@ class AuthEmailNotificationService:
             invitation_url: Trusted frontend acceptance URL.
             expires_at: Invitation expiry timestamp.
             token: Raw invitation token included in the email only.
+            locale: Recipient locale. None keeps the locale already bound.
 
         Returns:
             EmailDeliveryStatus: Delivery outcome.
@@ -288,6 +309,7 @@ class AuthEmailNotificationService:
                 invitation_url=invitation_url,
                 expires_at=expires_at,
                 token=token,
+                locale=locale,
             )
         except Exception:  # pragma: no cover - defensive boundary around best-effort delivery
             sent = False
@@ -297,7 +319,7 @@ class AuthEmailNotificationService:
         logger.warning("Team invitation email delivery failed for invitation %s", SecurityValidator.sanitize_log_message(invitation_id))
         return EmailDeliveryStatus.FAILED
 
-    async def send_password_reset_email(self, to_email: str, full_name: Optional[str], reset_url: str, expires_minutes: int) -> bool:
+    async def send_password_reset_email(self, to_email: str, full_name: Optional[str], reset_url: str, expires_minutes: int, locale: Optional[str] = None) -> bool:
         """Send password-reset email containing a one-time reset link.
 
         Args:
@@ -305,41 +327,47 @@ class AuthEmailNotificationService:
             full_name: Optional display name for salutation.
             reset_url: Password-reset link.
             expires_minutes: Link validity duration.
+            locale: Recipient locale. None keeps the locale already bound.
 
         Returns:
             bool: True when message is sent successfully.
         """
         display_name = full_name or to_email.split("@", maxsplit=1)[0]
-        subject = "Reset your ContextForge password"
+        with LocaleContext(locale):
+            subject = gettext("Reset your ContextForge password")
         body = self._render_template(
             template_name="password_reset_email.html",
             context={"display_name": display_name, "reset_url": reset_url, "expires_minutes": expires_minutes, "recipient_email": to_email},
             fallback_title="Password reset requested",
             fallback_body=f"Hi {display_name},\n\nUse this link to reset your password: {reset_url}\n\nThe link expires in {expires_minutes} minutes.",
+            locale=locale,
         )
         return await self._send_email(to_email, subject, body)
 
-    async def send_password_reset_confirmation_email(self, to_email: str, full_name: Optional[str]) -> bool:
+    async def send_password_reset_confirmation_email(self, to_email: str, full_name: Optional[str], locale: Optional[str] = None) -> bool:
         """Send post-reset confirmation email.
 
         Args:
             to_email: Destination email address.
             full_name: Optional display name for salutation.
+            locale: Recipient locale. None keeps the locale already bound.
 
         Returns:
             bool: True when message is sent successfully.
         """
         display_name = full_name or to_email.split("@", maxsplit=1)[0]
-        subject = "Your ContextForge password was changed"
+        with LocaleContext(locale):
+            subject = gettext("Your ContextForge password was changed")
         body = self._render_template(
             template_name="password_reset_confirmation_email.html",
             context={"display_name": display_name, "recipient_email": to_email},
             fallback_title="Password changed",
             fallback_body=f"Hi {display_name},\n\nYour password was changed successfully. If this was not you, contact an administrator immediately.",
+            locale=locale,
         )
         return await self._send_email(to_email, subject, body)
 
-    async def send_account_lockout_email(self, to_email: str, full_name: Optional[str], locked_until_iso: str, reset_url: str) -> bool:
+    async def send_account_lockout_email(self, to_email: str, full_name: Optional[str], locked_until_iso: str, reset_url: str, locale: Optional[str] = None) -> bool:
         """Notify the user that login attempts triggered a temporary lockout.
 
         Args:
@@ -347,16 +375,19 @@ class AuthEmailNotificationService:
             full_name: Optional display name for salutation.
             locked_until_iso: ISO timestamp for lockout expiry.
             reset_url: Forgot-password URL for recovery.
+            locale: Recipient locale. None keeps the locale already bound.
 
         Returns:
             bool: True when message is sent successfully.
         """
         display_name = full_name or to_email.split("@", maxsplit=1)[0]
-        subject = "Your ContextForge account was temporarily locked"
+        with LocaleContext(locale):
+            subject = gettext("Your ContextForge account was temporarily locked")
         body = self._render_template(
             template_name="account_lockout_email.html",
             context={"display_name": display_name, "locked_until": locked_until_iso, "reset_url": reset_url, "recipient_email": to_email},
             fallback_title="Account temporarily locked",
             fallback_body=f"Hi {display_name},\n\nYour account is locked until {locked_until_iso} due to repeated failed sign-in attempts.\n\nIf this was not you, reset your password now: {reset_url}",
+            locale=locale,
         )
         return await self._send_email(to_email, subject, body)

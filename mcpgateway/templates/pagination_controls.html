@@ -29,7 +29,7 @@
 >
   <!-- Page Size Selector -->
   <div class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-    <span>Show:</span>
+    <span>{{ _("Show:") }}</span>
     <select
       x-model="perPage"
       @change="changePageSize($event.target.value)"
@@ -42,7 +42,7 @@
       <option value="200">200</option>
       <option value="500">500</option>
     </select>
-    <span>per page</span>
+    <span>{{ _("per page") }}</span>
   </div>
 
   <!-- Page Info -->
@@ -61,7 +61,7 @@
         :disabled="!hasPrev"
         :class="hasPrev ? 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20' : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'"
         class="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 disabled:opacity-50 transition-colors"
-        title="First Page"
+        title="{{ _("First Page") }}"
       >
         ⏮️
       </button>
@@ -72,9 +72,9 @@
         :disabled="!hasPrev"
         :class="hasPrev ? 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20' : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'"
         class="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 disabled:opacity-50 transition-colors"
-        title="Previous Page"
+        title="{{ _("Previous Page") }}"
       >
-        ◀️ Prev
+        {{ _("◀️ Prev") }}
       </button>
 
       <!-- Page Number Display -->
@@ -142,9 +142,9 @@
         :disabled="!hasNext"
         :class="hasNext ? 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20' : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'"
         class="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 disabled:opacity-50 transition-colors"
-        title="Next Page"
+        title="{{ _("Next Page") }}"
       >
-        Next ▶️
+        {{ _("Next ▶️") }}
       </button>
 
       <!-- Last Page Button -->
@@ -153,7 +153,7 @@
         :disabled="!hasNext"
         :class="hasNext ? 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20' : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'"
         class="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 disabled:opacity-50 transition-colors"
-        title="Last Page"
+        title="{{ _("Last Page") }}"
       >
         ⏭️
       </button>
@@ -172,7 +172,7 @@
         class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded"
         >→</kbd
       >
-      <span>to navigate</span>
+      <span>{{ _("to navigate") }}</span>
     </span>
   </div>
 </div>

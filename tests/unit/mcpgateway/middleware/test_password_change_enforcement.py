@@ -41,6 +41,10 @@ def app():
     async def logout():
         return {"message": "Logged out"}
 
+    @app.get("/admin/language")
+    async def language_switcher():
+        return {"message": "Language switcher"}
+
     @app.get("/mcp/tools")
     async def mcp_tools():
         return {"message": "MCP tools"}
@@ -253,12 +257,34 @@ async def test_exempt_paths_constant():
     """Test that EXEMPT_PATHS constant contains expected paths."""
     expected_paths = {
         "/admin/change-password-required",
+        # The language switcher sets a UI preference cookie on a GET request and
+        # must stay reachable while a password change is pending.
+        "/admin/language",
         "/admin/login",
         "/auth/email/change-password",
         "/auth/email/logout",
     }
 
     assert PasswordChangeEnforcementMiddleware.EXEMPT_PATHS == expected_paths
+
+
+@pytest.mark.asyncio
+async def test_language_switcher_allowed_when_password_change_required(middleware, mock_user):
+    """The language switcher stays reachable while a password change is pending."""
+    mock_user.password_change_required = True
+
+    from starlette.testclient import TestClient
+
+    with patch("mcpgateway.config.settings.password_change_enforcement_enabled", True):
+        client = TestClient(middleware)
+
+        with patch.object(Request, "state", create=True) as mock_state:
+            mock_state.user = mock_user
+            mock_state.auth_method = "jwt"
+
+            response = client.get("/admin/language")
+            assert response.status_code == 200
+            assert response.json() == {"message": "Language switcher"}
 
 
 @pytest.mark.asyncio

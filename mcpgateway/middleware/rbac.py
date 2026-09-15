@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 # First-Party
 from mcpgateway.config import settings
 from mcpgateway.db import fresh_db_session, Permissions, SessionLocal
+from mcpgateway.i18n import gettext
 from mcpgateway.plugins.utils import build_request_extensions, record_plugin_metrics
 from mcpgateway.services.observability_service import current_trace_id
 from mcpgateway.services.permission_service import PermissionService
@@ -358,12 +359,12 @@ async def get_current_user_with_permissions(request: Request, credentials: Optio
                 if "text/html" in accept_header or is_htmx:
                     raise HTTPException(
                         status_code=status.HTTP_302_FOUND,
-                        detail="Authentication required",
+                        detail=gettext("Authentication required"),
                         headers={"Location": f"{settings.app_root_path}/admin/login"},
                     )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Proxy authentication header required",
+                    detail=gettext("Proxy authentication header required"),
                 )
 
             # auth_required=false: allow anonymous access
@@ -392,12 +393,12 @@ async def get_current_user_with_permissions(request: Request, credentials: Optio
             if "text/html" in accept_header or is_htmx:
                 raise HTTPException(
                     status_code=status.HTTP_302_FOUND,
-                    detail="Authentication required",
+                    detail=gettext("Authentication required"),
                     headers={"Location": f"{settings.app_root_path}/admin/login"},
                 )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required but no auth method configured",
+                detail=gettext("Authentication required but no auth method configured"),
             )
 
         _set_trace_context_for_identity(email="anonymous", is_admin=False, auth_method="anonymous", token_teams=[], team_scope_known=True)
@@ -464,14 +465,14 @@ async def get_current_user_with_permissions(request: Request, credentials: Optio
     if token_from_cookie and not is_browser_request:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Cookie authentication not allowed for API requests. Use Authorization header.",
+            detail=gettext("Cookie authentication not allowed for API requests. Use Authorization header."),
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     if not token:
         # For browser requests (HTML Accept header or HTMX), redirect to login
         if is_browser_request:
-            raise HTTPException(status_code=status.HTTP_302_FOUND, detail="Authentication required", headers={"Location": f"{settings.app_root_path}/admin/login"})
+            raise HTTPException(status_code=status.HTTP_302_FOUND, detail=gettext("Authentication required"), headers={"Location": f"{settings.app_root_path}/admin/login"})
 
         # AUTH_REQUIRED=false no longer implies admin access.
         # Preserve explicit unsafe override for local-only compatibility.
@@ -505,7 +506,7 @@ async def get_current_user_with_permissions(request: Request, credentials: Optio
                 "plugin_global_context": getattr(request.state, "plugin_global_context", None),
             }
 
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization token required")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=gettext("Authorization token required"))
 
     try:
         # First-Party
@@ -557,9 +558,9 @@ async def get_current_user_with_permissions(request: Request, credentials: Optio
         accept_header = request.headers.get("accept", "")
         is_htmx = request.headers.get("hx-request") == "true"
         if "text/html" in accept_header or is_htmx:
-            raise HTTPException(status_code=status.HTTP_302_FOUND, detail="Authentication required", headers={"Location": f"{settings.app_root_path}/admin/login"})
+            raise HTTPException(status_code=status.HTTP_302_FOUND, detail=gettext("Authentication required"), headers={"Location": f"{settings.app_root_path}/admin/login"})
 
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=gettext("Invalid authentication credentials"))
 
 
 # --- Team derivation helpers for multi-team session tokens ---
@@ -984,7 +985,7 @@ def require_permission(permission: str, resource_type: Optional[str] = None, all
             # Extract user context from named kwargs only (security: avoid picking up request body dicts)
             user_context = kwargs.get("user") or kwargs.get("_user") or kwargs.get("current_user") or kwargs.get("current_user_ctx")
             if not user_context or not isinstance(user_context, dict) or "email" not in user_context:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User authentication required")
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=gettext("User authentication required"))
 
             if global_only:
                 team_id, check_any_team = None, False
@@ -1004,7 +1005,7 @@ def require_permission(permission: str, resource_type: Optional[str] = None, all
 
             if not granted:
                 logger.warning(f"Permission denied: user={user_context['email']}, permission={permission}, resource_type={resource_type}")
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_ACCESS_DENIED_MSG)
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=gettext(_ACCESS_DENIED_MSG))
 
             # Permission granted, execute the original function
             return await func(*args, **kwargs)
@@ -1075,7 +1076,7 @@ def require_admin_permission():
             # Extract user context from named kwargs only (security: avoid picking up request body dicts)
             user_context = kwargs.get("user") or kwargs.get("_user") or kwargs.get("current_user") or kwargs.get("current_user_ctx")
             if not user_context or not isinstance(user_context, dict) or "email" not in user_context:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User authentication required")
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=gettext("User authentication required"))
 
             # Get db session: prefer endpoint's db param, then user_context["db"], then create fresh
             db_session = kwargs.get("db") or user_context.get("db")
@@ -1092,7 +1093,7 @@ def require_admin_permission():
 
             if not has_admin_permission:
                 logger.warning(f"Admin permission denied: user={user_context['email']}")
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_ACCESS_DENIED_MSG)
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=gettext(_ACCESS_DENIED_MSG))
 
             # Admin permission granted, execute the original function
             return await func(*args, **kwargs)
@@ -1162,7 +1163,7 @@ def require_any_permission(permissions: List[str], resource_type: Optional[str] 
             # Extract user context from named kwargs only (security: avoid picking up request body dicts)
             user_context = kwargs.get("user") or kwargs.get("_user") or kwargs.get("current_user") or kwargs.get("current_user_ctx")
             if not user_context or not isinstance(user_context, dict) or "email" not in user_context:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User authentication required")
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=gettext("User authentication required"))
 
             # SECURITY: Check API token scopes BEFORE RBAC (Layer 1)
             # A scoped API token must carry at least ONE of the required permissions; this is
@@ -1172,7 +1173,7 @@ def require_any_permission(permissions: List[str], resource_type: Optional[str] 
             if permissions and not any(token_scope_grants(token_scopes, perm) for perm in permissions):
                 # Log detailed info server-side but return generic error message to avoid permission disclosure
                 logger.warning(f"API token scope check failed: user={user_context['email']}, required_any_of={permissions}, token_scopes={token_scopes}")
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_ACCESS_DENIED_MSG)
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=gettext(_ACCESS_DENIED_MSG))
 
             team_id, check_any_team = await _resolve_team_and_check_mode(user_context, kwargs)
 
@@ -1220,7 +1221,7 @@ def require_any_permission(permissions: List[str], resource_type: Optional[str] 
 
             if not granted:
                 logger.warning(f"Permission denied: user={user_context['email']}, permissions={permissions}, resource_type={resource_type}")
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_ACCESS_DENIED_MSG)
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=gettext(_ACCESS_DENIED_MSG))
 
             # Permission granted, execute the original function
             return await func(*args, **kwargs)
@@ -1365,4 +1366,4 @@ class PermissionChecker:
         """
         if not await self.has_permission(permission, resource_type, resource_id, team_id):
             logger.warning(f"{_ACCESS_DENIED_MSG}: user '{self.user_context.get('email')}' missing permission '{permission}'")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_ACCESS_DENIED_MSG)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=gettext(_ACCESS_DENIED_MSG))

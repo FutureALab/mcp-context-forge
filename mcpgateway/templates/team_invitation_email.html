@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_locale() }}">
 <head>
   <meta charset="utf-8">
-  <title>ContextForge team invitation</title>
+  <title>{{ _("ContextForge team invitation") }}</title>
 </head>
 <body>
-  <h1>Join {{ team_name }}</h1>
-  <p>{{ inviter_name }} invited you to join <strong>{{ team_name }}</strong> as <strong>{{ role }}</strong>.</p>
-  <p><a href="{{ invitation_url }}">Accept invitation</a></p>
-  <p>This invitation expires at {{ expires_at }}.</p>
-  <p>If the link does not work, use this invitation token:</p>
+  <h1>{{ _("Join {team_name}", team_name=team_name) }}</h1>
+  <p>{{ _("{inviter_name} invited you to join {team_name} as {role}.", inviter_name=inviter_name, team_name=team_name, role=role) }}</p>
+  <p><a href="{{ invitation_url }}">{{ _("Accept invitation") }}</a></p>
+  <p>{{ _("This invitation expires at {expires_at}.", expires_at=expires_at) }}</p>
+  <p>{{ _("If the link does not work, use this invitation token:") }}</p>
   <p><code>{{ token }}</code></p>
-  <p>This message was sent to {{ recipient_email }} by ContextForge.</p>
+  <p>{{ _("This message was sent to {recipient_email} by ContextForge.", recipient_email=recipient_email) }}</p>
 </body>
 </html>

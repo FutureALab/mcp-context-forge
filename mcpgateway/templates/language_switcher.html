@@ -1,0 +1,41 @@
+{#
+  Language switcher.
+
+  Renders one option per entry in SUPPORTED_LOCALES and submits the choice to
+  the /admin/language endpoint, which redirects back to 'next'. The locale
+  cookie itself is written by I18nMiddleware, so no JavaScript state is needed
+  and the control still works when JavaScript is disabled.
+
+  Optional context:
+    switcher_class: extra CSS classes for the wrapper
+    switcher_label_class: extra CSS classes for the visible label
+    show_label: render the label text next to the globe icon (default false)
+#}
+{% set locales = supported_locales() %}
+{% if locales | length > 1 %}
+{% set next_url = (request.url.path ~ ('?' ~ request.url.query if request.url.query else '')) if request is defined else '/admin' %}
+<div class="cf-language-switcher flex items-center gap-2 {{ switcher_class | default('') }}">
+  <form method="get" action="{{ root_path }}/admin/language" class="flex items-center gap-2">
+    <input type="hidden" name="next" value="{{ next_url }}" />
+    <i class="fas fa-globe text-gray-400" aria-hidden="true"></i>
+    <label for="cf-language-select" class="sr-only">{{ _("Language") }}</label>
+    {% if show_label | default(false) %}
+    <span class="{{ switcher_label_class | default('text-sm text-gray-500 dark:text-gray-400') }}">{{ _("Language") }}</span>
+    {% endif %}
+    <select
+      id="cf-language-select"
+      name="lang"
+      onchange="this.form.submit()"
+      aria-label="{{ _('Language') }}"
+      class="text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/60 text-gray-700 dark:text-gray-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+    >
+      {% for code, label in locales.items() %}
+      <option value="{{ code }}"{% if code == current_locale() %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <noscript>
+      <button type="submit" class="text-sm px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600">{{ _("Apply") }}</button>
+    </noscript>
+  </form>
+</div>
+{% endif %}

@@ -33,6 +33,7 @@ from mcpgateway.common.query_params import QueryPaginationCursorResults
 from mcpgateway.common.validators import SecurityValidator
 from mcpgateway.config import settings
 from mcpgateway.db import EmailUser, SessionLocal, utc_now
+from mcpgateway.i18n import gettext
 from mcpgateway.middleware.rbac import get_current_user_with_permissions, require_permission
 from mcpgateway.schemas import (
     AdminCreateUserRequest,
@@ -237,7 +238,7 @@ async def login(login_request: EmailLoginRequest, request: Request, db: Session 
         user = await auth_service.authenticate_user(email=login_request.email, password=login_request.password, ip_address=ip_address, user_agent=user_agent)
 
         if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=gettext("Invalid email or password"))
 
         # Password change enforcement respects master switch and individual toggles
         needs_password_change = False
@@ -369,7 +370,7 @@ async def register(registration_request: PublicRegistrationRequest, request: Req
         logger.warning(f"Registration attempt rejected - public registration disabled: {SecurityValidator.sanitize_log_message(registration_request.email)}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Public registration is disabled. Please contact an administrator to create an account.",
+            detail=gettext("Public registration is disabled. Please contact an administrator to create an account."),
         )
 
     auth_service = EmailAuthService(db)
@@ -470,7 +471,7 @@ async def forgot_password(reset_request: ForgotPasswordRequest, request: Request
         HTTPException: If password reset is disabled or the request is rate limited.
     """
     if not getattr(settings, "password_reset_enabled", True):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Password reset is disabled")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=gettext("Password reset is disabled"))
 
     auth_service = EmailAuthService(db)
     ip_address = get_client_ip(request)
@@ -478,7 +479,7 @@ async def forgot_password(reset_request: ForgotPasswordRequest, request: Request
 
     result = await auth_service.request_password_reset(email=reset_request.email, ip_address=ip_address, user_agent=user_agent)
     if result.rate_limited:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many requests. Please try again later.")
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=gettext("Too many requests. Please try again later."))
 
     return SuccessResponse(success=True, message="If this email is registered, you will receive a reset link.")
 
@@ -499,7 +500,7 @@ async def validate_password_reset_token(token: str, request: Request, db: Sessio
         HTTPException: If password reset is disabled or token validation fails.
     """
     if not getattr(settings, "password_reset_enabled", True):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Password reset is disabled")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=gettext("Password reset is disabled"))
 
     auth_service = EmailAuthService(db)
     ip_address = get_client_ip(request)
@@ -532,7 +533,7 @@ async def complete_password_reset(token: str, reset_request: ResetPasswordReques
         HTTPException: If password reset is disabled or reset validation fails.
     """
     if not getattr(settings, "password_reset_enabled", True):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Password reset is disabled")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=gettext("Password reset is disabled"))
 
     auth_service = EmailAuthService(db)
     ip_address = get_client_ip(request)
@@ -777,7 +778,7 @@ async def get_user(user_email: str, current_user_ctx: dict = Depends(get_current
     try:
         user = await auth_service.get_user_by_email(user_email)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=gettext("User not found"))
 
         return EmailUserResponse.from_email_user(user)
 
@@ -828,7 +829,7 @@ async def update_user(user_email: str, user_request: AdminUserUpdateRequest, cur
     except ValueError as e:
         error_msg = str(e)
         if "not found" in error_msg.lower():
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=gettext("User not found"))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
     except PasswordValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -858,11 +859,11 @@ async def delete_user(user_email: str, current_user_ctx: dict = Depends(get_curr
     try:
         # Prevent admin from deleting themselves
         if user_email == current_user_ctx["email"]:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete your own account")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=gettext("Cannot delete your own account"))
 
         # Prevent deleting the last active admin user
         if await auth_service.is_last_active_admin(user_email):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete the last remaining admin user")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=gettext("Cannot delete the last remaining admin user"))
 
         # Hard delete using auth service
         await auth_service.delete_user(user_email)

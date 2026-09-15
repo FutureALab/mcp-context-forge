@@ -293,6 +293,7 @@ from mcpgateway.services.tool_service import ToolError, ToolNotFoundError, ToolS
 from mcpgateway.utils.oauth_resource import parse_oauth_resource_form
 from mcpgateway.utils.passthrough_headers import PassthroughHeadersError
 from mcpgateway.utils.services_auth import decode_auth
+from tests.helpers.templates import build_jinja_env
 
 
 class FakeForm(dict):
@@ -14801,9 +14802,7 @@ class TestAdminAdditionalCoverage:
         mock_settings.log_folder = str(log_dir)
         mock_settings.log_rotation_enabled = False
 
-        response = await admin_get_log_file(
-            request=SimpleNamespace(headers={"range": "bytes=2-5", "if-range": '"stale-etag"'}), filename="app.log", user={"email": "admin@example.com", "db": mock_db}
-        )
+        response = await admin_get_log_file(request=SimpleNamespace(headers={"range": "bytes=2-5", "if-range": '"stale-etag"'}), filename="app.log", user={"email": "admin@example.com", "db": mock_db})
         assert response.status_code == 200
         body = b"".join([chunk async for chunk in response.body_iterator])
         assert body == b"0123456789"
@@ -22564,37 +22563,8 @@ class TestTemplateButtonGating:
 
     @pytest.fixture
     def jinja_env(self):
-        """Create a real Jinja2 environment for rendering partial templates."""
-        # Standard
-        import html
-
-        # Third-Party
-        from jinja2 import Environment, FileSystemLoader
-
-        templates_dir = str(settings.templates_dir)
-        env = Environment(loader=FileSystemLoader(templates_dir), autoescape=True)
-
-        # Register the decode_html filter (same as in main.py)
-        def decode_html_entities(value: str) -> str:
-            """Decode HTML entities in strings for display."""
-            if not value:
-                return value
-            return html.unescape(value)
-
-        env.filters["decode_html"] = decode_html_entities
-
-        # Register tojson_attr filter (same as in main.py) for inline event handler escaping
-        def tojson_attr(value: object) -> str:
-            """JSON-encode a value for safe use inside double-quoted HTML attributes."""
-            # Standard
-            import json as _json
-
-            s = _json.dumps(value)
-            s = s.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e").replace("'", "\\u0027")
-            return s
-
-        env.filters["tojson_attr"] = tojson_attr
-        return env
+        """Create a Jinja2 environment wired like the application."""
+        return build_jinja_env()
 
     def _render_tools_partial(self, jinja_env, tool_data, current_user_email, is_admin=False, user_team_roles=None):
         """Helper to render tools_partial.html with given context."""
@@ -25261,21 +25231,7 @@ class TestPaginationSwapStyle:
     @staticmethod
     def _render_pagination_controls(hx_swap=None):
         """Render pagination_controls.html with the given hx_swap value."""
-        # Third-Party
-        from jinja2 import Environment, FileSystemLoader
-
-        templates_dir = str(Path(__file__).resolve().parents[3] / "mcpgateway" / "templates")
-        env = Environment(loader=FileSystemLoader(templates_dir))
-
-        def tojson_attr(value: object) -> str:
-            # Standard
-            import json as _json
-
-            s = _json.dumps(value)
-            s = s.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e").replace("'", "\\u0027")
-            return s
-
-        env.filters["tojson_attr"] = tojson_attr
+        env = build_jinja_env(autoescape=False)
         template = env.get_template("pagination_controls.html")
         ctx = {
             "pagination": {
@@ -27224,7 +27180,6 @@ class TestTransferGatewayOwnership:
             token_teams=["team-1"],
         )
 
-
     @pytest.mark.asyncio
     async def test_transfer_gateway_ownership_not_found(self, monkeypatch, allow_permission, mock_db):
         monkeypatch.setattr(
@@ -27313,7 +27268,6 @@ class TestCatalogPermissionErrorBranches:
         with pytest.raises(HTTPException) as exc_info:
             await register_catalog_server("srv-1", request, db=mock_db, _user={"email": "admin@test.com"})
         assert exc_info.value.status_code == 403
-
 
     @pytest.mark.asyncio
     async def test_admin_register_catalog_requires_gateways_create(self, monkeypatch, allow_permission, mock_db):

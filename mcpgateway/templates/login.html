@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sign In - ContextForge</title>
+    <title>{{ _("Sign In - ContextForge") }}</title>
     <!-- Tailwind CSS - Using precompiled CSS for strict CSP compliance -->
     <link rel="stylesheet" href="{{ root_path }}/static/css/tailwind.min.css" />
     <!-- Font Awesome is bundled via Vite (imported in admin_ui/admin.js) -->
@@ -72,7 +72,7 @@
                 <p
                   class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
                 >
-                  Continue with
+                  {{ _("Continue with") }}
                 </p>
               </div>
               <div class="space-y-3" id="sso-providers">
@@ -90,9 +90,14 @@
               <div class="relative flex justify-center text-sm">
                 <span
                   class="px-4 bg-white/90 dark:bg-gray-800/90 text-gray-500 dark:text-gray-400 font-medium"
-                  >Or continue with email</span
+                  >{{ _("Or continue with email") }}</span
                 >
               </div>
+            </div>
+
+            <!-- Language switcher: reachable before sign-in -->
+            <div class="mb-4 flex justify-end">
+              {% include "language_switcher.html" %}
             </div>
 
             <!-- Email/Password Form -->
@@ -107,8 +112,7 @@
                   for="email"
                   class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  <i class="fas fa-envelope mr-2 text-gray-400"></i>Email
-                  address
+                  <i class="fas fa-envelope mr-2 text-gray-400"></i>{{ _("Email address") }}
                 </label>
                 <input
                   id="email"
@@ -117,7 +121,7 @@
                   autocomplete="{{ 'off' if prefill_email else 'email' }}"
                   required
                   value="{{ prefill_email }}"
-                  placeholder="Enter your email"
+                  placeholder="{{ _('Enter your email') }}"
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700/50 dark:text-white transition-all duration-200 backdrop-blur-sm"
                 />
               </div>
@@ -127,7 +131,7 @@
                   for="password"
                   class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  <i class="fas fa-lock mr-2 text-gray-400"></i>Password
+                  <i class="fas fa-lock mr-2 text-gray-400"></i>{{ _("Password") }}
                 </label>
                 <div class="relative">
                   <input
@@ -136,7 +140,7 @@
                     type="password"
                     autocomplete="current-password"
                     required
-                    placeholder="Enter your password"
+                    placeholder="{{ _('Enter your password') }}"
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700/50 dark:text-white transition-all duration-200 backdrop-blur-sm pr-10"
                   />
                   <button
@@ -155,7 +159,7 @@
                   href="{{ root_path }}/admin/forgot-password"
                   class="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
                 >
-                  Forgot password?
+                  {{ _("Forgot password?") }}
                 </a>
               </div>
               {% endif %}
@@ -165,7 +169,7 @@
                 class="w-full flex justify-center items-center py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
               >
                 <i class="fas fa-sign-in-alt mr-2"></i>
-                Sign In
+                {{ _("Sign In") }}
               </button>
             </form>
 
@@ -173,7 +177,7 @@
             <div class="mt-4 text-center">
               <p class="text-xs text-gray-500 dark:text-gray-400">
                 <i class="fas fa-shield-alt mr-1"></i>
-                Secured by ContextForge Authentication
+                {{ _("Secured by ContextForge Authentication") }}
               </p>
             </div>
           </div>
@@ -219,16 +223,16 @@
               >
                 <img
                   src="{{ root_path }}/static/contextforge-logo-white.png"
-                  alt="ContextForge logo"
+                  alt="{{ _("ContextForge logo") }}"
                   class="h-12"
                 />
               </a>
             </div>
             <p class="text-lg font-semibold text-white mb-1">
-              MCP & AI Gateway
+              {{ _("MCP & AI Gateway") }}
             </p>
             <p class="text-sm text-blue-100 opacity-90">
-              MCP, A2A and REST gateway with advanced security & observability
+              {{ _("MCP, A2A and REST gateway with advanced security & observability") }}
             </p>
           </div>
 
@@ -239,7 +243,7 @@
               <h3
                 class="text-xs font-semibold text-blue-200 uppercase tracking-wide mb-3 text-center"
               >
-                Core Platform
+                {{ _("Core Platform") }}
               </h3>
               <div class="grid grid-cols-3 gap-3">
                 <div
@@ -251,10 +255,10 @@
                     <i class="fas fa-network-wired text-white text-xs"></i>
                   </div>
                   <h4 class="text-xs font-semibold text-white mb-1">
-                    Federation
+                    {{ _("Federation") }}
                   </h4>
                   <p class="text-xs text-blue-100 leading-relaxed">
-                    Multi-gateway networks with auto-discovery
+                    {{ _("Multi-gateway networks with auto-discovery") }}
                   </p>
                 </div>
 
@@ -267,10 +271,10 @@
                     <i class="fas fa-server text-white text-xs"></i>
                   </div>
                   <h4 class="text-xs font-semibold text-white mb-1">
-                    Virtual Servers
+                    {{ _("Virtual Servers") }}
                   </h4>
                   <p class="text-xs text-blue-100 leading-relaxed">
-                    Compose custom MCP endpoints
+                    {{ _("Compose custom MCP endpoints") }}
                   </p>
                 </div>
 
@@ -283,10 +287,10 @@
                     <i class="fas fa-exchange-alt text-white text-xs"></i>
                   </div>
                   <h4 class="text-xs font-semibold text-white mb-1">
-                    Multi-Transport
+                    {{ _("Multi-Transport") }}
                   </h4>
                   <p class="text-xs text-blue-100 leading-relaxed">
-                    HTTP, WebSocket, SSE protocols
+                    {{ _("HTTP, WebSocket, SSE protocols") }}
                   </p>
                 </div>
               </div>
@@ -297,7 +301,7 @@
               <h3
                 class="text-xs font-semibold text-blue-200 uppercase tracking-wide mb-3 text-center"
               >
-                Enterprise Ready
+                {{ _("Enterprise Ready") }}
               </h3>
               <div class="grid grid-cols-3 gap-3">
                 <div
@@ -309,10 +313,10 @@
                     <i class="fas fa-shield-alt text-white text-xs"></i>
                   </div>
                   <h4 class="text-xs font-semibold text-white mb-1">
-                    Security
+                    {{ _("Security") }}
                   </h4>
                   <p class="text-xs text-blue-100 leading-relaxed">
-                    JWT auth, rate limiting, PII & OPA plugins
+                    {{ _("JWT auth, rate limiting, PII & OPA plugins") }}
                   </p>
                 </div>
 
@@ -325,10 +329,10 @@
                     <i class="fas fa-chart-line text-white text-xs"></i>
                   </div>
                   <h4 class="text-xs font-semibold text-white mb-1">
-                    Observability
+                    {{ _("Observability") }}
                   </h4>
                   <p class="text-xs text-blue-100 leading-relaxed">
-                    Metrics & comprehensive logging
+                    {{ _("Metrics & comprehensive logging") }}
                   </p>
                 </div>
 
@@ -341,10 +345,10 @@
                     <i class="fas fa-robot text-white text-xs"></i>
                   </div>
                   <h4 class="text-xs font-semibold text-white mb-1">
-                    A2A Agents
+                    {{ _("A2A Agents") }}
                   </h4>
                   <p class="text-xs text-blue-100 leading-relaxed">
-                    AI agent integration & workflows
+                    {{ _("AI agent integration & workflows") }}
                   </p>
                 </div>
               </div>
@@ -356,15 +360,15 @@
             <div class="inline-flex items-center space-x-4 text-blue-100/80">
               <div class="flex items-center space-x-1">
                 <i class="fas fa-check-circle text-green-300 text-xs"></i>
-                <span class="text-xs">Production Ready</span>
+                <span class="text-xs">{{ _("Production Ready") }}</span>
               </div>
               <div class="flex items-center space-x-1">
                 <i class="fas fa-bolt text-yellow-300 text-xs"></i>
-                <span class="text-xs">High Performance</span>
+                <span class="text-xs">{{ _("High Performance") }}</span>
               </div>
               <div class="flex items-center space-x-1">
                 <i class="fas fa-lock text-blue-300 text-xs"></i>
-                <span class="text-xs">Secure by Design</span>
+                <span class="text-xs">{{ _("Secure by Design") }}</span>
               </div>
             </div>
           </div>
@@ -565,11 +569,11 @@
           switch (notice) {
             case "reset_email_sent":
               noticeMessage =
-                "If the account exists, a password reset link has been sent.";
+                {{ _("If the account exists, a password reset link has been sent.") | tojson }};
               break;
             case "password_reset_success":
               noticeMessage =
-                "Password reset successful. Sign in with your new password.";
+                {{ _("Password reset successful. Sign in with your new password.") | tojson }};
               break;
             default:
               noticeMessage = notice
@@ -580,32 +584,32 @@
         }
 
         if (error) {
-          let errorMessage = "Login failed";
+          let errorMessage = {{ _("Login failed") | tojson }};
           switch (error) {
             case "missing_fields":
-              errorMessage = "Please provide both email and password";
+              errorMessage = {{ _("Please provide both email and password") | tojson }};
               break;
             case "invalid_credentials":
-              errorMessage = "Invalid email or password";
+              errorMessage = {{ _("Invalid email or password") | tojson }};
               break;
             case "admin_required":
-              errorMessage = "Admin privileges required";
+              errorMessage = {{ _("Admin privileges required") | tojson }};
               break;
             case "server_error":
-              errorMessage = "Server error. Please try again";
+              errorMessage = {{ _("Server error. Please try again") | tojson }};
               break;
             case "sso_failed":
-              errorMessage = "SSO authentication failed. Please try again";
+              errorMessage = {{ _("SSO authentication failed. Please try again") | tojson }};
               break;
             case "sso_cancelled":
-              errorMessage = "SSO authentication was cancelled";
+              errorMessage = {{ _("SSO authentication was cancelled") | tojson }};
               break;
             case "token_too_large":
               errorMessage =
-                "Your account has too many team memberships for cookie-based authentication. Please contact your administrator.";
+                {{ _("Your account has too many team memberships for cookie-based authentication. Please contact your administrator.") | tojson }};
               break;
             case "password_reset_disabled":
-              errorMessage = "Password reset is disabled by the administrator.";
+              errorMessage = {{ _("Password reset is disabled by the administrator.") | tojson }};
               break;
             default:
               errorMessage = error

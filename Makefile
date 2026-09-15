@@ -360,6 +360,32 @@ build-ui:
 		exit 1; \
 	fi
 
+## --- Internationalization (i18n) ---------------------------------------------
+# help: i18n           - Extract strings, merge catalogs, and compile .mo files
+# help: i18n-extract   - Scan Python, Jinja2, and Admin UI JS for messages.pot
+# help: i18n-update    - Merge messages.pot into every catalog, keeping translations
+# help: i18n-compile   - Compile every .po catalog into the .mo file used at runtime
+# help: i18n-new       - Create a catalog for a new locale (LOCALE=ja)
+.PHONY: i18n i18n-extract i18n-update i18n-compile i18n-new
+
+i18n-extract:                    ## Scan sources and write mcpgateway/translations/messages.pot
+	$(VENV_DIR)/bin/python -m mcpgateway.scripts.i18n extract
+
+i18n-update:                     ## Merge messages.pot into every catalog
+	$(VENV_DIR)/bin/python -m mcpgateway.scripts.i18n update
+
+i18n-compile:                    ## Compile .po catalogs into .mo files
+	$(VENV_DIR)/bin/python -m mcpgateway.scripts.i18n compile
+
+i18n: i18n-extract               ## Extract, merge, and compile all catalogs
+	$(VENV_DIR)/bin/python -m mcpgateway.scripts.i18n update
+	$(VENV_DIR)/bin/python -m mcpgateway.scripts.i18n compile
+
+i18n-new:                        ## Create and compile a catalog for LOCALE (e.g. make i18n-new LOCALE=ja)
+	@test -n "$(LOCALE)" || { echo "❌  LOCALE is required, for example: make i18n-new LOCALE=ja"; exit 1; }
+	$(VENV_DIR)/bin/python -m mcpgateway.scripts.i18n update --locale $(LOCALE)
+	$(VENV_DIR)/bin/python -m mcpgateway.scripts.i18n compile --locale $(LOCALE)
+
 # help: catalog-icons         - Fetch and bundle catalog icons as local static PNG assets
 .PHONY: catalog-icons
 catalog-icons:

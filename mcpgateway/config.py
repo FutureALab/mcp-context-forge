@@ -250,6 +250,19 @@ class Settings(BaseSettings):
     # Use TEMPLATES_AUTO_RELOAD=true for development (make dev sets this automatically)
     templates_auto_reload: bool = Field(default=False, description="Auto-reload Jinja2 templates on change (enable for development)")
 
+    # Internationalization (i18n)
+    # Locale resolution order: ?lang= query parameter, locale cookie, user
+    # preference, Accept-Language header, then i18n_default_locale.
+    i18n_enabled: bool = Field(default=True, description="Resolve and apply a request locale for templates, API messages, and emails")
+    i18n_default_locale: str = Field(default="en", description="Locale used when no other signal matches (en, zh-CN)")
+    i18n_cookie_name: str = Field(default="cf_lang", description="Cookie that stores the visitor's locale choice")
+    i18n_cookie_max_age: int = Field(default=31536000, description="Lifetime in seconds of the locale cookie (default one year)")
+    i18n_cookie_secure: bool = Field(default=False, description="Set the Secure attribute on the locale cookie (enable behind HTTPS)")
+    i18n_translate_protocol_messages: bool = Field(
+        default=False,
+        description="Translate MCP/A2A JSON-RPC error messages. Off by default because error.message is part of the wire contract.",
+    )
+
     app_root_path: str = ""
 
     # Protocol
