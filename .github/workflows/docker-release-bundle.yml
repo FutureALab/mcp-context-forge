@@ -1,0 +1,400 @@
+# ==============================================================================
+# Docker Release Bundle
+# ==============================================================================
+#
+# Builds the ContextForge container image from Containerfile and produces an
+# air-gapped install bundle: a `docker save` archive of the image, gzipped, with
+# a matching SHA-256 checksum.
+#
+# Triggers:
+#   - release: published  Builds amd64 and arm64 bundles for the released tag and
+#                         attaches both archives to the GitHub Release.
+#   - workflow_dispatch   Builds the requested architectures and keeps them as
+#                         workflow artifacts. Set `release_tag` to also attach the
+#                         archives to an existing release.
+#
+# Registry pushes, multiplatform manifests, and Cosign signing stay in
+# docker-multiplatform.yml. This workflow never pushes to a registry.
+#
+# Bundle files, one pair per architecture:
+#   mcpgateway-<version>-linux-<arch>.tar.gz         docker save archive
+#   mcpgateway-<version>-linux-<arch>.tar.gz.sha256  checksum
+#
+# Load and run on the target host:
+#   sha256sum --check mcpgateway-<version>-linux-amd64.tar.gz.sha256
+#   docker load < mcpgateway-<version>-linux-amd64.tar.gz
+#   docker compose up -d gateway
+#
+# Each archive carries four tags for the same image, so the compose default
+# `mcpgateway/mcpgateway:latest` resolves after `docker load`:
+#   mcpgateway/mcpgateway:<version>   mcpgateway/mcpgateway:<tag>
+#   mcpgateway/mcpgateway:latest      ghcr.io/<owner>/<repo>:<tag>
+# ==============================================================================
+
+name: Docker Release Bundle
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to attach the bundle to (empty keeps workflow artifacts only)"
+        required: false
+        type: string
+      source_ref:
+        description: "Git ref to build (empty builds the dispatched ref, or the release tag when release_tag is set)"
+        required: false
+        type: string
+      architectures:
+        description: "Architecture bundles to build"
+        required: true
+        default: amd64
+        type: choice
+        options:
+          - amd64
+          - arm64
+          - both
+      enable_rust:
+        description: "Enable the Rust MCP runtime (Containerfile ENABLE_RUST=true)"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------
+  # Resolve the Docker tag, version, checkout ref, and build matrix.
+  # ---------------------------------------------------------------
+  prepare:
+    name: Resolve bundle metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+      image_repo: ${{ steps.meta.outputs.image_repo }}
+      ghcr_image: ${{ steps.meta.outputs.ghcr_image }}
+      checkout_ref: ${{ steps.meta.outputs.checkout_ref }}
+      matrix: ${{ steps.meta.outputs.matrix }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      upload_release: ${{ steps.meta.outputs.upload_release }}
+    steps:
+      - name: Resolve tag, version and build matrix
+        id: meta
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+          INPUT_SOURCE_REF: ${{ github.event.inputs.source_ref }}
+          INPUT_ARCHITECTURES: ${{ github.event.inputs.architectures }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Docker tags and file names accept only [A-Za-z0-9_.-]. Map anything
+          # else to a dash and trim invalid leading and trailing characters.
+          sanitize() {
+            printf '%s' "${1}" | sed -E 's/[^A-Za-z0-9_.-]+/-/g; s/^[^A-Za-z0-9]+//; s/[^A-Za-z0-9]+$//'
+          }
+
+          if [[ "${EVENT_NAME}" == "release" ]]; then
+            RELEASE_TARGET="${RELEASE_TAG}"
+            UPLOAD_RELEASE="true"
+            ARCHS="amd64,arm64"
+            CHECKOUT_REF="${RELEASE_TAG}"
+          else
+            if [[ -n "${INPUT_RELEASE_TAG:-}" ]]; then
+              RELEASE_TARGET="${INPUT_RELEASE_TAG}"
+              UPLOAD_RELEASE="true"
+            else
+              RELEASE_TARGET=""
+              UPLOAD_RELEASE="false"
+            fi
+
+            case "${INPUT_ARCHITECTURES:-amd64}" in
+              both) ARCHS="amd64,arm64" ;;
+              amd64|arm64) ARCHS="${INPUT_ARCHITECTURES}" ;;
+              *) echo "Unsupported architectures input: ${INPUT_ARCHITECTURES}" >&2; exit 1 ;;
+            esac
+
+            # An explicit source_ref wins. Otherwise attach-to-release builds the
+            # release's own commit, and a plain dispatch builds the dispatched ref.
+            if [[ -n "${INPUT_SOURCE_REF:-}" ]]; then
+              CHECKOUT_REF="${INPUT_SOURCE_REF}"
+            elif [[ -n "${RELEASE_TARGET}" ]]; then
+              CHECKOUT_REF="${RELEASE_TARGET}"
+            else
+              CHECKOUT_REF="${REF}"
+            fi
+          fi
+
+          if [[ -n "${RELEASE_TARGET}" ]]; then
+            RAW_TAG="${RELEASE_TARGET}"
+          else
+            RAW_TAG="dev-${SHA:0:7}"
+          fi
+
+          TAG="$(sanitize "${RAW_TAG}")"
+          if [[ -z "${TAG}" ]]; then
+            echo "Cannot derive a valid Docker tag from '${RAW_TAG}'" >&2
+            exit 1
+          fi
+
+          VERSION="$(sanitize "${TAG#v}")"
+          if [[ -z "${VERSION}" ]]; then
+            VERSION="${TAG}"
+          fi
+
+          IMAGE_REPO="mcpgateway/mcpgateway"
+          GHCR_IMAGE="ghcr.io/$(printf '%s' "${REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+
+          MATRIX="["
+          SEP=""
+          IFS=',' read -r -a ARCH_LIST <<< "${ARCHS}"
+          for ARCH in "${ARCH_LIST[@]}"; do
+            case "${ARCH}" in
+              amd64) PLATFORM="linux/amd64"; RUNNER="ubuntu-24.04" ;;
+              arm64) PLATFORM="linux/arm64"; RUNNER="ubuntu-24.04-arm" ;;
+              *) echo "Unsupported architecture: ${ARCH}" >&2; exit 1 ;;
+            esac
+            MATRIX+="${SEP}{\"platform\":\"${PLATFORM}\",\"runner\":\"${RUNNER}\",\"suffix\":\"${ARCH}\"}"
+            SEP=","
+          done
+          MATRIX+="]"
+
+          {
+            echo "tag=${TAG}"
+            echo "version=${VERSION}"
+            echo "image_repo=${IMAGE_REPO}"
+            echo "ghcr_image=${GHCR_IMAGE}"
+            echo "checkout_ref=${CHECKOUT_REF}"
+            echo "matrix=${MATRIX}"
+            echo "release_tag=${RELEASE_TARGET}"
+            echo "upload_release=${UPLOAD_RELEASE}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "### Docker release bundle"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Docker tag | ${TAG} |"
+            echo "| Version | ${VERSION} |"
+            echo "| Checkout ref | ${CHECKOUT_REF} |"
+            echo "| Architectures | ${ARCHS} |"
+            if [[ -n "${RELEASE_TARGET}" ]]; then
+              echo "| Attach to release | ${RELEASE_TARGET} |"
+            else
+              echo "| Attach to release | workflow artifacts only |"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  # ---------------------------------------------------------------
+  # Build one image per architecture, save it, and publish the archive.
+  # ---------------------------------------------------------------
+  bundle:
+    name: Bundle ${{ matrix.suffix }}
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    permissions:
+      contents: write # attach the archive to the GitHub Release
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    env:
+      IMAGE_REPO: ${{ needs.prepare.outputs.image_repo }}
+      GHCR_IMAGE: ${{ needs.prepare.outputs.ghcr_image }}
+      IMAGE_TAG: ${{ needs.prepare.outputs.tag }}
+      IMAGE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+      UPLOAD_RELEASE: ${{ needs.prepare.outputs.upload_release }}
+      ENABLE_RUST: ${{ github.event.inputs.enable_rust == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          version: latest
+
+      # `load: true` puts the image in the local daemon so `docker save` can read
+      # it. The docker exporter supports one platform per build, hence one job
+      # per architecture. `provenance` and `sbom` stay off so the saved archive
+      # holds a single image rather than an attestation manifest list.
+      - name: Build image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Containerfile
+          platforms: ${{ matrix.platform }}
+          load: true
+          push: false
+          provenance: false
+          sbom: false
+          build-args: |
+            ENABLE_RUST=${{ env.ENABLE_RUST }}
+          tags: |
+            ${{ env.IMAGE_REPO }}:${{ env.IMAGE_VERSION }}
+            ${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_REPO }}:latest
+            ${{ env.GHCR_IMAGE }}:${{ env.IMAGE_TAG }}
+          # Read the per-architecture cache that docker-multiplatform.yml already
+          # populates from the same Containerfile, so a release build reuses the
+          # dependency layers instead of paying a cold build. Write only a small
+          # dedicated cache to avoid evicting the shared CI cache.
+          cache-from: type=gha,scope=containerfile-lite-${{ matrix.suffix }}
+          cache-to: type=gha,mode=min,scope=docker-release-bundle-${{ matrix.suffix }}
+
+      - name: Verify the image contains the gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="${IMAGE_REPO}:${IMAGE_VERSION}"
+
+          docker image inspect "${image}" --format 'Size: {{.Size}} bytes | Arch: {{.Architecture}}'
+
+          reported="$(docker run --rm --entrypoint python3 "${image}" -c 'import mcpgateway; print(mcpgateway.__version__)')"
+          echo "Image reports mcpgateway ${reported}"
+          if [[ "${reported}" != "${IMAGE_VERSION}" ]]; then
+            echo "::warning::Image reports version ${reported}, bundle version is ${IMAGE_VERSION}."
+          fi
+
+          docker run --rm --entrypoint /bin/sh "${image}" -c 'test -x /app/docker-entrypoint.sh'
+          echo "Gateway entrypoint present."
+
+      - name: Save the image to a gzipped archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
+
+          docker save \
+            "${IMAGE_REPO}:${IMAGE_VERSION}" \
+            "${IMAGE_REPO}:${IMAGE_TAG}" \
+            "${IMAGE_REPO}:latest" \
+            "${GHCR_IMAGE}:${IMAGE_TAG}" \
+            | gzip -9 > "${archive}"
+
+          # Confirm the archive is a docker save archive before publishing it.
+          # Classic and containerd image stores both write manifest.json at the
+          # archive root; the optional "./" tolerates a dot-prefixed listing.
+          tar -tzf "${archive}" > /tmp/bundle-contents.txt
+          if ! grep -qE '^(\./)?manifest\.json$' /tmp/bundle-contents.txt; then
+            echo "Archive ${archive} has no manifest.json; not a docker save archive." >&2
+            exit 1
+          fi
+
+          sha256sum "${archive}" | tee "${archive}.sha256"
+          ls -lh "${archive}" "${archive}.sha256"
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: docker-release-bundle-${{ matrix.suffix }}
+          path: |
+            mcpgateway-${{ env.IMAGE_VERSION }}-linux-${{ matrix.suffix }}.tar.gz
+            mcpgateway-${{ env.IMAGE_VERSION }}-linux-${{ matrix.suffix }}.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Attach the bundle to the GitHub Release
+        if: env.UPLOAD_RELEASE == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          archive="mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
+
+          gh release upload "${RELEASE_TAG}" \
+            "${archive}" "${archive}.sha256" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --clobber
+
+          echo "Attached ${archive} to release ${RELEASE_TAG}."
+
+      - name: Summarize the bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
+
+          {
+            echo "### ${archive}"
+            echo ""
+            echo '```bash'
+            echo "docker load < ${archive}"
+            echo "docker compose up -d gateway"
+            echo '```'
+            echo ""
+            echo "Tags inside the archive:"
+            echo "- ${IMAGE_REPO}:${IMAGE_VERSION}"
+            echo "- ${IMAGE_REPO}:${IMAGE_TAG}"
+            echo "- ${IMAGE_REPO}:latest"
+            echo "- ${GHCR_IMAGE}:${IMAGE_TAG}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  # ---------------------------------------------------------------
+  # Fail the run when an expected archive is missing from the release.
+  # `always()` keeps this check running when one architecture leg fails
+  # to upload, so a partial release is reported instead of passing silently.
+  # ---------------------------------------------------------------
+  verify-release:
+    name: Verify release assets
+    needs: [prepare, bundle]
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.prepare.outputs.upload_release == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Confirm every bundle is attached
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          IMAGE_VERSION: ${{ needs.prepare.outputs.version }}
+          MATRIX: ${{ needs.prepare.outputs.matrix }}
+        run: |
+          set -euo pipefail
+
+          assets="$(gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name')"
+          echo "${assets}"
+
+          missing=0
+          while IFS= read -r suffix; do
+            for name in \
+              "mcpgateway-${IMAGE_VERSION}-linux-${suffix}.tar.gz" \
+              "mcpgateway-${IMAGE_VERSION}-linux-${suffix}.tar.gz.sha256"; do
+              if ! grep -qx "${name}" <<< "${assets}"; then
+                echo "::error::Release ${RELEASE_TAG} is missing asset ${name}"
+                missing=1
+              fi
+            done
+          done < <(printf '%s' "${MATRIX}" | jq -r '.[].suffix')
+
+          if ((missing == 1)); then
+            echo "Release ${RELEASE_TAG} is incomplete." >&2
+            exit 1
+          fi
+
+          echo "All expected bundles are attached to ${RELEASE_TAG}."
