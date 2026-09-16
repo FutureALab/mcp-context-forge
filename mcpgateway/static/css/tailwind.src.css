@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* Table headers keep to one line.
+     A CJK header may break between any two characters, so its min-content
+     width is a single glyph. Under table-auto the browser then shrinks the
+     column to about one character, which stacks the header and the cell
+     content vertically. nowrap keeps the header intact so the column width
+     matches the Latin layout. */
+  thead th {
+    white-space: nowrap;
+  }
+}
