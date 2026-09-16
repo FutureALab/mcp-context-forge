@@ -28,8 +28,12 @@ docker-compose -f docker-compose.yml \
 # View Phoenix UI
 open http://localhost:6006
 
-# View traces flowing in
-curl http://localhost:4444/health  # Generate a trace
+# Generate a trace. Phoenix receives request-root spans for the MCP transports
+# (/mcp, /sse, /message, /rpc, /servers/*/mcp); plain REST calls are not traced.
+curl -X POST http://localhost:4444/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"1.0"}}}'
 ```
 
 ### Option 2: Standalone Phoenix
@@ -40,7 +44,8 @@ docker run -d \
   --name phoenix \
   -p 6006:6006 \
   -p 4317:4317 \
-  -v phoenix-data:/phoenix/data \
+  -e PHOENIX_WORKING_DIR=/data \
+  -v phoenix-data:/data \
   arizephoenix/phoenix:latest
 
 # Configure ContextForge
@@ -67,6 +72,36 @@ export OTEL_EXPORTER_OTLP_HEADERS="api-key=$PHOENIX_API_KEY"
 export OTEL_EXPORTER_OTLP_INSECURE=false
 ```
 
+### Option 4: Release bundle (self-contained)
+
+Release assets include a `docker save` archive holding both the ContextForge and
+the Phoenix images, plus a `docker-compose.yaml` that runs them together.
+
+```bash
+docker load < mcpgateway-<version>-linux-amd64.tar.gz
+
+# Compose reads secrets from a .env file in the compose file's directory, so
+# place a .env next to docker-compose.yaml, or export the variables first.
+export JWT_SECRET_KEY=...
+export AUTH_ENCRYPTION_SECRET=...
+export PLATFORM_ADMIN_PASSWORD=...
+export DEFAULT_USER_PASSWORD=...
+
+docker compose -f docker-compose.yaml up -d
+```
+
+The compose file is generated from `docker-compose.phoenix-bundle.yml` in the
+repository, with the gateway image pinned to the released version. It starts
+three services: `gateway`, `phoenix`, and `postgres`. Traces land in the Phoenix
+project `mcp-gateway`, set by `OTEL_RESOURCE_ATTRIBUTES`.
+
+To reuse an existing PostgreSQL instead of the bundled one, set
+`GATEWAY_DATABASE_URL`, for example:
+
+```bash
+export GATEWAY_DATABASE_URL=postgresql+psycopg://postgres:<password>@host.docker.internal:5432/mcp
+```
+
 ## Docker Compose Configuration
 
 The provided `docker-compose.with-phoenix.yml` includes:
@@ -88,7 +123,7 @@ services:
 
       - phoenix-data:/phoenix/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6006/health"]
+      test: ["CMD", "python3", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:6006/health', timeout=5).status == 200 else 1)"]
       interval: 10s
       timeout: 5s
       retries: 5

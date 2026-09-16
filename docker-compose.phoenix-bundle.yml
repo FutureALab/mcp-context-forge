@@ -1,0 +1,139 @@
+# =============================================================================
+# ContextForge + Arize Phoenix — self-contained observability bundle stack
+# =============================================================================
+#
+# Brings up the two images shipped in the release bundle, plus the database:
+#
+#   gateway    ${GATEWAY_IMAGE:-mcpgateway/mcpgateway:latest}   this service
+#   phoenix    arizephoenix/phoenix:latest                      trace backend
+#   postgres   postgres:16-alpine                               data store
+#
+# Quick start (after loading the release bundle):
+#
+#   docker load < mcpgateway-<version>-linux-amd64.tar.gz
+#
+#   # Compose reads secrets from a .env file in this file's directory. Either
+#   # place a .env next to this compose file, or export the variables first:
+#   export JWT_SECRET_KEY=...
+#   export AUTH_ENCRYPTION_SECRET=...
+#   export PLATFORM_ADMIN_PASSWORD=...
+#   export DEFAULT_USER_PASSWORD=...
+#
+#   docker compose -f docker-compose.phoenix-bundle.yml up -d
+#
+# Endpoints:
+#   http://localhost:4444        ContextForge gateway
+#   http://localhost:6006        Phoenix UI (traces land in the "mcp-gateway" project)
+#   http://localhost:4317        Phoenix OTLP gRPC ingest
+#
+# Notes:
+#   - This file is standalone. It does NOT extend docker-compose.yml, and it
+#     deliberately hardcodes the in-network hostnames (phoenix, postgres) so the
+#     host-oriented values in the repository .env (localhost:4317, localhost:5432)
+#     cannot leak into the containers.
+#   - Config validation rejects short or placeholder secrets, so the four
+#     variables above must hold real values.
+#   - To use an external database instead of the bundled postgres, set
+#     GATEWAY_DATABASE_URL, for example on macOS/Windows:
+#       GATEWAY_DATABASE_URL=postgresql+psycopg://postgres:<password>@host.docker.internal:5432/mcp
+#     The host-gateway alias below makes host.docker.internal resolve on Linux too.
+# =============================================================================
+
+name: mcpgateway-phoenix
+
+services:
+  # ---------------------------------------------------------------------------
+  # Arize Phoenix — OTLP collector, UI, and evaluation backend
+  # ---------------------------------------------------------------------------
+  phoenix:
+    image: ${PHOENIX_IMAGE:-arizephoenix/phoenix:latest}
+    container_name: phoenix
+    restart: unless-stopped
+    environment:
+      - PHOENIX_WORKING_DIR=/data
+      - PHOENIX_LOG_LEVEL=info
+    ports:
+      - "${PHOENIX_UI_PORT:-6006}:6006"     # Web UI + OTLP HTTP (/v1/traces)
+      - "${PHOENIX_OTLP_PORT:-4317}:4317"   # OTLP gRPC ingest
+    volumes:
+      - phoenix-data:/data
+    healthcheck:
+      # The Phoenix image ships neither curl nor wget, so probe with python.
+      test: ["CMD", "python3", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:6006/health', timeout=5).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — the gateway's data store
+  # Not part of the release bundle tar; swap to an external database with
+  # GATEWAY_DATABASE_URL when you already run one.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    container_name: mcpgateway-postgres-bundle
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme-in-production}  # pragma: allowlist secret
+      - POSTGRES_DB=${POSTGRES_DB:-mcp}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-mcp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # ContextForge gateway — OTLP tracing pointed at Phoenix
+  # ---------------------------------------------------------------------------
+  gateway:
+    image: ${GATEWAY_IMAGE:-mcpgateway/mcpgateway:latest}
+    container_name: mcpgateway
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      phoenix:
+        condition: service_healthy
+    extra_hosts:
+      # Lets GATEWAY_DATABASE_URL use host.docker.internal on Linux as well.
+      - "host.docker.internal:host-gateway"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=4444
+      - MCPGATEWAY_SKIP_MIGRATIONS=false
+
+      # Data store — override to reuse an existing PostgreSQL instance.
+      - DATABASE_URL=${GATEWAY_DATABASE_URL:-postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme-in-production}@postgres:5432/${POSTGRES_DB:-mcp}}
+
+      # Secrets — no defaults on purpose. Export them, or run from the repo root
+      # so the .env file supplies them. Config validation rejects short or
+      # placeholder values, so these must be real secrets.
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY is required - export it or run from the repository root where .env defines it}
+      - AUTH_ENCRYPTION_SECRET=${AUTH_ENCRYPTION_SECRET:?AUTH_ENCRYPTION_SECRET is required - export it or run from the repository root where .env defines it}
+      - PLATFORM_ADMIN_PASSWORD=${PLATFORM_ADMIN_PASSWORD:?PLATFORM_ADMIN_PASSWORD is required when EMAIL_AUTH_ENABLED is true - export it or run from the repository root where .env defines it}
+      - DEFAULT_USER_PASSWORD=${DEFAULT_USER_PASSWORD:?DEFAULT_USER_PASSWORD is required when EMAIL_AUTH_ENABLED is true - export it or run from the repository root where .env defines it}
+      # Only validated when API_ALLOW_BASIC_AUTH or DOCS_ALLOW_BASIC_AUTH is enabled.
+      - BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD:-}
+      - BASIC_AUTH_USER=${BASIC_AUTH_USER:-admin}
+
+      # OpenTelemetry export to Phoenix. Hostnames are the compose service names.
+      - OTEL_ENABLE_OBSERVABILITY=true
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://phoenix:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_INSECURE=true
+      - OTEL_SERVICE_NAME=mcp-gateway
+      - OTEL_RESOURCE_ATTRIBUTES=openinference.project.name=mcp-gateway,deployment.environment=docker
+      # High-volume SQL spans. Turn on to see individual queries in Phoenix.
+      - OTEL_SQLALCHEMY_INSTRUMENTATION_ENABLED=${OTEL_SQLALCHEMY_INSTRUMENTATION_ENABLED:-false}
+    ports:
+      - "${GATEWAY_PORT:-4444}:4444"
+
+volumes:
+  phoenix-data:
+  postgres-data:

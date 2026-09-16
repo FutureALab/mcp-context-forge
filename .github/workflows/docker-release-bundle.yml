@@ -2,33 +2,38 @@
 # Docker Release Bundle
 # ==============================================================================
 #
-# Builds the ContextForge container image from Containerfile and produces an
-# air-gapped install bundle: a `docker save` archive of the image, gzipped, with
-# a matching SHA-256 checksum.
+# Builds the ContextForge image from Containerfile, pulls the Arize Phoenix
+# trace backend, and packs both into one air-gapped install bundle: a single
+# `docker save` archive, gzipped, with a matching SHA-256 checksum. The release
+# also carries the compose file that runs the images together.
 #
 # Triggers:
 #   - release: published  Builds amd64 and arm64 bundles for the released tag and
-#                         attaches both archives to the GitHub Release.
+#                         attaches both archives plus docker-compose.yaml.
 #   - workflow_dispatch   Builds the requested architectures and keeps them as
-#                         workflow artifacts. Set `release_tag` to also attach the
-#                         archives to an existing release.
+#                         workflow artifacts. Set `release_tag` to also attach
+#                         them to an existing release.
 #
 # Registry pushes, multiplatform manifests, and Cosign signing stay in
 # docker-multiplatform.yml. This workflow never pushes to a registry.
 #
-# Bundle files, one pair per architecture:
-#   mcpgateway-<version>-linux-<arch>.tar.gz         docker save archive
+# Release assets:
+#   mcpgateway-<version>-linux-<arch>.tar.gz         docker save archive, both images
 #   mcpgateway-<version>-linux-<arch>.tar.gz.sha256  checksum
+#   docker-compose.yaml                              stack: gateway + phoenix + postgres
 #
 # Load and run on the target host:
 #   sha256sum --check mcpgateway-<version>-linux-amd64.tar.gz.sha256
 #   docker load < mcpgateway-<version>-linux-amd64.tar.gz
-#   docker compose up -d gateway
+#   docker compose -f docker-compose.yaml up -d
 #
-# Each archive carries four tags for the same image, so the compose default
-# `mcpgateway/mcpgateway:latest` resolves after `docker load`:
+# Images inside each archive:
 #   mcpgateway/mcpgateway:<version>   mcpgateway/mcpgateway:<tag>
 #   mcpgateway/mcpgateway:latest      ghcr.io/<owner>/<repo>:<tag>
+#   arizephoenix/phoenix:latest
+#
+# The compose file is generated from docker-compose.phoenix-bundle.yml, with the
+# gateway image pinned to the released version.
 # ==============================================================================
 
 name: Docker Release Bundle
@@ -60,6 +65,11 @@ on:
         required: true
         default: false
         type: boolean
+      phoenix_image:
+        description: "Arize Phoenix image to bundle"
+        required: false
+        default: "arizephoenix/phoenix:latest"
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.ref }}
@@ -85,6 +95,7 @@ jobs:
       matrix: ${{ steps.meta.outputs.matrix }}
       release_tag: ${{ steps.meta.outputs.release_tag }}
       upload_release: ${{ steps.meta.outputs.upload_release }}
+      phoenix_image: ${{ steps.meta.outputs.phoenix_image }}
     steps:
       - name: Resolve tag, version and build matrix
         id: meta
@@ -95,6 +106,7 @@ jobs:
           INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
           INPUT_SOURCE_REF: ${{ github.event.inputs.source_ref }}
           INPUT_ARCHITECTURES: ${{ github.event.inputs.architectures }}
+          INPUT_PHOENIX_IMAGE: ${{ github.event.inputs.phoenix_image }}
           REF: ${{ github.ref }}
           SHA: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
@@ -158,6 +170,12 @@ jobs:
           IMAGE_REPO="mcpgateway/mcpgateway"
           GHCR_IMAGE="ghcr.io/$(printf '%s' "${REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
 
+          # Trace backend bundled alongside the gateway image.
+          PHOENIX_IMAGE="${INPUT_PHOENIX_IMAGE:-arizephoenix/phoenix:latest}"
+          if [[ "${PHOENIX_IMAGE}" != *:* ]]; then
+            PHOENIX_IMAGE="${PHOENIX_IMAGE}:latest"
+          fi
+
           MATRIX="["
           SEP=""
           IFS=',' read -r -a ARCH_LIST <<< "${ARCHS}"
@@ -181,6 +199,7 @@ jobs:
             echo "matrix=${MATRIX}"
             echo "release_tag=${RELEASE_TARGET}"
             echo "upload_release=${UPLOAD_RELEASE}"
+            echo "phoenix_image=${PHOENIX_IMAGE}"
           } >> "${GITHUB_OUTPUT}"
 
           {
@@ -192,6 +211,7 @@ jobs:
             echo "| Version | ${VERSION} |"
             echo "| Checkout ref | ${CHECKOUT_REF} |"
             echo "| Architectures | ${ARCHS} |"
+            echo "| Phoenix image | ${PHOENIX_IMAGE} |"
             if [[ -n "${RELEASE_TARGET}" ]]; then
               echo "| Attach to release | ${RELEASE_TARGET} |"
             else
@@ -221,6 +241,7 @@ jobs:
       RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
       UPLOAD_RELEASE: ${{ needs.prepare.outputs.upload_release }}
       ENABLE_RUST: ${{ github.event.inputs.enable_rust == 'true' }}
+      PHOENIX_IMAGE: ${{ needs.prepare.outputs.phoenix_image }}
     steps:
       - name: Checkout code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -278,17 +299,52 @@ jobs:
           docker run --rm --entrypoint /bin/sh "${image}" -c 'test -x /app/docker-entrypoint.sh'
           echo "Gateway entrypoint present."
 
-      - name: Save the image to a gzipped archive
+      # Pull the Phoenix variant that matches this architecture and prove it
+      # starts, so a broken upstream image fails the release instead of the
+      # consumer. The Phoenix image has no shell, so probe /health from the runner.
+      - name: Pull and verify Arize Phoenix
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker pull --platform "${{ matrix.platform }}" "${PHOENIX_IMAGE}"
+          docker image inspect "${PHOENIX_IMAGE}" --format 'Size: {{.Size}} bytes | Arch: {{.Architecture}}'
+
+          container="phoenix-bundle-smoke"
+          docker rm -f "${container}" >/dev/null 2>&1 || true
+          docker run -d --name "${container}" -p 16006:6006 "${PHOENIX_IMAGE}" >/dev/null
+
+          ready="false"
+          for _ in $(seq 1 30); do
+            if curl -fsS --max-time 3 http://127.0.0.1:16006/health >/dev/null 2>&1; then
+              ready="true"
+              break
+            fi
+            sleep 2
+          done
+          docker logs "${container}" 2>&1 | tail -5 || true
+          docker rm -f "${container}" >/dev/null 2>&1 || true
+
+          if [[ "${ready}" != "true" ]]; then
+            echo "Phoenix container never answered /health on port 6006" >&2
+            exit 1
+          fi
+          echo "Phoenix ${PHOENIX_IMAGE} is healthy."
+
+      - name: Save both images to one gzipped archive
         shell: bash
         run: |
           set -euo pipefail
           archive="mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
 
+          # One archive holds the gateway and the trace backend, so an air-gapped
+          # host needs a single `docker load`.
           docker save \
             "${IMAGE_REPO}:${IMAGE_VERSION}" \
             "${IMAGE_REPO}:${IMAGE_TAG}" \
             "${IMAGE_REPO}:latest" \
             "${GHCR_IMAGE}:${IMAGE_TAG}" \
+            "${PHOENIX_IMAGE}" \
             | gzip -9 > "${archive}"
 
           # Confirm the archive is a docker save archive before publishing it.
@@ -299,6 +355,23 @@ jobs:
             echo "Archive ${archive} has no manifest.json; not a docker save archive." >&2
             exit 1
           fi
+
+          # Confirm both images are really inside, not only the gateway. The two
+          # image stores record tags in different files, so read both.
+          rm -rf /tmp/bundle-check && mkdir -p /tmp/bundle-check
+          tar -xzf "${archive}" -C /tmp/bundle-check manifest.json index.json 2>/dev/null || true
+          cat /tmp/bundle-check/manifest.json /tmp/bundle-check/index.json > /tmp/bundle-refs.txt 2>/dev/null || true
+          if [[ ! -s /tmp/bundle-refs.txt ]]; then
+            echo "Archive ${archive} carries no docker image metadata." >&2
+            exit 1
+          fi
+          for ref in "${IMAGE_REPO}:${IMAGE_VERSION}" "${PHOENIX_IMAGE}"; do
+            if ! grep -qF "${ref}" /tmp/bundle-refs.txt; then
+              echo "Archive ${archive} does not contain ${ref}." >&2
+              exit 1
+            fi
+            echo "Archive contains ${ref}"
+          done
 
           sha256sum "${archive}" | tee "${archive}.sha256"
           ls -lh "${archive}" "${archive}.sha256"
@@ -340,15 +413,66 @@ jobs:
             echo ""
             echo '```bash'
             echo "docker load < ${archive}"
-            echo "docker compose up -d gateway"
+            echo "docker compose -f docker-compose.yaml up -d"
             echo '```'
             echo ""
-            echo "Tags inside the archive:"
+            echo "Images inside the archive:"
             echo "- ${IMAGE_REPO}:${IMAGE_VERSION}"
             echo "- ${IMAGE_REPO}:${IMAGE_TAG}"
             echo "- ${IMAGE_REPO}:latest"
             echo "- ${GHCR_IMAGE}:${IMAGE_TAG}"
+            echo "- ${PHOENIX_IMAGE}"
+            echo ""
+            echo "Traces land in the Phoenix project \`mcp-gateway\` (http://localhost:6006)."
           } >> "${GITHUB_STEP_SUMMARY}"
+
+  # ---------------------------------------------------------------
+  # Attach the compose file that runs the bundled images together.
+  # Generated from docker-compose.phoenix-bundle.yml with the gateway
+  # image pinned to the released version, so it works right after
+  # `docker load`.
+  # ---------------------------------------------------------------
+  compose-asset:
+    name: Attach docker-compose.yaml
+    needs: [prepare, bundle]
+    if: needs.prepare.result == 'success' && needs.prepare.outputs.upload_release == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+          persist-credentials: false
+
+      - name: Generate docker-compose.yaml with the released tag
+        shell: bash
+        env:
+          IMAGE_REPO: ${{ needs.prepare.outputs.image_repo }}
+          IMAGE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          pinned="${IMAGE_REPO}:${IMAGE_VERSION}"
+          sed "s#\${GATEWAY_IMAGE:-mcpgateway/mcpgateway:latest}#${pinned}#" docker-compose.phoenix-bundle.yml > docker-compose.yaml
+          if ! grep -qF "image: ${pinned}" docker-compose.yaml; then
+            echo "Pinned gateway image not found in the generated compose file." >&2
+            exit 1
+          fi
+          echo "Generated docker-compose.yaml pinning ${pinned}"
+
+      - name: Attach the compose file to the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release upload "${RELEASE_TAG}" docker-compose.yaml \
+            --repo "${GITHUB_REPOSITORY}" \
+            --clobber
+          echo "Attached docker-compose.yaml to release ${RELEASE_TAG}."
 
   # ---------------------------------------------------------------
   # Fail the run when an expected archive is missing from the release.
@@ -357,7 +481,7 @@ jobs:
   # ---------------------------------------------------------------
   verify-release:
     name: Verify release assets
-    needs: [prepare, bundle]
+    needs: [prepare, bundle, compose-asset]
     if: >-
       always() &&
       needs.prepare.result == 'success' &&
@@ -391,6 +515,11 @@ jobs:
               fi
             done
           done < <(printf '%s' "${MATRIX}" | jq -r '.[].suffix')
+
+          if ! grep -qx "docker-compose.yaml" <<< "${assets}"; then
+            echo "::error::Release ${RELEASE_TAG} is missing asset docker-compose.yaml"
+            missing=1
+          fi
 
           if ((missing == 1)); then
             echo "Release ${RELEASE_TAG} is incomplete." >&2
