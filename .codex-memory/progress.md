@@ -17,3 +17,8 @@
 - Verified discovery of one tool and one resource, page reload, and A2A navigation.
 - Passed live JavaScript response checks after registration.
 - Temporary gateway and MCP services stopped after testing. Existing user data remains unchanged.
+
+## 2026-09-16 Team token page fix
+- Fixed three translation-name collisions in the dashboard and token list templates.
+- Added tests/live_gateway/test_team_token_page.py; four live request cases passed on port 4445. Ruff passed.
+- Verified the existing ordinary-user browser session renders the selected team and token list. Stopped the temporary service.
