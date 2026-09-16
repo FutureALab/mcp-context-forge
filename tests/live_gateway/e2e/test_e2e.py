@@ -52,7 +52,10 @@ from mcp.types import InitializeResult
 import pytest
 
 pw = pytest.importorskip("playwright", reason="playwright is not installed – pip install playwright")
-from playwright.sync_api import APIRequestContext, Playwright
+from playwright.sync_api import APIRequestContext, APIResponse, Playwright
+
+# Local
+from mcpgateway.services.mcp_apps import MCP_UI_EXTENSION
 
 # Local
 from tests.helpers.api_helpers import ApiTestHelper
@@ -1531,3 +1534,845 @@ class TestCrossTransportConsistency:
             text = result.content[0].text
             assert len(text) > 0, f"{tool_name} returned empty text"
             print(f"    -> {tool_name} = {text}")
+
+
+# ---------------------------------------------------------------------------
+# Virtual server lifecycle (#6519)
+# ---------------------------------------------------------------------------
+LIFECYCLE_PREFIX = "e2e-lifecycle"
+# Distinct from _PER_SERVER_ACCESS_SYNC_DEADLINE_SECONDS above: that one retries
+# only on exceptions, this one also retries while the catalog contents converge.
+_LIFECYCLE_CONVERGENCE_DEADLINE = float(os.getenv("MCP_E2E_CONVERGENCE_DEADLINE", "30.0"))
+_LIFECYCLE_MAX_PAGES = 50
+
+
+def _json_or_fail(resp: APIResponse, call: str) -> Any:
+    """Decode a JSON body, or fail with the status and body.
+
+    Args:
+        resp: Response to decode.
+        call: Endpoint description for the failure message.
+
+    Returns:
+        The decoded JSON body.
+
+    Raises:
+        AssertionError: The body is not JSON.
+    """
+    try:
+        return resp.json()
+    except Exception as exc:  # pylint: disable=broad-except
+        raise AssertionError(f"{call}: response is not JSON (HTTP {resp.status}): {resp.text()[:500]}") from exc
+
+
+def _list_all_servers(admin_api: APIRequestContext) -> list[dict[str, Any]]:
+    """Return every visible server. Follow the cursor to the last page.
+
+    ``GET /servers`` applies a default page size. An unpaginated read drops a
+    new server on a busy stack.
+
+    Args:
+        admin_api: Authenticated admin API context.
+
+    Returns:
+        All server records the caller can see.
+    """
+    servers: list[dict[str, Any]] = []
+    cursor: str | None = None
+    for _ in range(_LIFECYCLE_MAX_PAGES):
+        params: dict[str, Any] = {"include_pagination": "true"}
+        if cursor:
+            params["cursor"] = cursor
+        resp = admin_api.get("/servers", params=params)
+        assert resp.status == 200, f"GET /servers returned {resp.status}: {resp.text()[:500]}"
+        body = _json_or_fail(resp, "GET /servers")
+        if isinstance(body, list):
+            return body
+        servers.extend(body.get("servers") or [])
+        cursor = body.get("nextCursor")
+        if not cursor:
+            break
+    return servers
+
+
+def _audience_excludes_model(tool: dict[str, Any]) -> bool:
+    """Report whether a REST tool record hides the tool from the model.
+
+    Apply the audience rule to the REST payload. Do not call the production
+    filter: it reads this process's settings, which differ from the gateway's.
+    Import the extension key only, so the two cannot drift apart.
+
+    Args:
+        tool: Tool record from the REST API.
+
+    Returns:
+        True when the tool declares an audience without ``model``.
+    """
+    metadata = tool.get("extensionMetadata") or tool.get("extension_metadata") or {}
+    ui = metadata.get(MCP_UI_EXTENSION) if isinstance(metadata, dict) else None
+    if not isinstance(ui, dict):
+        return False
+    audience = ui.get("visibility", ui.get("audience"))
+    if audience is None:
+        return False
+    if isinstance(audience, str):
+        audience = [audience]
+    return "model" not in audience
+
+
+def _names_when_ready(probe: Any, expected: set[str]) -> set[str]:
+    """Poll ``probe`` until it returns ``expected``, or the deadline expires.
+
+    Retry only while the catalog converges. A successful response with the
+    wrong contents is not readiness.
+
+    Args:
+        probe: Callable that returns the observed names.
+        expected: The names to converge on.
+
+    Returns:
+        The last observed names.
+    """
+    deadline = time.monotonic() + _LIFECYCLE_CONVERGENCE_DEADLINE
+    observed: set[str] = set()
+    while True:
+        try:
+            observed = probe()
+            if observed == expected:
+                return observed
+        except (httpx.HTTPError, McpError, RuntimeError, TimeoutError):
+            if time.monotonic() >= deadline:
+                raise
+        if time.monotonic() >= deadline:
+            return observed
+        time.sleep(_PER_SERVER_ACCESS_RETRY_DELAY_SECONDS)
+
+
+def _server_mcp_base(server_id: str) -> str:
+    """Return the MCP base URL for a virtual server.
+
+    Args:
+        server_id: Virtual server id.
+
+    Returns:
+        The base URL that the MCP helpers extend with ``/mcp/``.
+    """
+    return f"{BASE_URL}/servers/{server_id}"
+
+
+class _OwnedObjects:
+    """Ids one test created. Teardown deletes them.
+
+    Membership is explicit. Teardown never selects an object by name prefix.
+    """
+
+    def __init__(self) -> None:
+        """Create empty id registries."""
+        self.server_ids: list[str] = []
+        self.resource_ids: list[str] = []
+
+
+def _register_id(registry: list[str], resp: APIResponse) -> None:
+    """Record a created id before the test asserts the response contract.
+
+    Parse failures stay silent here. The test raises its own assertion, and
+    a usable id must still reach teardown.
+
+    Args:
+        registry: List that collects ids for deletion.
+        resp: Creation response.
+    """
+    with suppress(Exception):
+        body = resp.json()
+        if isinstance(body, dict) and body.get("id"):
+            registry.append(body["id"])
+
+
+def _delete_owned(admin_api: APIRequestContext, path: str, object_id: str) -> str | None:
+    """Delete one owned object. Report an unexpected outcome.
+
+    Args:
+        admin_api: Authenticated admin API context.
+        path: Collection path, for example ``/servers``.
+        object_id: Id to delete.
+
+    Returns:
+        None when the object is gone. Otherwise a failure description.
+    """
+    try:
+        resp = admin_api.delete(f"{path}/{object_id}")
+    except Exception as exc:  # pylint: disable=broad-except
+        return f"DELETE {path}/{object_id} raised {type(exc).__name__}: {exc}"
+    if resp.status in (200, 204, 404):
+        return None
+    return f"DELETE {path}/{object_id} returned {resp.status}: {resp.text()[:200]}"
+
+
+@pytest.fixture(scope="module")
+def admin_token() -> str:
+    """Return an un-narrowed platform-admin JWT.
+
+    The admin bypass needs ``is_admin=true`` and ``teams=null`` together. The
+    post-delete 404 depends on it: RBAC checks ``servers.use`` before server
+    existence, so a narrowed token gets 403.
+
+    Returns:
+        A signed admin JWT.
+    """
+    return _make_jwt("admin@example.com", is_admin=True, teams=None)
+
+
+@pytest.fixture(scope="module")
+def lifecycle_tools(admin_api: APIRequestContext, streamable_http_gateway: dict) -> list[dict[str, Any]]:
+    """Return the gateway's enabled tools. Assert they are model-facing.
+
+    Args:
+        admin_api: Authenticated admin API context.
+        streamable_http_gateway: The suite's registered gateway.
+
+    Returns:
+        Enabled tool records for that gateway.
+    """
+    gateway_id = streamable_http_gateway["id"]
+    deadline = time.monotonic() + _PER_SERVER_ACCESS_SYNC_DEADLINE_SECONDS
+    tools: list[dict[str, Any]] = []
+    # Keep why the last poll returned nothing. A 401 or a 500 otherwise reads
+    # as an empty catalog, and the timeout names the wrong repair.
+    last_failure = ""
+    while True:
+        try:
+            resp = admin_api.get("/tools")
+            if resp.status == 200:
+                catalog = resp.json()
+                tools = [tool for tool in catalog if tool.get("gatewayId") == gateway_id and tool.get("enabled", True)]
+            else:
+                last_failure = f"last GET /tools returned HTTP {resp.status}: {resp.text()[:200]}"
+        except Exception as exc:  # pylint: disable=broad-except
+            last_failure = f"last GET /tools raised {type(exc).__name__}: {exc}"
+        if tools or time.monotonic() >= deadline:
+            break
+        time.sleep(_PER_SERVER_ACCESS_RETRY_DELAY_SECONDS)
+
+    detail = f"\n{last_failure}" if last_failure else ""
+    assert tools, f"Gateway {STREAMABLE_HTTP_GATEWAY_NAME!r} (id={gateway_id}) reported no enabled tools within {_PER_SERVER_ACCESS_SYNC_DEADLINE_SECONDS:.0f}s.{detail}"
+
+    hidden = sorted(tool.get("name", "?") for tool in tools if _audience_excludes_model(tool))
+    assert not hidden, f"Tools {hidden} declare an audience without 'model'. The gateway omits them from tools/list, but REST still reports them."
+    return tools
+
+
+@pytest.fixture
+def owned_objects(admin_api: APIRequestContext) -> Generator[_OwnedObjects, None, None]:
+    """Track objects one test creates. Delete them all.
+
+    Delete servers before resources, so no association outlives its parent.
+    Attempt every deletion. Collect the failures. Fail teardown once.
+
+    Args:
+        admin_api: Authenticated admin API context.
+
+    Yields:
+        The registry the factories write to.
+    """
+    owned = _OwnedObjects()
+    yield owned
+
+    failures: list[str] = []
+    for server_id in owned.server_ids:
+        failure = _delete_owned(admin_api, "/servers", server_id)
+        if failure:
+            failures.append(failure)
+    for resource_id in owned.resource_ids:
+        failure = _delete_owned(admin_api, "/resources", resource_id)
+        if failure:
+            failures.append(failure)
+
+    if failures:
+        pytest.fail("Cleanup did not remove every owned object:\n  " + "\n  ".join(failures))
+
+
+@pytest.fixture
+def create_server(admin_api: APIRequestContext, owned_objects: _OwnedObjects) -> Any:
+    """Return a factory that creates throwaway virtual servers.
+
+    The factory returns the raw response. The creation test asserts the status
+    and body itself.
+
+    Args:
+        admin_api: Authenticated admin API context.
+        owned_objects: Registry that receives created ids.
+
+    Returns:
+        A callable that creates a virtual server.
+    """
+
+    def _create(*, tool_ids: list[str] | None = None, resource_ids: list[str] | None = None, name: str | None = None, visibility: str = "public") -> APIResponse:
+        payload: dict[str, Any] = {
+            "server": {
+                "name": name or f"{LIFECYCLE_PREFIX}-srv-{uuid.uuid4().hex[:8]}",
+                "description": "Virtual server lifecycle E2E fixture",
+                "associated_tools": list(tool_ids or []),
+                "associated_resources": list(resource_ids or []),
+            },
+            "visibility": visibility,
+        }
+        resp = admin_api.post("/servers", data=payload)
+        _register_id(owned_objects.server_ids, resp)
+        return resp
+
+    return _create
+
+
+@pytest.fixture
+def create_resource(admin_api: APIRequestContext, owned_objects: _OwnedObjects) -> Any:
+    """Return a factory that creates throwaway resources.
+
+    The factory never sets ``uri_template``. ``list_server_resources`` filters
+    ``uri_template IS NULL``, so a template resource disappears from the
+    virtual server's catalog while REST still reports the association.
+
+    Args:
+        admin_api: Authenticated admin API context.
+        owned_objects: Registry that receives created ids.
+
+    Returns:
+        A callable that creates a resource.
+    """
+
+    def _create(*, visibility: str = "public") -> APIResponse:
+        uid = uuid.uuid4().hex[:8]
+        payload: dict[str, Any] = {
+            "resource": {
+                "uri": f"test://{LIFECYCLE_PREFIX}/{uid}",
+                "name": f"{LIFECYCLE_PREFIX}-res-{uid}",
+                "description": "Virtual server lifecycle E2E fixture",
+                "mimeType": "text/plain",
+                "content": f"lifecycle fixture {uid}",
+            },
+            "visibility": visibility,
+        }
+        resp = admin_api.post("/resources", data=payload)
+        _register_id(owned_objects.resource_ids, resp)
+        return resp
+
+    return _create
+
+
+class TestVirtualServerLifecycle:
+    """Create a virtual server, reach its catalog over MCP, then delete it."""
+
+    def test_create_server_returns_id_and_name(self, create_server: Any, lifecycle_tools: list[dict[str, Any]]) -> None:
+        """Creation returns 201 and echoes the requested identity and associations.
+
+        Args:
+            create_server: Factory that returns the raw creation response.
+            lifecycle_tools: The gateway's enabled tools.
+        """
+        expected_ids = {tool["id"] for tool in lifecycle_tools}
+        expected_names = {tool["name"] for tool in lifecycle_tools}
+
+        name = f"{LIFECYCLE_PREFIX}-create-check"
+        resp = create_server(tool_ids=sorted(expected_ids), name=name)
+
+        assert resp.status == 201, f"POST /servers returned {resp.status}: {resp.text()[:500]}"
+        server = _json_or_fail(resp, "POST /servers")
+
+        assert server.get("id"), f"created server has no id: {server}"
+        assert server["name"] == name
+        # The request sends tool ids. The response splits them: ids in
+        # associatedToolIds, names in associatedTools.
+        assert set(server["associatedToolIds"]) == expected_ids
+        assert set(server["associatedTools"]) == expected_names
+
+    def test_created_server_in_list(self, admin_api: APIRequestContext, create_server: Any, lifecycle_tools: list[dict[str, Any]]) -> None:
+        """The list and the detail endpoint both report a created server.
+
+        Args:
+            admin_api: Authenticated admin API context.
+            create_server: Factory that returns the raw creation response.
+            lifecycle_tools: The gateway's enabled tools.
+        """
+        resp = create_server(tool_ids=[tool["id"] for tool in lifecycle_tools])
+        assert resp.status == 201, f"POST /servers returned {resp.status}: {resp.text()[:500]}"
+        server_id = _json_or_fail(resp, "POST /servers")["id"]
+
+        listed = {entry["id"] for entry in _list_all_servers(admin_api)}
+        assert server_id in listed, f"server {server_id} is absent from GET /servers ({len(listed)} servers listed)"
+
+        detail = admin_api.get(f"/servers/{server_id}")
+        assert detail.status == 200, f"GET /servers/{server_id} returned {detail.status}: {detail.text()[:500]}"
+        assert _json_or_fail(detail, f"GET /servers/{server_id}")["id"] == server_id
+
+    def test_associated_tools_reachable_via_mcp(self, admin_api: APIRequestContext, create_server: Any, lifecycle_tools: list[dict[str, Any]], admin_token: str) -> None:
+        """The per-server REST records and the MCP catalog both report the associated tools.
+
+        Args:
+            admin_api: Authenticated admin API context.
+            create_server: Factory that returns the raw creation response.
+            lifecycle_tools: The gateway's enabled tools.
+            admin_token: Un-narrowed platform-admin JWT.
+        """
+        # Both expectations come from the gateway catalog. Deriving one view
+        # from the other lets a correlated REST and MCP defect pass.
+        assert len(lifecycle_tools) >= 2, "scoping check needs at least two tools on the gateway"
+
+        # Hold one tool back. A server that served the global catalog instead of
+        # its own would surface the held-back tool, and every assertion below
+        # would otherwise pass on a stack whose whole catalog is this gateway's.
+        held_back = lifecycle_tools[0]["name"]
+        associated = lifecycle_tools[1:]
+        expected_ids = {tool["id"] for tool in associated}
+        expected_names = {tool["name"] for tool in associated}
+
+        resp = create_server(tool_ids=sorted(expected_ids))
+        assert resp.status == 201, f"POST /servers returned {resp.status}: {resp.text()[:500]}"
+        server_id = _json_or_fail(resp, "POST /servers")["id"]
+
+        rest = admin_api.get(f"/servers/{server_id}/tools")
+        assert rest.status == 200, f"GET /servers/{server_id}/tools returned {rest.status}: {rest.text()[:500]}"
+        rest_tools = _json_or_fail(rest, f"GET /servers/{server_id}/tools")
+
+        rest_ids = {tool["id"] for tool in rest_tools}
+        rest_names = {tool["name"] for tool in rest_tools}
+        assert rest_ids == expected_ids, f"per-server REST tool ids mismatch: missing={sorted(expected_ids - rest_ids)} unexpected={sorted(rest_ids - expected_ids)}"
+        assert rest_names == expected_names, f"per-server REST tool names mismatch: missing={sorted(expected_names - rest_names)} unexpected={sorted(rest_names - expected_names)}"
+
+        assert held_back not in rest_names, f"held-back tool {held_back} appears in the per-server REST listing"
+
+        observed = _names_when_ready(lambda: {tool.name for tool in _mcp_tools_list(admin_token, server_url=_server_mcp_base(server_id))}, expected_names)
+        assert observed == expected_names, f"MCP tools/list mismatch: missing={sorted(expected_names - observed)} unexpected={sorted(observed - expected_names)}"
+        assert held_back not in observed, f"held-back tool {held_back} leaked into the scoped MCP catalog"
+
+    def test_associated_resources_reachable_via_mcp(self, admin_api: APIRequestContext, create_server: Any, create_resource: Any, admin_token: str) -> None:
+        """The per-server REST records and the MCP catalog both report the associated resource.
+
+        Args:
+            admin_api: Authenticated admin API context.
+            create_server: Factory that returns the raw creation response.
+            create_resource: Factory that returns the raw resource response.
+            admin_token: Un-narrowed platform-admin JWT.
+        """
+        resource_resp = create_resource()
+        assert resource_resp.status in (200, 201), f"POST /resources returned {resource_resp.status}: {resource_resp.text()[:500]}"
+        resource = _json_or_fail(resource_resp, "POST /resources")
+
+        # A second resource stays unassociated. Without it the assertions below
+        # pass even when the endpoint serves the global catalog, because the
+        # stack carries no other resources and the two sets coincide.
+        unassociated_resp = create_resource()
+        assert unassociated_resp.status in (200, 201), f"POST /resources returned {unassociated_resp.status}: {unassociated_resp.text()[:500]}"
+        unassociated_uri = _json_or_fail(unassociated_resp, "POST /resources")["uri"]
+
+        # The id and the URI both come from the creation response, so each view
+        # is checked against the resource as created.
+        expected_id = str(resource["id"])
+        expected_uris = {resource["uri"]}
+
+        resp = create_server(resource_ids=[expected_id])
+        assert resp.status == 201, f"POST /servers returned {resp.status}: {resp.text()[:500]}"
+        server_id = _json_or_fail(resp, "POST /servers")["id"]
+
+        rest = admin_api.get(f"/servers/{server_id}/resources")
+        assert rest.status == 200, f"GET /servers/{server_id}/resources returned {rest.status}: {rest.text()[:500]}"
+        rest_resources = _json_or_fail(rest, f"GET /servers/{server_id}/resources")
+
+        rest_ids = {str(entry["id"]) for entry in rest_resources}
+        rest_uris = {entry["uri"] for entry in rest_resources}
+        assert rest_ids == {expected_id}, f"per-server REST resource ids mismatch: got {sorted(rest_ids)}, expected {[expected_id]}"
+        assert rest_uris == expected_uris, f"per-server REST resource uris mismatch: got {sorted(rest_uris)}, expected {sorted(expected_uris)}"
+
+        assert unassociated_uri not in rest_uris, f"unassociated resource {unassociated_uri} appears in the per-server REST listing"
+
+        # MCP exposes resources by URI. The protocol carries no id.
+        observed = _names_when_ready(lambda: {str(resource_record.uri) for resource_record in _mcp_resources_list(admin_token, server_url=_server_mcp_base(server_id))}, expected_uris)
+        assert observed == expected_uris, f"MCP resources/list mismatch: missing={sorted(expected_uris - observed)} unexpected={sorted(observed - expected_uris)}"
+        assert unassociated_uri not in observed, f"unassociated resource {unassociated_uri} leaked into the scoped MCP catalog"
+
+    def test_delete_removes_from_list(self, admin_api: APIRequestContext, create_server: Any, lifecycle_tools: list[dict[str, Any]]) -> None:
+        """Deletion removes the server from the list and from the detail endpoint.
+
+        Args:
+            admin_api: Authenticated admin API context.
+            create_server: Factory that returns the raw creation response.
+            lifecycle_tools: The gateway's enabled tools.
+        """
+        resp = create_server(tool_ids=[tool["id"] for tool in lifecycle_tools])
+        assert resp.status == 201, f"POST /servers returned {resp.status}: {resp.text()[:500]}"
+        server_id = _json_or_fail(resp, "POST /servers")["id"]
+
+        assert server_id in {entry["id"] for entry in _list_all_servers(admin_api)}, "server is absent from GET /servers before deletion"
+
+        deleted = admin_api.delete(f"/servers/{server_id}")
+        assert deleted.status == 200, f"DELETE /servers/{server_id} returned {deleted.status}: {deleted.text()[:500]}"
+        assert _json_or_fail(deleted, f"DELETE /servers/{server_id}")["status"] == "success"
+
+        assert server_id not in {entry["id"] for entry in _list_all_servers(admin_api)}, "server is still present in GET /servers after deletion"
+
+        detail = admin_api.get(f"/servers/{server_id}")
+        assert detail.status == 404, f"GET /servers/{server_id} returned {detail.status} after deletion. Expected 404."
+
+    def test_deleted_server_denies_narrowed_token_before_existence(
+        self,
+        admin_api: APIRequestContext,
+        playwright: Playwright,
+        create_server: Any,
+        lifecycle_tools: list[dict[str, Any]],
+    ) -> None:
+        """A narrowed token is refused before the gateway checks server existence.
+
+        The RBAC check for ``servers.use`` runs ahead of ``_validate_server_id``,
+        so a caller without that permission never learns whether the server
+        exists. This pins the order that the admin-only 404 above depends on.
+
+        Args:
+            admin_api: Authenticated admin API context.
+            playwright: Playwright entrypoint fixture.
+            create_server: Factory that returns the raw creation response.
+            lifecycle_tools: The gateway's enabled tools.
+        """
+        user = _create_user_with_token(admin_api, playwright, f"{LIFECYCLE_PREFIX}-deny-{uuid.uuid4().hex[:8]}@test.com")
+        try:
+            resp = create_server(tool_ids=[tool["id"] for tool in lifecycle_tools])
+            assert resp.status == 201, f"POST /servers returned {resp.status}: {resp.text()[:500]}"
+            server_id = _json_or_fail(resp, "POST /servers")["id"]
+
+            deleted = admin_api.delete(f"/servers/{server_id}")
+            assert deleted.status == 200, f"DELETE /servers/{server_id} returned {deleted.status}: {deleted.text()[:500]}"
+
+            with httpx.Client(timeout=10.0) as client:
+                probe = client.post(
+                    f"{_server_mcp_base(server_id)}/mcp/",
+                    headers={
+                        "Authorization": f"Bearer {user['access_token']}",
+                        "Content-Type": "application/json",
+                        "Accept": "application/json, text/event-stream",
+                    },
+                    json=build_initialize(1),
+                )
+
+            assert probe.status_code == 403, f"narrowed token against a deleted server returned {probe.status_code}. Expected 403 from the servers.use check, not the 404 an admin sees: {probe.text[:300]}"
+        finally:
+            _cleanup_user(admin_api, user)
+
+    def test_mcp_endpoint_gone_after_delete(self, admin_api: APIRequestContext, create_server: Any, lifecycle_tools: list[dict[str, Any]], admin_token: str) -> None:
+        """The per-server MCP endpoint stops serving after deletion.
+
+        The gateway checks server existence with an uncached lookup, after the
+        delete commits. The 404 is immediate, so this check never retries. The
+        status applies to the admin identity and the Python transport: RBAC
+        checks ``servers.use`` first, so a narrowed token gets 403.
+
+        Args:
+            admin_api: Authenticated admin API context.
+            create_server: Factory that returns the raw creation response.
+            lifecycle_tools: The gateway's enabled tools.
+            admin_token: Un-narrowed platform-admin JWT.
+        """
+        expected_names = {tool["name"] for tool in lifecycle_tools}
+        resp = create_server(tool_ids=[tool["id"] for tool in lifecycle_tools])
+        assert resp.status == 201, f"POST /servers returned {resp.status}: {resp.text()[:500]}"
+        server_id = _json_or_fail(resp, "POST /servers")["id"]
+
+        observed = _names_when_ready(lambda: {tool.name for tool in _mcp_tools_list(admin_token, server_url=_server_mcp_base(server_id))}, expected_names)
+        assert observed == expected_names, f"MCP endpoint does not serve the expected tools before deletion: {sorted(observed)}"
+
+        deleted = admin_api.delete(f"/servers/{server_id}")
+        assert deleted.status == 200, f"DELETE /servers/{server_id} returned {deleted.status}: {deleted.text()[:500]}"
+
+        # A timeout or a connection error fails the test. An unreachable
+        # gateway must not read as a removed endpoint.
+        with httpx.Client(timeout=10.0) as client:
+            probe = client.post(
+                f"{_server_mcp_base(server_id)}/mcp/",
+                headers={
+                    "Authorization": f"Bearer {admin_token}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json, text/event-stream",
+                },
+                json=build_initialize(1),
+            )
+
+        assert probe.status_code == 404, f"initialize against the deleted server returned {probe.status_code}. Expected 404: {probe.text[:500]}"
+
+
+# ---------------------------------------------------------------------------
+# User lifecycle (#6520)
+# ---------------------------------------------------------------------------
+USER_PREFIX = "e2e-user"
+# Special-use TLDs such as .local and .invalid are rejected by email-validator,
+# so a test domain must be a normal one.
+USER_DOMAIN = "test.com"
+USER_PASSWORD = "E2eUser!9xQw2@Kp5z"  # pragma: allowlist secret
+
+
+def _user_email() -> str:
+    """Return a fresh test user address.
+
+    Returns:
+        An address in the suite's reserved namespace.
+    """
+    return f"{USER_PREFIX}-{uuid.uuid4().hex[:8]}@{USER_DOMAIN}"
+
+
+def _list_all_users(admin_api: APIRequestContext) -> list[dict[str, Any]]:
+    """Return every visible user.
+
+    ``limit=0`` asks for the whole set, which the endpoint documents as "0 means
+    all (no limit)". The default caps at ``pagination_default_page_size`` and
+    this endpoint never emits ``nextCursor``, so a default read drops users
+    with no signal that the list is short.
+
+    Args:
+        admin_api: Authenticated admin API context.
+
+    Returns:
+        All user records the caller can see.
+    """
+    resp = admin_api.get("/auth/email/admin/users", params={"limit": 0})
+    assert resp.status == 200, f"GET /auth/email/admin/users returned {resp.status}: {resp.text()[:500]}"
+    body = _json_or_fail(resp, "GET /auth/email/admin/users")
+    assert isinstance(body, list), f"GET /auth/email/admin/users returned {type(body).__name__}, expected a list; the paginated shape appears only with include_pagination"
+    return body
+
+
+def _user_role_tuples(admin_api: APIRequestContext, email: str) -> set[tuple[str, str, str, str]]:
+    """Return one user's role assignments as comparable tuples.
+
+    Args:
+        admin_api: Authenticated admin API context.
+        email: Address to query.
+
+    Returns:
+        ``(user_email, role_id, scope, scope_id)`` for each assignment.
+    """
+    resp = admin_api.get(f"/rbac/users/{email}/roles")
+    assert resp.status == 200, f"GET /rbac/users/{email}/roles returned {resp.status}: {resp.text()[:500]}"
+    assignments = _json_or_fail(resp, f"GET /rbac/users/{email}/roles")
+    # Every assignment must belong to the user queried. Without this the
+    # control-user check below is vacuous: no user can hold a tuple that
+    # carries a different user's address.
+    owners = {assignment.get("user_email") for assignment in assignments}
+    assert owners <= {email}, f"GET /rbac/users/{email}/roles returned assignments for {sorted(owners - {email})}"
+    return {(assignment["user_email"], assignment["role_id"], assignment.get("scope"), assignment.get("scope_id")) for assignment in assignments}
+
+
+class _OwnedUsers:
+    """Accounts this test created, and the assignments made to them.
+
+    Membership is explicit. A failed creation never registers ownership: a 409
+    means the account already existed, and deleting it would destroy an account
+    the test did not create.
+    """
+
+    def __init__(self) -> None:
+        """Initialise empty registries."""
+        self.emails: list[str] = []
+        self.role_assignments: list[tuple[str, str, str]] = []
+        self.team_memberships: list[tuple[str, str]] = []
+
+
+@pytest.fixture
+def owned_users(admin_api: APIRequestContext) -> Generator[_OwnedUsers, None, None]:
+    """Track accounts one test creates, delete them, and prove they are gone.
+
+    Deleting a user also removes that user's role assignments and team
+    memberships, so no separate revocation step runs here. Teardown verifies
+    the removals rather than assuming them, and reports every failure together.
+
+    Only a test that requested the module-scoped team can record a membership,
+    and a module-scoped fixture outlives every function-scoped teardown, so the
+    team is still present when the verification below runs. A team that had
+    already gone would answer 404, which is not evidence that a membership was
+    cleaned up, so the check treats only a readable member list as proof.
+
+    Args:
+        admin_api: Authenticated admin API context.
+
+    Yields:
+        The registry the factory writes to.
+    """
+    owned = _OwnedUsers()
+    yield owned
+
+    failures: list[str] = []
+
+    for email in owned.emails:
+        try:
+            resp = admin_api.delete(f"/auth/email/admin/users/{email}")
+        except Exception as exc:  # pylint: disable=broad-except
+            failures.append(f"DELETE /auth/email/admin/users/{email} raised {type(exc).__name__}: {exc}")
+            continue
+        # 404 covers the account test_delete_user_removes_from_list removed.
+        if resp.status not in (200, 204, 404):
+            failures.append(f"DELETE /auth/email/admin/users/{email} returned {resp.status}: {resp.text()[:200]}")
+
+    if owned.emails:
+        with suppress(Exception):
+            remaining = {user.get("email") for user in _list_all_users(admin_api)}
+            leaked = sorted(set(owned.emails) & remaining)
+            if leaked:
+                failures.append(f"users still present after cleanup: {leaked}")
+
+    for email, role_id, scope_id in owned.role_assignments:
+        with suppress(Exception):
+            if (email, role_id, "team", scope_id) in _user_role_tuples(admin_api, email):
+                failures.append(f"role assignment {role_id} on {email} survived cleanup")
+
+    for email, team_id in owned.team_memberships:
+        with suppress(Exception):
+            members = admin_api.get(f"/teams/{team_id}/members")
+            # A missing team proves nothing about the membership, so only a
+            # readable member list counts as verification.
+            if members.status == 200 and email in {member.get("email") for member in members.json()}:
+                failures.append(f"team membership for {email} on {team_id} survived cleanup")
+
+    if failures:
+        pytest.fail("User cleanup did not complete:\n  " + "\n  ".join(failures))
+
+
+@pytest.fixture
+def create_user(admin_api: APIRequestContext, owned_users: _OwnedUsers) -> Any:
+    """Return a factory that creates throwaway accounts.
+
+    The factory generates the address, so it hands back the request inputs
+    alongside the response. Tests assert against what was sent rather than
+    against what the reply echoes.
+
+    Args:
+        admin_api: Authenticated admin API context.
+        owned_users: Registry that receives created addresses.
+
+    Returns:
+        A callable returning ``(email, payload, response)``.
+    """
+
+    def _create(*, email: str | None = None, full_name: str = "E2E User", is_admin: bool = False, is_active: bool = True) -> tuple[str, dict[str, Any], APIResponse]:
+        address = email or _user_email()
+        payload: dict[str, Any] = {
+            "email": address,
+            "password": USER_PASSWORD,
+            "full_name": full_name,
+            "is_admin": is_admin,
+            "is_active": is_active,
+        }
+        resp = admin_api.post("/auth/email/admin/users", data=payload)
+        # Register on the status alone, before reading the body: the address is
+        # already known, so a malformed response cannot leak a created account.
+        if resp.status in (200, 201) and address not in owned_users.emails:
+            owned_users.emails.append(address)
+        return address, payload, resp
+
+    return _create
+
+
+class TestUserLifecycle:
+    """Admin creates a user, assigns an RBAC role, then deletes the user."""
+
+    def test_create_user_returns_expected_fields(self, create_user: Any) -> None:
+        """Creation returns 201 and echoes the requested account.
+
+        Args:
+            create_user: Factory returning ``(email, payload, response)``.
+        """
+        email, payload, resp = create_user(full_name="Lifecycle Create Check")
+
+        assert resp.status == 201, f"POST /auth/email/admin/users returned {resp.status}: {resp.text()[:500]}"
+        user = _json_or_fail(resp, "POST /auth/email/admin/users")
+
+        # Expectations come from the request, never from the response echo.
+        assert user["email"] == email
+        assert user["full_name"] == payload["full_name"]
+        assert user["is_active"] is True
+        assert user["is_admin"] is False
+
+    def test_created_user_in_list(self, admin_api: APIRequestContext, create_user: Any) -> None:
+        """Created accounts appear in the listing.
+
+        Several accounts are created so the assertion covers more than a single
+        row, and the read asks for the whole set rather than the capped default.
+
+        Args:
+            admin_api: Authenticated admin API context.
+            create_user: Factory returning ``(email, payload, response)``.
+        """
+        created: list[str] = []
+        for _ in range(3):
+            email, _payload, resp = create_user()
+            assert resp.status == 201, f"POST /auth/email/admin/users returned {resp.status}: {resp.text()[:500]}"
+            created.append(email)
+
+        listed = {user.get("email") for user in _list_all_users(admin_api)}
+        missing = sorted(set(created) - listed)
+        assert not missing, f"created users absent from GET /auth/email/admin/users: {missing}"
+
+    def test_assign_rbac_role_to_user(self, admin_api: APIRequestContext, create_user: Any, owned_users: _OwnedUsers, rbac_team: dict) -> None:
+        """A team-scoped role reaches the target user and no one else.
+
+        Team membership is set up here because the role is team-scoped. Managing
+        membership is #6522 and is not under test.
+
+        Args:
+            admin_api: Authenticated admin API context.
+            create_user: Factory returning ``(email, payload, response)``.
+            owned_users: Registry recording the assignment for cleanup checks.
+            rbac_team: The team the role is scoped to.
+        """
+        team_id = rbac_team["id"]
+        role_id = _resolve_role_id(admin_api, "developer")
+
+        target, _payload, resp = create_user()
+        assert resp.status == 201, f"POST /auth/email/admin/users returned {resp.status}: {resp.text()[:500]}"
+        control, _control_payload, control_resp = create_user()
+        assert control_resp.status == 201, f"POST /auth/email/admin/users returned {control_resp.status}: {control_resp.text()[:500]}"
+
+        member = admin_api.post(f"/teams/{team_id}/members", data={"email": target, "role": "member"})
+        assert member.status in (200, 201), f"POST /teams/{team_id}/members returned {member.status}: {member.text()[:500]}"
+        owned_users.team_memberships.append((target, team_id))
+
+        expected = (target, role_id, "team", team_id)
+        assert expected not in _user_role_tuples(admin_api, target), f"{target} already holds {role_id} on {team_id} before assignment"
+
+        assigned = admin_api.post(f"/rbac/users/{target}/roles", data={"role_id": role_id, "scope": "team", "scope_id": team_id})
+        assert assigned.status in (200, 201), f"POST /rbac/users/{target}/roles returned {assigned.status}: {assigned.text()[:500]}"
+        owned_users.role_assignments.append((target, role_id, team_id))
+
+        body = _json_or_fail(assigned, f"POST /rbac/users/{target}/roles")
+        assert body["user_email"] == target
+        assert body["role_id"] == role_id
+        assert body.get("scope") == "team"
+        assert body.get("scope_id") == team_id
+
+        assert expected in _user_role_tuples(admin_api, target), f"{target} does not hold {role_id} on {team_id} after assignment"
+        assert (control, role_id, "team", team_id) not in _user_role_tuples(admin_api, control), f"control user {control} holds an assignment it was never given"
+
+    def test_duplicate_create_returns_409(self, create_user: Any) -> None:
+        """Creating the same address twice is refused.
+
+        The second call reuses the address the first call registered, so it adds
+        no second ownership entry.
+
+        Args:
+            create_user: Factory returning ``(email, payload, response)``.
+        """
+        email, _payload, first = create_user()
+        assert first.status == 201, f"POST /auth/email/admin/users returned {first.status}: {first.text()[:500]}"
+
+        _email, _payload2, duplicate = create_user(email=email)
+        assert duplicate.status == 409, f"duplicate POST returned {duplicate.status}, expected 409: {duplicate.text()[:500]}"
+
+    def test_delete_user_removes_from_list(self, admin_api: APIRequestContext, create_user: Any) -> None:
+        """Deletion removes the account from the listing.
+
+        Args:
+            admin_api: Authenticated admin API context.
+            create_user: Factory returning ``(email, payload, response)``.
+        """
+        email, _payload, resp = create_user()
+        assert resp.status == 201, f"POST /auth/email/admin/users returned {resp.status}: {resp.text()[:500]}"
+
+        assert email in {user.get("email") for user in _list_all_users(admin_api)}, f"{email} is absent from the listing before deletion"
+
+        deleted = admin_api.delete(f"/auth/email/admin/users/{email}")
+        assert deleted.status in (200, 204), f"DELETE /auth/email/admin/users/{email} returned {deleted.status}: {deleted.text()[:500]}"
+
+        assert email not in {user.get("email") for user in _list_all_users(admin_api)}, f"{email} is still present in the listing after deletion"
