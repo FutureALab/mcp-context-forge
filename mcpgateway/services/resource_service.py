@@ -260,7 +260,9 @@ class ResourceService(BaseService):
         # 1. Many tests create ResourceService instances without calling initialize()
         # 2. MIME type registration is idempotent and safe at import time
         # 3. The _detect_mime_type_from_uri method depends on these registrations
-        mimetypes.init()
+        # Reinitialization discards application MIME overrides and reloads incorrect Windows registry mappings.
+        if not mimetypes.inited:
+            mimetypes.init()
         if not mimetypes.guess_type("file.md")[0]:
             mimetypes.add_type("text/markdown", ".md")
         if not mimetypes.guess_type("file.markdown")[0]:
