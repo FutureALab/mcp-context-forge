@@ -593,7 +593,7 @@ async def get_token_usage_stats(
     current_user=Depends(get_current_user_with_permissions),
     db: Session = Depends(get_db),
 ) -> TokenUsageStatsResponse:
-    """Get usage statistics for a specific token.
+    """Get token usage statistics for its owner or an unrestricted platform admin.
 
     Args:
         token_id: Token ID to get stats for
@@ -611,12 +611,14 @@ async def get_token_usage_stats(
 
     service = TokenCatalogService(db)
 
-    # Verify token ownership
-    token = await service.get_token(token_id, current_user["email"])
+    # Layer-1 exception: unrestricted platform admins can inspect token usage for oversight.
+    is_unrestricted_admin = current_user.get("is_admin") and "token_teams" in current_user and current_user["token_teams"] is None
+    owner_filter = None if is_unrestricted_admin else current_user["email"]
+    token = await service.get_token(token_id, owner_filter)
     if not token:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")
 
-    stats = await service.get_token_usage_stats(user_email=current_user["email"], token_id=token_id, days=days)
+    stats = await service.get_token_usage_stats(user_email=token.user_email, token_id=token_id, days=days)
 
     db.commit()
     db.close()

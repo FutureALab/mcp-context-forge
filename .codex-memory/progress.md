@@ -22,3 +22,10 @@
 - Fixed three translation-name collisions in the dashboard and token list templates.
 - Added tests/live_gateway/test_team_token_page.py; four live request cases passed on port 4445. Ruff passed.
 - Verified the existing ordinary-user browser session renders the selected team and token list. Stopped the temporary service.
+
+## 2026-09-16 Token usage oversight
+- Reproduced usage button HTTP 404: team token cards can include another user's token, but usage endpoint required ownership.
+- Usage endpoint now permits unrestricted platform admins; aggregation uses the token owner's email.
+- Ordinary and narrowed-admin callers retain ownership checks. Anonymous and API-token callers remain denied.
+- Two unittest cases with eight access scenarios passed; Ruff passed. Live browser displayed four requests for the member token.
+- Stopped temporary gateway on port 4445. Existing gateway requires restart.
