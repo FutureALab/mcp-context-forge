@@ -6205,6 +6205,70 @@ Hello &#123;&#123; name &#125;&#125;, welcome to &#123;&#123; company &#125;&#12
         </div>
         {% endif %}
 
+        {% if user_permissions.can_create_user %}
+        <!-- Bulk Import Users from Excel -->
+        <div class="bg-white shadow rounded-lg mb-6 dark:bg-gray-800">
+          <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              {{ _("Bulk Import Users") }}
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              {{ _("Upload an Excel workbook (.xlsx). The first row must be a header containing the columns: email, full_name, password, is_admin.") }}
+            </p>
+            <ul class="text-sm text-gray-600 dark:text-gray-400 list-disc ml-5 mb-4">
+              <li>{{ _("email is required. full_name, password, and is_admin are optional.") }}</li>
+              <li>{{ _("Leave password empty to use the configured default password. Those users must change it at first login.") }}</li>
+              <li>{{ _("Rows whose email already exists are skipped.") }}</li>
+            </ul>
+
+            <!-- Bulk import messages -->
+            <div id="user-import-messages" class="mb-4"></div>
+
+            <form
+              id="bulk-import-users-form"
+              hx-post="{{ root_path }}/admin/users/bulk-import"
+              hx-encoding="multipart/form-data"
+              hx-target="#user-import-messages"
+              hx-swap="innerHTML"
+              hx-indicator="#user-import-loading"
+              class="space-y-4"
+            >
+              <div>
+                <label
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  for="bulk_import_users_file"
+                >
+                  {{ _("Excel file (.xlsx)") }}
+                </label>
+                <input
+                  type="file"
+                  id="bulk_import_users_file"
+                  name="file"
+                  accept=".xlsx"
+                  required
+                  class="mt-1 block w-full text-sm text-gray-700 dark:text-gray-300"
+                />
+              </div>
+              <div class="flex items-center justify-end space-x-3">
+                <span
+                  id="user-import-loading"
+                  class="htmx-indicator text-sm text-gray-500 dark:text-gray-400"
+                >
+                  {{ _("Importing...") }}
+                </span>
+                <button
+                  type="submit"
+                  id="bulk_import_users_submit"
+                  class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {{ _("Import Users") }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+        {% endif %}
+
         <!-- Users List -->
         <div class="bg-white shadow rounded-lg dark:bg-gray-800">
           <div class="px-4 py-5 sm:p-6">
@@ -12014,6 +12078,38 @@ class="fixed z-40 inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-ce
               messagesDiv.appendChild(errorContainer);
               setTimeout(() => { messagesDiv.innerHTML = ''; }, 5000);
             }
+          });
+        }
+
+        // Bulk user import (Excel) event handler
+        const bulkImportUsersForm = document.getElementById('bulk-import-users-form');
+        if (bulkImportUsersForm) {
+          bulkImportUsersForm.addEventListener('htmx:afterRequest', function(event) {
+            const messagesDiv = document.getElementById('user-import-messages');
+            if (!messagesDiv) {
+              return;
+            }
+            if (event.detail.successful) {
+              // The server rendered the per-row summary into the target; just clear the file input.
+              this.reset();
+              return;
+            }
+            // HTMX does not swap non-2xx responses, so surface the reason here.
+            let errorMsg = 'Import failed. Please check the file and try again.';
+            if (event.detail.xhr && event.detail.xhr.responseText) {
+              const tempDiv = document.createElement('div');
+              tempDiv.innerHTML = event.detail.xhr.responseText;
+              const errorDiv = tempDiv.querySelector('[data-error-message]');
+              if (errorDiv) {
+                errorMsg = errorDiv.getAttribute('data-error-message') || errorDiv.textContent.trim();
+              }
+            }
+            // Backend escapes the message; textContent keeps this XSS-safe if that changes.
+            const errorContainer = document.createElement('div');
+            errorContainer.className = 'bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded dark:bg-red-800 dark:border-red-600 dark:text-red-200';
+            errorContainer.textContent = `❌ ${errorMsg}`;
+            messagesDiv.innerHTML = '';
+            messagesDiv.appendChild(errorContainer);
           });
         }
 

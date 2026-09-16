@@ -50,6 +50,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials
 import httpx
+import openpyxl
 import orjson
 from pydantic import BaseModel, SecretStr, ValidationError
 from pydantic_core import ValidationError as CoreValidationError
@@ -168,7 +169,7 @@ from mcpgateway.services.audit_trail_service import get_audit_trail_service
 from mcpgateway.services.catalog_service import catalog_service, CatalogRegistrationPermissionError
 from mcpgateway.services.content_security import ContentSizeError, ContentTypeError, TemplateValidationError
 from mcpgateway.services.csrf_service import get_csrf_service
-from mcpgateway.services.email_auth_service import AuthenticationError, EmailAuthService, PasswordValidationError
+from mcpgateway.services.email_auth_service import AuthenticationError, EmailAuthService, EmailValidationError, PasswordValidationError, UserExistsError
 from mcpgateway.services.encryption_service import get_encryption_service
 from mcpgateway.services.export_service import ExportError, ExportService
 from mcpgateway.services.gateway_service import (
@@ -8306,6 +8307,363 @@ async def admin_create_user(
     except Exception as e:
         LOGGER.error(f"Error creating user by admin {user}: {e}")
         return HTMLResponse(content=f'<div class="text-red-500">Error creating user: {html.escape(str(e))}</div>', status_code=400)
+
+
+# ---------------------------------------------------------------------------
+# Bulk user import
+# ---------------------------------------------------------------------------
+# Spreadsheet header aliases. Keys are produced by
+# _normalize_bulk_user_header(), so "Full Name" and "full-name" both resolve
+# to full_name. Chinese headers are accepted alongside the English names.
+BULK_USER_IMPORT_COLUMN_ALIASES: Dict[str, str] = {
+    "email": "email",
+    "e_mail": "email",
+    "mail": "email",
+    "邮箱": "email",
+    "邮件": "email",
+    "full_name": "full_name",
+    "fullname": "full_name",
+    "name": "full_name",
+    "姓名": "full_name",
+    "password": "password",
+    "pass": "password",
+    "密码": "password",
+    "is_admin": "is_admin",
+    "isadmin": "is_admin",
+    "admin": "is_admin",
+    "是否管理员": "is_admin",
+}
+
+# Only email is mandatory; every other column falls back to a safe default.
+BULK_USER_IMPORT_REQUIRED_COLUMNS: List[str] = ["email"]
+
+# Hard bounds on the work one upload may trigger. The endpoint is admin-only,
+# but a bounded request keeps a mistyped or hostile workbook from exhausting
+# memory or the request timeout.
+BULK_USER_IMPORT_MAX_BYTES: int = 5 * 1024 * 1024
+BULK_USER_IMPORT_MAX_ROWS: int = 500
+
+BULK_USER_IMPORT_TRUE_VALUES = frozenset({"1", "true", "yes", "y", "on", "x", "是", "✓"})
+BULK_USER_IMPORT_FALSE_VALUES = frozenset({"", "0", "false", "no", "n", "off", "否"})
+
+
+def _normalize_bulk_user_header(value: Any) -> str:
+    """Normalize one spreadsheet header cell into a lookup key.
+
+    Args:
+        value: Raw header cell value read from the workbook.
+
+    Returns:
+        str: Lower-case key with dashes and spaces replaced by underscores.
+    """
+    text_value = "" if value is None else str(value)
+    return text_value.strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _coerce_bulk_user_bool(value: Any) -> bool:
+    """Interpret one ``is_admin`` spreadsheet cell as a boolean.
+
+    Args:
+        value: Raw cell value. Excel may deliver a bool, a number, or text.
+
+    Returns:
+        bool: ``True`` for a recognized affirmative value, otherwise ``False``.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    text_value = "" if value is None else str(value).strip().lower()
+    if text_value in BULK_USER_IMPORT_TRUE_VALUES:
+        return True
+    if text_value in BULK_USER_IMPORT_FALSE_VALUES:
+        return False
+    return False
+
+
+def parse_bulk_user_workbook(content: bytes) -> List[Dict[str, Any]]:
+    """Parse an Excel workbook into one dictionary per data row.
+
+    The first non-empty row is the header. Unmapped columns are ignored, and
+    rows whose mapped cells are all empty are dropped. The parser reads values
+    only, so formulas are never evaluated.
+
+    Args:
+        content: Raw ``.xlsx`` file bytes.
+
+    Returns:
+        List[Dict[str, Any]]: One dictionary per data row, keyed by the
+        canonical column names ``email``, ``full_name``, ``password``, and
+        ``is_admin``.
+
+    Raises:
+        ValueError: If the workbook cannot be read, has no worksheet, has no
+            header row, is missing a required column, or exceeds
+            ``BULK_USER_IMPORT_MAX_ROWS``.
+    """
+    try:
+        workbook = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    except Exception as exc:  # pylint: disable=broad-except
+        raise ValueError(f"Could not read the Excel file: {exc}") from exc
+
+    try:
+        sheet = workbook.active
+        if sheet is None:
+            raise ValueError("The Excel file has no worksheet.")
+
+        rows = sheet.iter_rows(values_only=True)
+
+        header_row = None
+        for row in rows:
+            if any(cell is not None and str(cell).strip() for cell in row):
+                header_row = row
+                break
+        if header_row is None:
+            raise ValueError("The Excel file is empty.")
+
+        columns: Dict[int, str] = {}
+        for index, cell in enumerate(header_row):
+            field = BULK_USER_IMPORT_COLUMN_ALIASES.get(_normalize_bulk_user_header(cell))
+            if field and field not in columns.values():
+                columns[index] = field
+
+        missing_columns = [name for name in BULK_USER_IMPORT_REQUIRED_COLUMNS if name not in columns.values()]
+        if missing_columns:
+            expected = ", ".join(sorted(set(BULK_USER_IMPORT_COLUMN_ALIASES.values())))
+            raise ValueError(f"Missing required column: {', '.join(missing_columns)}. The header row must contain at least: {expected}.")
+
+        parsed: List[Dict[str, Any]] = []
+        for row in rows:
+            values = {field: (row[index] if index < len(row) else None) for index, field in columns.items()}
+            if not any(value is not None and str(value).strip() for value in values.values()):
+                continue
+            if len(parsed) >= BULK_USER_IMPORT_MAX_ROWS:
+                raise ValueError(f"The Excel file has more than {BULK_USER_IMPORT_MAX_ROWS} data rows.")
+            parsed.append(values)
+        return parsed
+    finally:
+        workbook.close()
+
+
+def _bulk_user_import_error(message: str, status_code: int = 400) -> HTMLResponse:
+    """Build the error fragment for a rejected bulk import.
+
+    Args:
+        message: Human-readable reason. The response escapes it.
+        status_code: HTTP status to return. Defaults to 400.
+
+    Returns:
+        HTMLResponse: Red error fragment carrying ``data-error-message`` so the
+        Admin UI script can surface the reason for a non-2xx response.
+    """
+    return HTMLResponse(
+        content=f'<div class="text-red-500" data-error-message="{html.escape(message, quote=True)}"><strong>Import failed:</strong> {html.escape(message)}</div>',
+        status_code=status_code,
+    )
+
+
+def _render_bulk_user_import_summary(results: List[Dict[str, Any]], created: int, skipped: int, failed: int) -> str:
+    """Render the per-row bulk import outcome as an HTML fragment.
+
+    Args:
+        results: One entry per processed row, with ``row``, ``email``,
+            ``status``, and ``message`` keys.
+        created: Number of created accounts.
+        skipped: Number of skipped rows.
+        failed: Number of failed rows.
+
+    Returns:
+        str: HTML fragment holding a summary banner and a per-row table.
+    """
+    status_styles = {
+        "created": "text-green-700 dark:text-green-300",
+        "skipped": "text-yellow-700 dark:text-yellow-300",
+        "failed": "text-red-700 dark:text-red-300",
+    }
+
+    if failed:
+        banner_classes = "bg-red-50 border-red-300 text-red-700 dark:bg-red-800 dark:border-red-600 dark:text-red-200"
+    elif skipped:
+        banner_classes = "bg-yellow-50 border-yellow-300 text-yellow-800 dark:bg-yellow-800 dark:border-yellow-600 dark:text-yellow-200"
+    else:
+        banner_classes = "bg-green-50 border-green-300 text-green-700 dark:bg-green-800 dark:border-green-600 dark:text-green-200"
+
+    table_rows = []
+    for result in results:
+        email = html.escape(str(result.get("email") or ""))
+        status = html.escape(str(result.get("status") or ""))
+        message = html.escape(str(result.get("message") or ""))
+        style = status_styles.get(str(result.get("status")), "text-gray-700 dark:text-gray-300")
+        table_rows.append(
+            f'<tr class="border-t border-gray-200 dark:border-gray-700">'
+            f'<td class="px-2 py-1 text-right">{int(result.get("row") or 0)}</td>'
+            f'<td class="px-2 py-1 break-all">{email}</td>'
+            f'<td class="px-2 py-1 font-medium {style}">{status}</td>'
+            f'<td class="px-2 py-1">{message}</td>'
+            f"</tr>"
+        )
+
+    return (
+        '<div class="space-y-4">'
+        f'<div class="{banner_classes} px-4 py-3 rounded border text-sm">'
+        f"<strong>Import finished:</strong> {created} created, {skipped} skipped, {failed} failed ({len(results)} row(s))."
+        "</div>"
+        '<div class="overflow-x-auto">'
+        '<table class="min-w-full text-sm text-left text-gray-700 dark:text-gray-200">'
+        "<thead><tr>"
+        '<th class="px-2 py-1">Row</th>'
+        '<th class="px-2 py-1">Email</th>'
+        '<th class="px-2 py-1">Status</th>'
+        '<th class="px-2 py-1">Details</th>'
+        "</tr></thead>"
+        f"<tbody>{''.join(table_rows)}</tbody>"
+        "</table>"
+        "</div>"
+        "</div>"
+    )
+
+
+@admin_router.post("/users/bulk-import")
+@require_permission("admin.user_management", allow_admin_bypass=False)
+async def admin_bulk_import_users(
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_with_permissions),
+) -> HTMLResponse:
+    """Create multiple users from an uploaded Excel workbook.
+
+    The workbook's first non-empty row is the header. ``email`` is required;
+    ``full_name``, ``password``, and ``is_admin`` are optional. A row without a
+    password uses ``settings.default_user_password`` and must change it at first
+    login when ``settings.password_change_enforcement_enabled`` is on. Rows whose
+    email already exists are skipped. One failed row never stops the import.
+
+    Args:
+        request: FastAPI request object holding the multipart upload.
+        db: Database session.
+        user: Current authenticated user context, used for the audit trail.
+
+    Returns:
+        HTMLResponse: Per-row import summary on success, or an error fragment
+        with a non-2xx status when the upload is missing or unreadable.
+    """
+    if not settings.email_auth_enabled:
+        return _bulk_user_import_error("Email authentication is disabled", status_code=403)
+
+    try:
+        form = await request.form()
+    except Exception as exc:  # pylint: disable=broad-except
+        LOGGER.error("Bulk user import could not read the uploaded form: %s", exc)
+        return _bulk_user_import_error("Could not read the uploaded form data.")
+
+    upload = form.get("file")
+    if not isinstance(upload, StarletteUploadFile):
+        return _bulk_user_import_error("Select an .xlsx file to import.")
+
+    if Path(upload.filename or "").suffix.lower() not in {".xlsx", ".xlsm"}:
+        return _bulk_user_import_error("Only .xlsx files are supported.")
+
+    try:
+        content = await upload.read()
+    except Exception as exc:  # pylint: disable=broad-except
+        LOGGER.error("Bulk user import could not read the uploaded file: %s", exc)
+        return _bulk_user_import_error("Could not read the uploaded file.")
+
+    if not content:
+        return _bulk_user_import_error("The uploaded file is empty.")
+    if len(content) > BULK_USER_IMPORT_MAX_BYTES:
+        return _bulk_user_import_error(f"The file is larger than {BULK_USER_IMPORT_MAX_BYTES // (1024 * 1024)} MB.")
+
+    try:
+        rows = parse_bulk_user_workbook(content)
+    except ValueError as exc:
+        return _bulk_user_import_error(str(exc))
+
+    if not rows:
+        return _bulk_user_import_error("The workbook has no data rows.")
+
+    granted_by = get_user_email(user)
+    auth_service = EmailAuthService(db)
+
+    results: List[Dict[str, Any]] = []
+    created = 0
+    skipped = 0
+    failed = 0
+
+    for offset, row in enumerate(rows):
+        # Row 1 holds the header, so the first data row is row 2 of the sheet.
+        row_number = offset + 2
+        email = str(row.get("email") or "").strip()
+        full_name = str(row.get("full_name") or "").strip()
+        raw_password = row.get("password")
+        password = "" if raw_password is None else str(raw_password).strip()
+        is_admin = _coerce_bulk_user_bool(row.get("is_admin"))
+
+        if not email:
+            failed += 1
+            results.append({"row": row_number, "email": "", "status": "failed", "message": "Email is required."})
+            continue
+
+        force_password_change = False
+        skip_password_validation = False
+        if password:
+            password_ok, password_error = validate_password_strength(password, email, is_admin)
+            if not password_ok:
+                failed += 1
+                results.append({"row": row_number, "email": email, "status": "failed", "message": password_error})
+                continue
+        else:
+            # The configured default password is the administrator's choice, so
+            # it is not re-checked against the strength policy. Those accounts
+            # must rotate it at first login.
+            password = settings.default_user_password.get_secret_value()
+            skip_password_validation = True
+            force_password_change = bool(settings.password_change_enforcement_enabled and getattr(settings, "require_password_change_for_default_password", True))
+
+        try:
+            existing = await auth_service.get_user_by_email(email)
+            if existing:
+                skipped += 1
+                results.append({"row": row_number, "email": email, "status": "skipped", "message": "User already exists."})
+                continue
+
+            await auth_service.create_user(
+                email=email,
+                password=password,
+                full_name=full_name or None,
+                is_admin=is_admin,
+                auth_provider="local",
+                granted_by=granted_by,
+                password_change_required=force_password_change,
+                skip_password_validation=skip_password_validation,
+            )
+            created += 1
+            results.append({"row": row_number, "email": email, "status": "created", "message": "Administrator account." if is_admin else ""})
+        except UserExistsError:
+            # create_user re-checks existence, so a concurrent insert lands here.
+            skipped += 1
+            results.append({"row": row_number, "email": email, "status": "skipped", "message": "User already exists."})
+        except (EmailValidationError, PasswordValidationError) as exc:
+            failed += 1
+            results.append({"row": row_number, "email": email, "status": "failed", "message": str(exc)})
+        except Exception as exc:  # pylint: disable=broad-except
+            LOGGER.error("Bulk user import failed for %s: %s", SecurityValidator.sanitize_log_message(email), exc)
+            failed += 1
+            results.append({"row": row_number, "email": email, "status": "failed", "message": "Could not create this user."})
+
+    LOGGER.info(
+        "Bulk user import by %s: %d created, %d skipped, %d failed",
+        SecurityValidator.sanitize_log_message(granted_by),
+        created,
+        skipped,
+        failed,
+    )
+
+    response = HTMLResponse(content=_render_bulk_user_import_summary(results, created, skipped, failed))
+    if created:
+        # Reuse the single-user refresh signal so the users list reloads.
+        response.headers["HX-Trigger"] = "userCreated"
+    return response
 
 
 @admin_router.get("/users/{user_email}/edit")
