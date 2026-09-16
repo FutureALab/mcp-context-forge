@@ -35,6 +35,7 @@ import html
 import json
 import logging
 import math
+import mimetypes
 import multiprocessing
 import os
 import re
@@ -13496,6 +13497,8 @@ app.mount("/_internal/mcp/transport", app=internal_trusted_mcp_transport.handle_
 
 # Conditional static files mounting and root redirect
 if UI_ENABLED:
+    # Windows registry mappings can classify JavaScript as text/plain, which browsers reject for modules.
+    mimetypes.add_type("text/javascript", ".js")
     # Mount static files for UI
     logger.info("Mounting static files - UI enabled")
     try:
