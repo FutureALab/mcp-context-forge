@@ -1,5 +1,21 @@
 # Current Task
 
+## 2026-09-17: Chinese imports, monitoring, and renewable API keys
+
+- Completed the four requested changes, including existing uncommitted implementation work.
+- User imports provide Chinese guidance, a workbook template, and shared-team assignment with administrator scope checks.
+- All issuance interfaces offer 180 and 365 days. Matching active server keys extend their existing expiry.
+- Renewal requires the same owner, team, server, permissions, and restrictions. Expired or disabled keys get replacements.
+- Creation responses expose `renewed`; renewal returns an empty raw key. Existing key material stays unchanged.
+- Signed-expiry fallback validates signature, issuer, audience, exact registry hash, active status, server scope, and revocation.
+- Monitoring provides six charts and includes unused active accounts. Tool trends fill empty UTC buckets with zero.
+- Passed 61 Python tests, 97 JavaScript tests, lint, production build, and live gateway integration.
+- Verified real tool calls and continued MCP access after signed JWT expiry on a registry-renewed key.
+- Browser verification covers Chinese import controls, shared-team choices, and populated monitoring charts.
+- Full repository gates remain unrun; this Windows environment lacks `make` and several required analysis tools.
+- Existing `.env.example`, `.codegraph`, and `.cursor` changes remain outside this feature commit.
+
+
 ## 2026-09-17: Expired session and Excel layout follow-up
 
 - Screenshot confirms an expired login token blocked the MCP list; the loading placeholder survived the failed request.

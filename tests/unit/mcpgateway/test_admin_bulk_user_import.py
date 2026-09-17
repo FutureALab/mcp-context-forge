@@ -156,19 +156,19 @@ def test_parse_workbook_ignores_unmapped_columns():
 
 def test_parse_workbook_requires_the_email_column():
     """Reject a workbook whose header has no email column."""
-    with pytest.raises(ValueError, match="Missing required column: email"):
+    with pytest.raises(ValueError, match="缺少必填列：邮箱"):
         admin.parse_bulk_user_workbook(_workbook_bytes([["full_name", "password"], ["Alice", "StrongPass1!"]]))  # pragma: allowlist secret
 
 
 def test_parse_workbook_rejects_an_unreadable_file():
     """Reject bytes that are not a workbook."""
-    with pytest.raises(ValueError, match="Could not read the Excel file"):
+    with pytest.raises(ValueError, match="无法读取 Excel 文件"):
         admin.parse_bulk_user_workbook(b"this is not a workbook")
 
 
 def test_parse_workbook_rejects_an_empty_workbook():
     """Reject a workbook with no header row."""
-    with pytest.raises(ValueError, match="The Excel file is empty."):
+    with pytest.raises(ValueError, match="Excel 文件为空。"):
         admin.parse_bulk_user_workbook(_workbook_bytes([]))
 
 
@@ -176,7 +176,7 @@ def test_parse_workbook_enforces_the_row_cap(monkeypatch):
     """Stop reading once the configured row cap is exceeded."""
     monkeypatch.setattr(admin, "BULK_USER_IMPORT_MAX_ROWS", 2)
 
-    with pytest.raises(ValueError, match="more than 2 data rows"):
+    with pytest.raises(ValueError, match="不能超过 2 行"):
         admin.parse_bulk_user_workbook(_workbook_bytes([["email"], ["a@example.com"], ["b@example.com"], ["c@example.com"]]))
 
 
@@ -247,19 +247,40 @@ async def test_bulk_import_is_disabled_without_email_auth(mock_db, allow_permiss
     response = await admin.admin_bulk_import_users(request=_request(_upload(_workbook_bytes([["email"], ["a@example.com"]]))), db=mock_db, user={"email": "admin@example.com"})
 
     assert response.status_code == 403
-    assert "Email authentication is disabled" in response.body.decode()
+    assert "邮箱认证未启用" in response.body.decode()
 
 
 # ---------------------------------------------------------------------------
 # Upload validation
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
+@pytest.mark.parametrize("scope", [[], ["other-team"]])
+async def test_team_assignment_denies_narrowed_admin(mock_db, allow_permission, auth_service, scope):
+    """Reject team assignment outside unrestricted platform administration."""
+    request = _request(_upload(_workbook_bytes([["邮箱", "团队 ID"], ["a@example.com", "target-team"]])))
+    response = await admin.admin_bulk_import_users(request=request, db=mock_db, user={"email": "admin@example.com", "is_admin": True, "token_teams": scope})
+    assert response.status_code == 403
+    auth_service.create_user.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("team", [None, SimpleNamespace(is_active=False, is_personal=False), SimpleNamespace(is_active=True, is_personal=True)])
+async def test_team_assignment_denies_invalid_team(mock_db, allow_permission, auth_service, team):
+    """Reject missing, disabled, and personal teams before creating users."""
+    mock_db.get.return_value = team
+    request = _request(_upload(_workbook_bytes([["邮箱", "团队 ID"], ["a@example.com", "target-team"]])))
+    response = await admin.admin_bulk_import_users(request=request, db=mock_db, user={"email": "admin@example.com", "is_admin": True, "token_teams": None})
+    assert response.status_code == 400
+    auth_service.create_user.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_bulk_import_rejects_a_missing_file(mock_db, allow_permission):
     """Reject a submission with no file field."""
     response = await admin.admin_bulk_import_users(request=_request(None), db=mock_db, user={"email": "admin@example.com"})
 
     assert response.status_code == 400
-    assert "Select an .xlsx file" in response.body.decode()
+    assert "请选择 Excel 文件" in response.body.decode()
 
 
 @pytest.mark.asyncio
@@ -268,7 +289,7 @@ async def test_bulk_import_rejects_a_non_xlsx_file(mock_db, allow_permission):
     response = await admin.admin_bulk_import_users(request=_request(_upload(b"email\na@example.com", filename="users.csv")), db=mock_db, user={"email": "admin@example.com"})
 
     assert response.status_code == 400
-    assert "Only .xlsx files are supported." in response.body.decode()
+    assert "仅支持 Excel 文件。" in response.body.decode()
 
 
 @pytest.mark.asyncio
@@ -277,7 +298,7 @@ async def test_bulk_import_rejects_an_empty_file(mock_db, allow_permission):
     response = await admin.admin_bulk_import_users(request=_request(_upload(b"")), db=mock_db, user={"email": "admin@example.com"})
 
     assert response.status_code == 400
-    assert "empty" in response.body.decode()
+    assert "为空" in response.body.decode()
 
 
 @pytest.mark.asyncio
@@ -288,7 +309,7 @@ async def test_bulk_import_rejects_an_oversized_file(mock_db, allow_permission, 
     response = await admin.admin_bulk_import_users(request=_request(_upload(b"x" * 32)), db=mock_db, user={"email": "admin@example.com"})
 
     assert response.status_code == 400
-    assert "larger than" in response.body.decode()
+    assert "不能超过" in response.body.decode()
 
 
 @pytest.mark.asyncio
@@ -297,7 +318,7 @@ async def test_bulk_import_reports_an_unparseable_workbook(mock_db, allow_permis
     response = await admin.admin_bulk_import_users(request=_request(_upload(b"not a workbook")), db=mock_db, user={"email": "admin@example.com"})
 
     assert response.status_code == 400
-    assert "Could not read the Excel file" in response.body.decode()
+    assert "无法读取 Excel 文件" in response.body.decode()
 
 
 @pytest.mark.asyncio
@@ -306,7 +327,7 @@ async def test_bulk_import_rejects_a_workbook_without_data_rows(mock_db, allow_p
     response = await admin.admin_bulk_import_users(request=_request(_upload(_workbook_bytes([["email", "full_name"]]))), db=mock_db, user={"email": "admin@example.com"})
 
     assert response.status_code == 400
-    assert "no data rows" in response.body.decode()
+    assert "没有用户数据" in response.body.decode()
 
 
 # ---------------------------------------------------------------------------
@@ -328,7 +349,7 @@ async def test_bulk_import_creates_every_row_and_reports_a_summary(mock_db, allo
 
     assert response.status_code == 200
     assert response.headers["HX-Trigger"] == "userCreated"
-    assert "2 created, 0 skipped, 0 failed" in body
+    assert "新增 2，跳过 0，失败 0" in body
     assert body.count("<tr") == 3  # header row plus two data rows
     assert auth_service.create_user.await_count == 2
 
@@ -352,8 +373,8 @@ async def test_bulk_import_skips_existing_users(mock_db, allow_permission, passw
     body = response.body.decode()
 
     assert response.status_code == 200
-    assert "0 created, 1 skipped, 0 failed" in body
-    assert "User already exists." in body
+    assert "新增 0，跳过 1，失败 0" in body
+    assert "账号已存在" in body
     assert "HX-Trigger" not in response.headers
     auth_service.create_user.assert_not_awaited()
 
@@ -365,7 +386,7 @@ async def test_bulk_import_treats_a_creation_race_as_skipped(mock_db, allow_perm
 
     response = await admin.admin_bulk_import_users(request=_request(_upload(_workbook_bytes([["email"], ["a@example.com"]]))), db=mock_db, user={"email": "admin@example.com"})
 
-    assert "0 created, 1 skipped, 0 failed" in response.body.decode()
+    assert "新增 0，跳过 1，失败 0" in response.body.decode()
 
 
 @pytest.mark.asyncio
@@ -378,7 +399,7 @@ async def test_bulk_import_fails_a_row_with_a_weak_password(mock_db, allow_permi
     )  # pragma: allowlist secret
     body = response.body.decode()
 
-    assert "0 created, 0 skipped, 1 failed" in body
+    assert "新增 0，跳过 0，失败 1" in body
     assert "Password is too weak" in body
     auth_service.create_user.assert_not_awaited()
 
@@ -397,8 +418,8 @@ async def test_bulk_import_fails_a_row_without_an_email(mock_db, allow_permissio
     response = await admin.admin_bulk_import_users(request=_request(_upload(content)), db=mock_db, user={"email": "admin@example.com"})
     body = response.body.decode()
 
-    assert "1 created, 0 skipped, 1 failed" in body
-    assert "Email is required." in body
+    assert "新增 1，跳过 0，失败 1" in body
+    assert "邮箱不能为空。" in body
     assert auth_service.create_user.await_count == 1
 
 
@@ -432,8 +453,8 @@ async def test_bulk_import_keeps_going_after_a_row_fails(mock_db, allow_permissi
     response = await admin.admin_bulk_import_users(request=_request(_upload(content)), db=mock_db, user={"email": "admin@example.com"})
     body = response.body.decode()
 
-    assert "1 created, 0 skipped, 1 failed" in body
-    assert "Could not create this user." in body
+    assert "新增 1，跳过 0，失败 1" in body
+    assert "创建用户或分配团队失败" in body
     assert auth_service.create_user.await_count == 2
 
 

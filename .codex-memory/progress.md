@@ -71,3 +71,15 @@
 - Live gateway integration passed, including authenticated list retrieval, actual Excel import, issuance, and MCP calls.
 - Browser confirmed list selection and final layout after login. ESLint and Vite build passed.
 - Stopped isolated services and verified ports 4445 and 9009 are closed.
+
+## 2026-09-17: Import, expiry, and monitoring refinement
+
+- Added Chinese user-import guidance, Excel template download, and shared-team assignment.
+- Added 180/365-day choices and stable-key renewal across member, bulk, and token API issuance.
+- Exposed renewal status in API responses and retained exact existing key material.
+- Added six monitoring charts, compact legends, horizontal rankings, and zero-filled tool trends.
+- Passed 61 Python regressions, 97 JavaScript regressions, Ruff, ESLint, and the Vite production build.
+- Live gateway tests passed template import, duplicate handling, team assignment, both token APIs, and real MCP tool calls.
+- A registry-renewed key passed live MCP authentication after its signed JWT expiration.
+- Browser verified populated charts and Chinese import controls. Full repository gates remain unrun.
+- Stopped isolated gateway and upstream MCP test processes after validation.

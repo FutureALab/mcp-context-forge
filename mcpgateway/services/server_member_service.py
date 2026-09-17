@@ -52,7 +52,7 @@ async def member_server(db: Session, email: str, team_id: str, server_id: str) -
 
 
 async def issue_member_key(db: Session, email: str, team_id: str, server_id: str, days: int, actor: str) -> dict:
-    """Issue a distinct key with only the recipient's MCP permissions."""
+    """Issue or renew a key with only the recipient's MCP permissions."""
     user, server = await member_server(db, email, team_id, server_id)
     permissions = await PermissionService(db).get_user_permissions(user.email, team_id=team_id, token_teams=[team_id])
     allowed = [p for p in MCP_PERMISSIONS if p in permissions or "*" in permissions or p.split(".")[0] + ".*" in permissions]
@@ -70,9 +70,18 @@ async def issue_member_key(db: Session, email: str, team_id: str, server_id: str
         caller_token_teams_provided=True,
         caller_email=user.email,
     )
-    result = {"email": user.email, "team_id": team_id, "server_id": server.id, "server_name": server.name, "token_id": record.id, "api_key": raw, "expires_at": record.expires_at.isoformat()}
+    result = {
+        "email": user.email,
+        "team_id": team_id,
+        "server_id": server.id,
+        "server_name": server.name,
+        "token_id": record.id,
+        "api_key": raw,
+        "renewed": not bool(raw),
+        "expires_at": record.expires_at.isoformat() if record.expires_at else None,
+    }
     get_audit_trail_service().log_action(
-        action="create",
+        action="update" if not raw else "create",
         resource_type="token",
         resource_id=record.id,
         user_id=actor,

@@ -55,6 +55,12 @@ test("self-service sends passwords and invalidates changed account input", async
     team_id: "my-team",
     server_id: "public-server",
   });
+  fetchMock.mockResolvedValueOnce(response({ renewed: true, api_key: "", expires_at: "2027-10-17T12:00:00Z" }));
+  el("member-days").value = "365";
+  el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
+  await vi.waitFor(() => expect(document.body.textContent).toContain("原 API Key 已续期至"));
+  expect(el("member-key-value").value).toBe("");
+  expect(JSON.parse(fetchMock.mock.calls[2][1].body).days).toBe(365);
   el("member-password").dispatchEvent(new Event("input"));
   expect(el("member-team").disabled).toBe(true);
   expect(el("issue-member-key").disabled).toBe(true);
@@ -136,8 +142,12 @@ test("monitoring renders charts, methods and formatted times; member actions tar
   el("server-members-dialog").showModal = vi.fn();
   await import("../../../mcpgateway/static/member-usage.js");
   document.dispatchEvent(new CustomEvent("member-usage:open"));
-  await vi.waitFor(() => expect(charts.length).toBe(2));
-  expect(charts.map((c) => c.type)).toEqual(["line", "bar"]);
+  await vi.waitFor(() => expect(charts.length).toBe(6));
+  expect(charts.map((c) => c.type)).toEqual(["line", "bar", "bar", "bar", "bar", "doughnut"]);
+  expect(charts[1].options.indexAxis).toBe("y");
+  expect(charts[1].options.plugins.legend.display).toBe(false);
+  expect(charts[0].options.plugins.legend.labels.usePointStyle).toBe(true);
+  expect(charts[4].options.scales.x.max).toBe(100);
   expect(el("recent-table").textContent).toContain("tools/call");
   expect(el("recent-table").textContent).toContain("ping");
   expect(el("recent-table").querySelector("tbody td").textContent).toMatch(

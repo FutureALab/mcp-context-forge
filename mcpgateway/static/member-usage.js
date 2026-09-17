@@ -132,10 +132,10 @@
         if (v) params.set(key, v);
       });
       const data = await request(`/data?${params}`);
-      const s = data.summary;
+      const s = data.tool_summary || data.summary;
       el("usage-cards").replaceChildren();
       [
-        ["请求次数", s.calls],
+        ["工具调用次数", s.calls],
         ["成功率 %", s.success_rate],
         ["平均延时 ms", s.avg_ms],
         ["P95 延时 ms", s.p95_ms],
@@ -189,87 +189,219 @@
       charts.forEach((chart) => chart.destroy());
       charts = [];
       const dark = document.documentElement.classList.contains("dark");
-      const color = dark ? "#d1d5db" : "#4b5563";
-      const grid = dark ? "#374151" : "#e5e7eb";
-      const options = {
+      const color = dark ? "#cbd5e1" : "#475569";
+      const grid = dark ? "#334155" : "#edf0f4";
+      const blue = "#002FA7";
+      const baseOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { labels: { color } } },
-        scales: {
-          x: { ticks: { color }, grid: { color: grid } },
-          y: {
-            beginAtZero: true,
-            ticks: { color, precision: 0 },
-            grid: { color: grid },
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              color,
+              usePointStyle: true,
+              pointStyle: "circle",
+              boxWidth: 7,
+              boxHeight: 7,
+              pointStyleWidth: 7,
+              padding: 20,
+            },
           },
         },
       };
-      if (window.Chart) {
+      const axis = { ticks: { color }, grid: { color: grid } };
+      function draw(
+        id,
+        type,
+        labels,
+        datasets,
+        horizontal = false,
+        max = undefined
+      ) {
+        if (!window.Chart) return;
         charts.push(
-          new window.Chart(el("usage-trend"), {
-            type: "line",
-            data: {
-              labels: data.trend.map((d) => d.date.slice(5)),
-              datasets: [
-                {
-                  label: "调用次数",
-                  data: data.trend.map((d) => d.calls),
-                  borderColor: "#6366f1",
-                  backgroundColor: "#6366f120",
-                  fill: true,
-                  tension: 0.2,
-                },
-                {
-                  label: "错误次数",
-                  data: data.trend.map((d) => d.errors),
-                  borderColor: "#ef4444",
-                  tension: 0.2,
-                },
-              ],
-            },
-            options,
-          })
-        );
-        const ranked = [...data.methods]
-          .sort((a, b) => b.calls - a.calls)
-          .slice(0, 10);
-        charts.push(
-          new window.Chart(el("usage-method-chart"), {
-            type: "bar",
-            data: {
-              labels: ranked.map((m) =>
-                m.resource ? `${m.method} · ${m.resource}` : m.method
-              ),
-              datasets: [
-                {
-                  label: "调用次数",
-                  data: ranked.map((m) => m.calls),
-                  backgroundColor: "#6366f1",
-                  borderRadius: 4,
-                },
-              ],
-            },
+          new window.Chart(el(id), {
+            type,
+            data: { labels, datasets },
             options: {
-              ...options,
-              indexAxis: "y",
-              scales: {
-                ...options.scales,
-                x: {
-                  ...options.scales.x,
-                  beginAtZero: true,
-                  ticks: { color, precision: 0 },
+              ...baseOptions,
+              indexAxis: horizontal ? "y" : "x",
+              plugins: {
+                ...baseOptions.plugins,
+                legend: {
+                  ...baseOptions.plugins.legend,
+                  display: datasets.length > 1 || type === "doughnut",
                 },
               },
+              ...(type === "doughnut"
+                ? { cutout: "72%" }
+                : {
+                  scales: horizontal
+                    ? {
+                      x: { ...axis, beginAtZero: true, max },
+                      y: {
+                        type: "category",
+                        ticks: {
+                          color,
+                          callback(value) {
+                            const label = this.getLabelForValue(value);
+                            return label.length > 26
+                              ? label.slice(0, 24) + "…"
+                              : label;
+                          },
+                        },
+                        grid: { display: false },
+                      },
+                    }
+                    : {
+                      x: { ...axis, grid: { display: false } },
+                      y: {
+                        ...axis,
+                        beginAtZero: true,
+                        ticks: { color, precision: 0 },
+                      },
+                    },
+                }),
             },
           })
         );
       }
-      el("trend-empty").textContent = data.trend.length
+      const trend = data.tool_trend || data.trend;
+      draw(
+        "usage-trend",
+        "line",
+        trend.map((r) => r.date.replace("T", " ").slice(5, 16)),
+        [
+          {
+            label: "调用次数",
+            data: trend.map((r) => r.calls),
+            borderColor: blue,
+            backgroundColor: "#002FA712",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            borderWidth: 2,
+          },
+          {
+            label: "错误次数",
+            data: trend.map((r) => r.errors),
+            borderColor: "#e05260",
+            tension: 0.3,
+            pointRadius: 2,
+            borderWidth: 2,
+          },
+        ]
+      );
+      const ranked = data.methods
+        .filter((r) => r.method === "tools/call")
+        .sort((a, b) => b.calls - a.calls)
+        .slice(0, 10);
+      draw(
+        "usage-method-chart",
+        "bar",
+        ranked.map((r) => r.resource || "未采集工具名"),
+        [
+          {
+            label: "调用次数",
+            data: ranked.map((r) => r.calls),
+            backgroundColor: blue,
+            borderRadius: 5,
+            maxBarThickness: 22,
+          },
+        ],
+        true
+      );
+      const users = [...(data.tool_members || data.members)]
+        .filter((r) => r.calls > 0)
+        .sort((a, b) => b.calls - a.calls)
+        .slice(0, 10);
+      const labels = users.map((r) => r.name || r.email);
+      draw(
+        "usage-users",
+        "bar",
+        labels,
+        [
+          {
+            label: "调用次数",
+            data: users.map((r) => r.calls),
+            backgroundColor: blue,
+            borderRadius: 5,
+            maxBarThickness: 22,
+          },
+        ],
+        true
+      );
+      draw(
+        "usage-latency",
+        "bar",
+        labels,
+        [
+          {
+            label: "平均延时",
+            data: users.map((r) => r.avg_ms),
+            backgroundColor: blue,
+            borderRadius: 4,
+          },
+          {
+            label: "P95 延时",
+            data: users.map((r) => r.p95_ms),
+            backgroundColor: "#9aaff2",
+            borderRadius: 4,
+          },
+        ],
+        true
+      );
+      draw(
+        "usage-success",
+        "bar",
+        labels,
+        [
+          {
+            label: "成功率 %",
+            data: users.map((r) => r.success_rate),
+            backgroundColor: "#168577",
+            borderRadius: 5,
+            maxBarThickness: 22,
+          },
+        ],
+        true,
+        100
+      );
+      const states = data.member_states || {
+        active: users.length,
+        errors: 0,
+        idle: 0,
+      };
+      draw(
+        "usage-states",
+        "doughnut",
+        ["调用正常", "出现错误", "未调用"],
+        [
+          {
+            data: [states.active - states.errors, states.errors, states.idle],
+            backgroundColor: [blue, "#e05260", "#dce3ed"],
+            borderWidth: 0,
+          },
+        ]
+      );
+      el("member-state-cards").replaceChildren();
+      [
+        ["发生调用的用户", states.active],
+        ["出现错误的用户", states.errors],
+        ["未调用的用户", states.idle],
+      ].forEach(([label, value]) => {
+        const item = document.createElement("div");
+        item.textContent = `${label}  ${value}`;
+        el("member-state-cards").append(item);
+      });
+      el("trend-empty").textContent = trend.some((r) => r.calls > 0)
         ? ""
-        : "当前筛选条件下暂无调用数据";
-      el("methods-empty").textContent = data.methods.length
+        : "当前时段暂无已采集的工具调用";
+      el("methods-empty").textContent = ranked.length
         ? ""
-        : "当前筛选条件下暂无方法数据";
+        : "当前时段暂无工具调用；初始化和工具发现不计入排行";
       el("usage-timezone").textContent =
         `表格时间：${Intl.DateTimeFormat().resolvedOptions().timeZone} · YYYY-MM-dd HH:mm:ss；历史未采集的方法无法回填。`;
       const selected = el("filter-token").value;
@@ -349,8 +481,8 @@
           days: Number(el("bulk-days").value),
         });
         generated.push(...data.results);
-        el("download-keys").disabled = !generated.some(
-          (r) => r.status === "created"
+        el("download-keys").disabled = !generated.some((r) =>
+          ["created", "renewed"].includes(r.status)
         );
         return data;
       })

@@ -273,6 +273,36 @@ def extract_websocket_bearer_token(query_params: Any, headers: Any, *, query_par
     return None
 
 
+def _renewed_api_expiration(token: str, payload: dict) -> Optional[float]:
+    """Return registry expiry only for an exact, active, non-revoked API token."""
+    # First-Party
+    from mcpgateway.db import EmailApiToken, SessionLocal, TokenRevocation, utc_now
+
+    # Third-Party
+    from sqlalchemy import select
+
+    if payload.get("token_use") != "api" or not payload.get("jti"):
+        return None
+    with SessionLocal() as db:
+        record = db.execute(
+            select(EmailApiToken).where(
+                EmailApiToken.token_hash == hashlib.sha256(token.encode()).hexdigest(),
+                EmailApiToken.jti == payload["jti"],
+                EmailApiToken.server_id.is_not(None),
+                EmailApiToken.is_active.is_(True),
+                EmailApiToken.expires_at > utc_now(),
+                ~EmailApiToken.jti.in_(select(TokenRevocation.jti)),
+            )
+        ).scalar_one_or_none()
+        if record is None:
+            return None
+        # Standard
+        from datetime import timezone
+
+        expiry = record.expires_at
+        return expiry.replace(tzinfo=timezone.utc).timestamp() if expiry.tzinfo is None else expiry.timestamp()
+
+
 async def verify_jwt_token(token: str) -> dict:
     """Verify and decode a JWT token in a single pass.
 
@@ -321,7 +351,16 @@ async def verify_jwt_token(token: str) -> dict:
         if settings.jwt_issuer_verification:
             decode_kwargs["issuer"] = settings.jwt_issuer
 
-        payload = jwt.decode(token, **decode_kwargs)
+        try:
+            payload = jwt.decode(token, **decode_kwargs)
+        except jwt.ExpiredSignatureError:
+            # Signature, issuer, audience, and all other claims remain validated before registry lookup.
+            decode_kwargs["options"] = {**options, "verify_exp": False}
+            payload = jwt.decode(token, **decode_kwargs)
+            renewed_exp = await asyncio.to_thread(_renewed_api_expiration, token, payload)
+            if renewed_exp is None:
+                raise
+            payload["exp"] = renewed_exp
 
         # Log warning for tokens without expiration (when not required)
         if not settings.require_token_expiration and "exp" not in payload:

@@ -28,6 +28,7 @@ def summarize(rows: list) -> dict:
     outputs = [(r.mcp_details or {}).get("output_tokens") for r in rows]
     return {
         "calls": len(rows),
+        "tool_calls": sum((r.mcp_details or {}).get("method") == "tools/call" for r in rows),
         "errors": failed,
         "blocked": sum(bool(r.blocked) for r in rows),
         "success_rate": round((known - failed) / len(rows) * 100, 2) if rows else None,
@@ -42,7 +43,9 @@ def summarize(rows: list) -> dict:
 
 def member_usage_summary(db: Session, days: int, server_id: str | None, email: str | None, token_id: str | None, method: str | None) -> dict:
     """Group recent request records by member, token, MCP method, and UTC day."""
-    query = select(TokenUsageLog).where(TokenUsageLog.timestamp >= utc_now() - timedelta(days=days))
+    period_end = utc_now()
+    period_start = period_end - timedelta(days=days)
+    query = select(TokenUsageLog).where(TokenUsageLog.timestamp >= period_start, TokenUsageLog.timestamp <= period_end)
     tokens = db.execute(select(EmailApiToken)).scalars().all()
     token_map = {t.jti: t for t in tokens}
     if email:
@@ -63,6 +66,7 @@ def member_usage_summary(db: Session, days: int, server_id: str | None, email: s
     total = db.scalar(select(func.count()).select_from(query.subquery()))
     logs = db.execute(query.order_by(TokenUsageLog.timestamp.desc()).limit(50000)).scalars().all()
     members, methods, by_token, trend = (defaultdict(list) for _ in range(4))
+    tool_members, tool_trend = defaultdict(list), defaultdict(list)
     server_names = dict(db.execute(select(Server.id, Server.name)).all())
     recent = []
     for row in logs:
@@ -71,6 +75,10 @@ def member_usage_summary(db: Session, days: int, server_id: str | None, email: s
         match = re.search(r"/(?:servers|virtual-servers)/([^/]+)/", row.endpoint or "")
         actual_server = detail.get("server_id") or (match.group(1) if match else (token.server_id if token else None))
         members[row.user_email].append(row)
+        if detail.get("method") == "tools/call":
+            tool_members[row.user_email].append(row)
+            bucket = row.timestamp.strftime("%Y-%m-%dT%H:00:00") if days == 1 else row.timestamp.date().isoformat()
+            tool_trend[bucket].append(row)
         methods[(detail.get("method", "未采集 MCP 方法"), detail.get("resource", ""))].append(row)
         by_token[row.token_jti].append(row)
         trend[row.timestamp.date().isoformat()].append(row)
@@ -89,6 +97,12 @@ def member_usage_summary(db: Session, days: int, server_id: str | None, email: s
                     "blocked": row.blocked,
                 }
             )
+    bucket_time = period_start.replace(minute=0, second=0, microsecond=0) if days == 1 else period_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    while bucket_time <= period_end:
+        bucket = bucket_time.strftime("%Y-%m-%dT%H:00:00") if days == 1 else bucket_time.date().isoformat()
+        tool_trend.setdefault(bucket, [])
+        bucket_time += timedelta(hours=1) if days == 1 else timedelta(days=1)
+
     token_rows = []
     for token in tokens:
         if (server_id and token.server_id != server_id) or (email and token.user_email != email) or (token_id and token.id != token_id):
@@ -118,6 +132,8 @@ def member_usage_summary(db: Session, days: int, server_id: str | None, email: s
     )
     if server_id:
         roster_query = roster_query.where(Server.id == server_id)
+    else:
+        roster_query = select(EmailUser.email, EmailUser.full_name).where(EmailUser.is_active.is_(True))
     if email:
         roster_query = roster_query.where(EmailUser.email == email)
     names = dict(db.execute(roster_query).all())
@@ -129,6 +145,14 @@ def member_usage_summary(db: Session, days: int, server_id: str | None, email: s
         owned = [t for t in token_rows if t["email"] == address]
         member_rows.append({"email": address, "name": names.get(address), "token_count": len(owned), "active_tokens": sum(t["status"] == "有效" for t in owned), **summarize(rows)})
     return {
+        "tool_summary": summarize([r for rows in tool_members.values() for r in rows]),
+        "tool_members": [{"email": address, "name": names.get(address), **summarize(tool_members[address])} for address in members],
+        "tool_trend": [{"date": k, **summarize(v)} for k, v in sorted(tool_trend.items())],
+        "member_states": {
+            "active": sum(bool(tool_members[address]) for address in members),
+            "errors": sum(any((r.mcp_details or {}).get("outcome") == "error" or (r.status_code or 0) >= 400 for r in tool_members[address]) for address in members),
+            "idle": sum(not tool_members[address] for address in members),
+        },
         "summary": summarize(logs),
         "members": member_rows,
         "methods": [{"method": k[0], "resource": k[1], **summarize(v)} for k, v in methods.items()],

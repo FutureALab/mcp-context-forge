@@ -3860,6 +3860,9 @@ async def admin_ui(
     # Load user teams so we can validate team_id
     # --------------------------------------------------------------------------------
     user_teams = []
+    user_import_teams = []
+    if user_permissions.get("can_create_user") and is_admin_user and token_teams is None:
+        user_import_teams = db.execute(select(EmailTeam).where(EmailTeam.is_active.is_(True), EmailTeam.is_personal.is_(False)).order_by(EmailTeam.name)).scalars().all()
     team_service = None
     # Load teams if: team_id is specified, team_selector is visible, OR any data section is visible
     should_load_user_teams = getattr(settings, "email_auth_enabled", False) and (team_id is not None or "team_selector" not in hidden_header_items or any_data_section_visible)
@@ -4232,6 +4235,7 @@ async def admin_ui(
         "admin.html",
         {
             "request": request,
+            "user_import_teams": user_import_teams,
             "servers": servers,
             "tools": tools,
             "resources": resources,
@@ -8333,6 +8337,9 @@ BULK_USER_IMPORT_COLUMN_ALIASES: Dict[str, str] = {
     "isadmin": "is_admin",
     "admin": "is_admin",
     "是否管理员": "is_admin",
+    "团队id": "team_id",
+    "团队_id": "team_id",
+    "team_id": "team_id",
 }
 
 # Only email is mandatory; every other column falls back to a safe default.
@@ -8405,12 +8412,12 @@ def parse_bulk_user_workbook(content: bytes) -> List[Dict[str, Any]]:
     try:
         workbook = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
     except Exception as exc:  # pylint: disable=broad-except
-        raise ValueError(f"Could not read the Excel file: {exc}") from exc
+        raise ValueError("无法读取 Excel 文件，请使用下载的模板填写。") from exc
 
     try:
         sheet = workbook.active
         if sheet is None:
-            raise ValueError("The Excel file has no worksheet.")
+            raise ValueError("Excel 文件没有工作表。")
 
         rows = sheet.iter_rows(values_only=True)
 
@@ -8420,7 +8427,7 @@ def parse_bulk_user_workbook(content: bytes) -> List[Dict[str, Any]]:
                 header_row = row
                 break
         if header_row is None:
-            raise ValueError("The Excel file is empty.")
+            raise ValueError("Excel 文件为空。")
 
         columns: Dict[int, str] = {}
         for index, cell in enumerate(header_row):
@@ -8431,7 +8438,7 @@ def parse_bulk_user_workbook(content: bytes) -> List[Dict[str, Any]]:
         missing_columns = [name for name in BULK_USER_IMPORT_REQUIRED_COLUMNS if name not in columns.values()]
         if missing_columns:
             expected = ", ".join(sorted(set(BULK_USER_IMPORT_COLUMN_ALIASES.values())))
-            raise ValueError(f"Missing required column: {', '.join(missing_columns)}. The header row must contain at least: {expected}.")
+            raise ValueError(f"缺少必填列：邮箱（email）。支持的列：{expected}。")
 
         parsed: List[Dict[str, Any]] = []
         for row in rows:
@@ -8439,7 +8446,7 @@ def parse_bulk_user_workbook(content: bytes) -> List[Dict[str, Any]]:
             if not any(value is not None and str(value).strip() for value in values.values()):
                 continue
             if len(parsed) >= BULK_USER_IMPORT_MAX_ROWS:
-                raise ValueError(f"The Excel file has more than {BULK_USER_IMPORT_MAX_ROWS} data rows.")
+                raise ValueError(f"Excel 文件数据行不能超过 {BULK_USER_IMPORT_MAX_ROWS} 行。")
             parsed.append(values)
         return parsed
     finally:
@@ -8458,7 +8465,7 @@ def _bulk_user_import_error(message: str, status_code: int = 400) -> HTMLRespons
         Admin UI script can surface the reason for a non-2xx response.
     """
     return HTMLResponse(
-        content=f'<div class="text-red-500" data-error-message="{html.escape(message, quote=True)}"><strong>Import failed:</strong> {html.escape(message)}</div>',
+        content=f'<div class="text-red-500" data-error-message="{html.escape(message, quote=True)}"><strong>导入失败：</strong> {html.escape(message)}</div>',
         status_code=status_code,
     )
 
@@ -8492,7 +8499,7 @@ def _render_bulk_user_import_summary(results: List[Dict[str, Any]], created: int
     table_rows = []
     for result in results:
         email = html.escape(str(result.get("email") or ""))
-        status = html.escape(str(result.get("status") or ""))
+        status = {"created": "已创建", "skipped": "已处理", "failed": "失败"}.get(result.get("status"), "未知")
         message = html.escape(str(result.get("message") or ""))
         style = status_styles.get(str(result.get("status")), "text-gray-700 dark:text-gray-300")
         table_rows.append(
@@ -8507,21 +8514,47 @@ def _render_bulk_user_import_summary(results: List[Dict[str, Any]], created: int
     return (
         '<div class="space-y-4">'
         f'<div class="{banner_classes} px-4 py-3 rounded border text-sm">'
-        f"<strong>Import finished:</strong> {created} created, {skipped} skipped, {failed} failed ({len(results)} row(s))."
+        f"<strong>导入完成：</strong>新增 {created}，跳过 {skipped}，失败 {failed}，共 {len(results)} 行。"
         "</div>"
         '<div class="overflow-x-auto">'
         '<table class="min-w-full text-sm text-left text-gray-700 dark:text-gray-200">'
         "<thead><tr>"
-        '<th class="px-2 py-1">Row</th>'
-        '<th class="px-2 py-1">Email</th>'
-        '<th class="px-2 py-1">Status</th>'
-        '<th class="px-2 py-1">Details</th>'
+        '<th class="px-2 py-1">行号</th>'
+        '<th class="px-2 py-1">邮箱</th>'
+        '<th class="px-2 py-1">状态</th>'
+        '<th class="px-2 py-1">说明</th>'
         "</tr></thead>"
         f"<tbody>{''.join(table_rows)}</tbody>"
         "</table>"
         "</div>"
         "</div>"
     )
+
+
+@admin_router.get("/users/import-template")
+@require_permission("admin.user_management", allow_admin_bypass=False)
+async def admin_user_import_template(db: Session = Depends(get_db), user=Depends(get_current_user_with_permissions)):
+    """Download user import headers and available shared team identifiers."""
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "用户导入"
+    sheet.append(["邮箱", "姓名", "密码", "是否管理员", "团队 ID"])
+    sheet.freeze_panes = "A2"
+    for column in "ABCDE":
+        sheet.column_dimensions[column].width = 30
+    instructions = workbook.create_sheet("填写说明")
+    instructions.append(["邮箱必填；是否管理员填写是或否，留空为普通用户。"])
+    instructions.append(["团队 ID 留空使用页面所选团队；均留空则仅创建账号。"])
+    instructions.append(["已有账号不会重复创建，但会加入指定团队。密码留空按默认密码策略处理。"])
+    teams = workbook.create_sheet("团队")
+    teams.append(["团队名称", "团队 ID"])
+    if user.get("is_admin") and user.get("token_teams") is None:
+        for team in db.execute(select(EmailTeam).where(EmailTeam.is_active.is_(True), EmailTeam.is_personal.is_(False))).scalars():
+            teams.append([team.name, team.id])
+    content = io.BytesIO()
+    workbook.save(content)
+    workbook.close()
+    return StreamingResponse(io.BytesIO(content.getvalue()), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": 'attachment; filename="users-template.xlsx"'})
 
 
 @admin_router.post("/users/bulk-import")
@@ -8549,31 +8582,31 @@ async def admin_bulk_import_users(
         with a non-2xx status when the upload is missing or unreadable.
     """
     if not settings.email_auth_enabled:
-        return _bulk_user_import_error("Email authentication is disabled", status_code=403)
+        return _bulk_user_import_error("邮箱认证未启用", status_code=403)
 
     try:
         form = await request.form()
     except Exception as exc:  # pylint: disable=broad-except
         LOGGER.error("Bulk user import could not read the uploaded form: %s", exc)
-        return _bulk_user_import_error("Could not read the uploaded form data.")
+        return _bulk_user_import_error("无法读取上传表单。")
 
     upload = form.get("file")
     if not isinstance(upload, StarletteUploadFile):
-        return _bulk_user_import_error("Select an .xlsx file to import.")
+        return _bulk_user_import_error("请选择 Excel 文件。")
 
     if Path(upload.filename or "").suffix.lower() not in {".xlsx", ".xlsm"}:
-        return _bulk_user_import_error("Only .xlsx files are supported.")
+        return _bulk_user_import_error("仅支持 Excel 文件。")
 
     try:
         content = await upload.read()
     except Exception as exc:  # pylint: disable=broad-except
         LOGGER.error("Bulk user import could not read the uploaded file: %s", exc)
-        return _bulk_user_import_error("Could not read the uploaded file.")
+        return _bulk_user_import_error("无法读取上传文件。")
 
     if not content:
-        return _bulk_user_import_error("The uploaded file is empty.")
+        return _bulk_user_import_error("上传文件为空。")
     if len(content) > BULK_USER_IMPORT_MAX_BYTES:
-        return _bulk_user_import_error(f"The file is larger than {BULK_USER_IMPORT_MAX_BYTES // (1024 * 1024)} MB.")
+        return _bulk_user_import_error(f"文件大小不能超过 {BULK_USER_IMPORT_MAX_BYTES // (1024 * 1024)} MB。")
 
     try:
         rows = parse_bulk_user_workbook(content)
@@ -8581,7 +8614,22 @@ async def admin_bulk_import_users(
         return _bulk_user_import_error(str(exc))
 
     if not rows:
-        return _bulk_user_import_error("The workbook has no data rows.")
+        return _bulk_user_import_error("表格没有用户数据。")
+
+    requested_teams = {str(row.get("team_id") or form.get("team_id") or "").strip() for row in rows} - {""}
+    if requested_teams and not (user.get("is_admin") and user.get("token_teams") is None):
+        return _bulk_user_import_error("批量分配团队需要未受范围限制的平台管理员。", 403)
+    for target in requested_teams:
+        team = db.get(EmailTeam, target)
+        if not team or not team.is_active or team.is_personal:
+            return _bulk_user_import_error("团队不存在、已停用或属于个人团队，请检查团队 ID。")
+
+    async def assign_team(address, target):
+        """Add one account with the team's normal member role."""
+        if target:
+            service = TeamManagementService(db)
+            if not await service.get_user_role_in_team(address, target):
+                await service.add_member_to_team(target, address, role="member", invited_by=get_user_email(user))
 
     granted_by = get_user_email(user)
     auth_service = EmailAuthService(db)
@@ -8599,10 +8647,11 @@ async def admin_bulk_import_users(
         raw_password = row.get("password")
         password = "" if raw_password is None else str(raw_password).strip()
         is_admin = _coerce_bulk_user_bool(row.get("is_admin"))
+        target_team = str(row.get("team_id") or form.get("team_id") or "").strip()
 
         if not email:
             failed += 1
-            results.append({"row": row_number, "email": "", "status": "failed", "message": "Email is required."})
+            results.append({"row": row_number, "email": "", "status": "failed", "message": "邮箱不能为空。"})
             continue
 
         force_password_change = False
@@ -8624,11 +8673,12 @@ async def admin_bulk_import_users(
         try:
             existing = await auth_service.get_user_by_email(email)
             if existing:
+                await assign_team(existing.email, target_team)
                 skipped += 1
-                results.append({"row": row_number, "email": email, "status": "skipped", "message": "User already exists."})
+                results.append({"row": row_number, "email": email, "status": "skipped", "message": "账号已存在；已检查团队关系。"})
                 continue
 
-            await auth_service.create_user(
+            imported_user = await auth_service.create_user(
                 email=email,
                 password=password,
                 full_name=full_name or None,
@@ -8638,19 +8688,20 @@ async def admin_bulk_import_users(
                 password_change_required=force_password_change,
                 skip_password_validation=skip_password_validation,
             )
+            await assign_team(imported_user.email, target_team)
             created += 1
-            results.append({"row": row_number, "email": email, "status": "created", "message": "Administrator account." if is_admin else ""})
+            results.append({"row": row_number, "email": email, "status": "created", "message": "管理员账号。" if is_admin else ""})
         except UserExistsError:
             # create_user re-checks existence, so a concurrent insert lands here.
             skipped += 1
-            results.append({"row": row_number, "email": email, "status": "skipped", "message": "User already exists."})
+            results.append({"row": row_number, "email": email, "status": "skipped", "message": "账号已存在；已检查团队关系。"})
         except (EmailValidationError, PasswordValidationError) as exc:
             failed += 1
             results.append({"row": row_number, "email": email, "status": "failed", "message": str(exc)})
         except Exception as exc:  # pylint: disable=broad-except
             LOGGER.error("Bulk user import failed for %s: %s", SecurityValidator.sanitize_log_message(email), exc)
             failed += 1
-            results.append({"row": row_number, "email": email, "status": "failed", "message": "Could not create this user."})
+            results.append({"row": row_number, "email": email, "status": "failed", "message": "创建用户或分配团队失败，请检查账号和团队状态。"})
 
     LOGGER.info(
         "Bulk user import by %s: %d created, %d skipped, %d failed",

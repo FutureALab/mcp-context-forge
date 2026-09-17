@@ -352,3 +352,16 @@
     align-items: stretch;
   }
 }
+
+#member-panel { font-family: "Helvetica Neue", Arial, sans-serif; --member-soft: #F7F7F8; }
+#member-panel section { border: 1px solid var(--member-border); box-shadow: none; }
+#member-panel .cards { border: 0; }
+#member-panel .card { box-shadow: none; border: 1px solid var(--member-border); border-top: 2px solid #002FA7; }
+#member-panel .card strong { font-size: 30px; letter-spacing: -1px; }
+#member-panel .state-strip { display:flex; flex-wrap:wrap; gap:12px; margin:0 0 20px; }
+#member-panel .state-strip div { padding:10px 18px; background:var(--member-bg); border:1px solid var(--member-border); border-radius:6px; font-size:13px; }
+#member-panel .chart-wrap { height:310px; }
+#member-panel button { background:#002FA7; border-color:#002FA7; }
+.user-import-card input[type=file] { padding:24px; border:1px dashed #aebbd9; background:#f7f7f8; border-radius:8px; }
+.user-import-card input[type=file]::file-selector-button { margin-right:16px; padding:10px 18px; border:0; border-radius:6px; background:#002FA7; color:#fff; cursor:pointer; }
+.dark .user-import-card input[type=file] { background:#111827; border-color:#4b5563; }

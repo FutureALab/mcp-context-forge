@@ -433,7 +433,8 @@ class TokenCatalogService:
 
         Returns:
             tuple[EmailApiToken, str]: A tuple where the first element is the `EmailApiToken` database record and
-            the second element is the raw JWT token string. The `EmailApiToken` contains the database record with the
+            the second element is the raw JWT token string, or an empty string when an existing key is renewed.
+            The `EmailApiToken` contains the database record with the
             token details.
 
         Raises:
@@ -503,6 +504,42 @@ class TokenCatalogService:
 
                 if not membership:
                     raise ValueError(f"User {user_email} is not an active member of team {team_id}. Only team members can create tokens for the team.")
+
+        if expires_in_days is not None and expires_in_days <= 0:
+            raise ValueError("Token expiration days must be positive.")
+
+        if scope and scope.server_id and expires_in_days and is_active:
+            # Serialize issuance for one owner so concurrent requests reuse the same scoped key.
+            self.db.execute(select(EmailUser).where(EmailUser.email == user_email).with_for_update()).scalar_one()
+            candidates = (
+                self.db.execute(
+                    select(EmailApiToken)
+                    .where(
+                        EmailApiToken.user_email == user_email,
+                        EmailApiToken.team_id == team_id,
+                        EmailApiToken.server_id == scope.server_id,
+                        EmailApiToken.is_active.is_(True),
+                        or_(EmailApiToken.expires_at.is_(None), EmailApiToken.expires_at > utc_now()),
+                        ~EmailApiToken.jti.in_(select(TokenRevocation.jti)),
+                    )
+                    .order_by(EmailApiToken.created_at)
+                    .with_for_update()
+                )
+                .scalars()
+                .all()
+            )
+            for candidate in candidates:
+                if (
+                    set(candidate.resource_scopes or []) == set(scope.permissions or [])
+                    and (candidate.ip_restrictions or []) == (scope.ip_restrictions or [])
+                    and (candidate.time_restrictions or {}) == (scope.time_restrictions or {})
+                    and (candidate.usage_limits or {}) == (scope.usage_limits or {})
+                ):
+                    if candidate.expires_at is not None:
+                        candidate.expires_at += timedelta(days=expires_in_days)
+                    self.db.commit()
+                    self.db.refresh(candidate)
+                    return candidate, ""
 
         # Check for duplicate active token name for this user within the same team scope,
         # matching DB constraint uq_email_api_tokens_user_name_team (user_email, name, team_id).

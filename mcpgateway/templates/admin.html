@@ -6218,20 +6218,11 @@ Hello &#123;&#123; name &#125;&#125;, welcome to &#123;&#123; company &#125;&#12
 
         {% if user_permissions.can_create_user %}
         <!-- Bulk Import Users from Excel -->
-        <div class="bg-white shadow rounded-lg mb-6 dark:bg-gray-800">
+        <div class="bg-white shadow rounded-lg mb-6 dark:bg-gray-800 user-import-card">
           <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              {{ _("Bulk Import Users") }}
-            </h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              {{ _("Upload an Excel workbook (.xlsx). The first row must be a header containing the columns: email, full_name, password, is_admin.") }}
-            </p>
-            <ul class="text-sm text-gray-600 dark:text-gray-400 list-disc ml-5 mb-4">
-              <li>{{ _("email is required. full_name, password, and is_admin are optional.") }}</li>
-              <li>{{ _("Leave password empty to use the configured default password. Those users must change it at first login.") }}</li>
-              <li>{{ _("Rows whose email already exists are skipped.") }}</li>
-            </ul>
-
+            <div class="flex justify-between items-start gap-4 mb-4"><div><h3 class="text-lg font-semibold dark:text-white">Excel 批量导入用户</h3><p class="text-sm text-gray-500 mt-2">创建账号并分配团队，一次完成成员接入。</p></div><a href="{{ root_path }}/admin/users/import-template" class="text-indigo-600 border rounded-lg px-4 py-2">下载 Excel 模板</a></div>
+            <p class="text-sm text-gray-500 mb-4">邮箱必填；姓名、密码、是否管理员、团队 ID 可选。表格中的团队 ID 优先于下方选择。已有账号不会重复创建，指定团队时会补充成员关系。</p>
+            <p class="text-sm text-gray-500 mb-4">密码留空使用系统默认密码，并按系统策略要求首次登录修改。</p>
             <!-- Bulk import messages -->
             <div id="user-import-messages" class="mb-4"></div>
 
@@ -6249,7 +6240,7 @@ Hello &#123;&#123; name &#125;&#125;, welcome to &#123;&#123; company &#125;&#12
                   class="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   for="bulk_import_users_file"
                 >
-                  {{ _("Excel file (.xlsx)") }}
+                  选择 Excel 文件（.xlsx）
                 </label>
                 <input
                   type="file"
@@ -6260,19 +6251,21 @@ Hello &#123;&#123; name &#125;&#125;, welcome to &#123;&#123; company &#125;&#12
                   class="mt-1 block w-full text-sm text-gray-700 dark:text-gray-300"
                 />
               </div>
+              <label class="block text-sm dark:text-white">默认加入团队<select name="team_id" class="mt-2 block w-full px-3 py-2 border rounded-lg dark:bg-gray-700"><option value="">不分配额外团队</option>{% for team in user_import_teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}</select></label>
+              <p class="text-xs text-gray-500">默认分配普通成员权限。可在模板“团队”工作表中查询团队 ID。</p>
               <div class="flex items-center justify-end space-x-3">
                 <span
                   id="user-import-loading"
                   class="htmx-indicator text-sm text-gray-500 dark:text-gray-400"
                 >
-                  {{ _("Importing...") }}
+                  正在导入，请稍候…
                 </span>
                 <button
                   type="submit"
                   id="bulk_import_users_submit"
                   class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {{ _("Import Users") }}
+                  导入用户并分配团队
                 </button>
               </div>
             </form>
@@ -6349,6 +6342,7 @@ Hello &#123;&#123; name &#125;&#125;, welcome to &#123;&#123; company &#125;&#12
           </div>
         </div>
 
+        <datalist id="token-expiry-options"><option value="7"></option><option value="30"></option><option value="90"></option><option value="180"></option><option value="365"></option></datalist>
         <!-- Create Token Form -->
          {% if user_permissions.can_create_token %}
         <div class="bg-white shadow rounded-lg p-6 mb-8 dark:bg-gray-800">
@@ -6387,6 +6381,7 @@ Hello &#123;&#123; name &#125;&#125;, welcome to &#123;&#123; company &#125;&#12
                 <input
                   type="number"
                   name="expires_in_days"
+                  list="token-expiry-options"
                   min="1"
                   max="365"
                   value="30"

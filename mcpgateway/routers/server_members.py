@@ -54,14 +54,14 @@ class MemberKeyRequest(AccountRequest):
 
     team_id: str = Field(min_length=1, max_length=36)
     server_id: str = Field(min_length=1, max_length=36)
-    days: int = Field(default=30, ge=1, le=90)
+    days: int = Field(default=30, ge=1, le=365)
 
 
 class BulkKeyRequest(BaseModel):
     """Select one server or all team-backed servers."""
 
     server_id: str | None = Field(default=None, max_length=36)
-    days: int = Field(default=30, ge=1, le=90)
+    days: int = Field(default=30, ge=1, le=365)
 
 
 def require_self_service() -> None:
@@ -279,7 +279,7 @@ async def member_bulk_keys(body: BulkKeyRequest, user=Depends(get_current_user_w
     for server, email in pairs:
         try:
             result = await issue_member_key(db, email, server.team_id, server.id, body.days, actor)
-            results.append({"status": "created", **result})
+            results.append({"status": "renewed" if result.get("renewed") else "created", **result})
         except (HTTPException, ValueError) as exc:
             db.rollback()
             results.append({"status": "failed", "email": email, "server_id": server.id, "message": exc.detail if isinstance(exc, HTTPException) else str(exc)})

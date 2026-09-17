@@ -172,7 +172,7 @@ def test_bulk_import_creates_users_over_http(client):
         )
 
     assert response.status_code == 200
-    assert "2 created, 0 skipped, 0 failed" in response.text
+    assert "新增 2，跳过 0，失败 0" in response.text
     assert response.headers.get("hx-trigger") == "userCreated"
     assert sorted(created) == ["http1@example.com", "http2@example.com"]
     assert created["http2@example.com"]["is_admin"] is True
@@ -184,7 +184,7 @@ def test_bulk_import_requires_a_file_over_http(client):
     response = client.post("/admin/users/bulk-import", data={"other": "x"}, headers={"HX-Request": "true"})
 
     assert response.status_code == 400
-    assert 'data-error-message="Select an .xlsx file to import."' in response.text
+    assert 'data-error-message="请选择 Excel 文件 to import."' in response.text
 
 
 def test_bulk_import_rejects_a_non_xlsx_upload_over_http(client):
@@ -192,4 +192,4 @@ def test_bulk_import_rejects_a_non_xlsx_upload_over_http(client):
     response = client.post("/admin/users/bulk-import", files={"file": ("users.csv", b"email\n", "text/csv")}, headers={"HX-Request": "true"})
 
     assert response.status_code == 400
-    assert 'data-error-message="Only .xlsx files are supported."' in response.text
+    assert 'data-error-message="仅支持 Excel 文件。"' in response.text

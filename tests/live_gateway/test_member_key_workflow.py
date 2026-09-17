@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Standard
 import io
+from datetime import datetime, timedelta
 import os
 import time
 import unittest
@@ -53,6 +54,14 @@ class TestMemberKeyWorkflow(unittest.TestCase):
             issued = public.post("/admin/api-key/issue", json={"password": password, "email": email, "team_id": team, "server_id": server, "days": 7})
             self.assertEqual(issued.status_code, 200, issued.text if issued.status_code != 200 else "")
             key = issued.json()["api_key"]
+            for days in (180, 365):
+                renewed = public.post("/admin/api-key/issue", json={"password": password, "email": email, "team_id": team, "server_id": server, "days": days})
+                self.assertEqual(renewed.status_code, 200)
+                self.assertTrue(renewed.json()["renewed"])
+                self.assertEqual(renewed.json()["token_id"], issued.json()["token_id"])
+                self.assertEqual(renewed.json()["api_key"], "")
+                self.assertEqual(datetime.fromisoformat(renewed.json()["expires_at"]), datetime.fromisoformat(issued.json()["expires_at"]) + timedelta(days=days))
+                issued = renewed
             self.assertIn("no-store", issued.headers["cache-control"])
             self.assertNotIn("jwt_token", public.cookies)
             mcp_headers = {"Authorization": f"Bearer {key}", "Accept": "application/json, text/event-stream"}
@@ -84,6 +93,29 @@ class TestMemberKeyWorkflow(unittest.TestCase):
             self.assertIn('id="tab-member-usage"', panel.text)
             admin.headers["Origin"] = origin
             admin.headers["X-CSRF-Token"] = admin.cookies["mcpgateway_csrf_token"]
+            token_request = {"name": "live-renewable-key", "team_id": team, "scope": {"server_id": server}, "expires_in_days": 180}
+            created_token = admin.post("/tokens", json=token_request)
+            self.assertEqual(created_token.status_code, 201)
+            self.assertTrue(created_token.json()["access_token"])
+            token_request["expires_in_days"] = 365
+            renewed_token = admin.post(f"/tokens/teams/{team}", json=token_request)
+            self.assertEqual(renewed_token.status_code, 201)
+            self.assertTrue(renewed_token.json()["renewed"])
+            self.assertEqual(renewed_token.json()["access_token"], "")
+            self.assertEqual(created_token.json()["token"]["id"], renewed_token.json()["token"]["id"])
+            template = admin.get("/admin/users/import-template")
+            self.assertEqual(template.status_code, 200)
+            workbook = openpyxl.load_workbook(io.BytesIO(template.content))
+            self.assertEqual(workbook.active.cell(1, 1).value, "邮箱")
+            workbook.active.append(["bulk-import@example.com", "导入测试用户", None, "否", team])
+            content = io.BytesIO()
+            workbook.save(content)
+            workbook.close()
+            for _ in range(2):
+                imported_users = admin.post("/admin/users/bulk-import", files={"file": ("users.xlsx", content.getvalue())})
+                self.assertEqual(imported_users.status_code, 200)
+                self.assertIn("失败 0", imported_users.text)
+            self.assertIn("账号已存在", imported_users.text)
             imported = os.getenv("MEMBER_TEST_IMPORT_EMAIL")
             if imported:
                 workbook = openpyxl.Workbook()

@@ -131,6 +131,12 @@
         days: Number(document.getElementById("member-days").value),
       });
       if (current !== version) return;
+      if (data.renewed) {
+        message.textContent = data.expires_at
+          ? `原 API Key 已续期至 ${new Date(data.expires_at).toLocaleString()}，请继续使用原 Key，无需修改客户端。`
+          : "原 API Key 长期有效，请继续使用原 Key，无需修改客户端。";
+        return;
+      }
       value.value = data.api_key;
       result.classList.remove("hidden");
       message.textContent = `已生成；到期时间：${new Date(data.expires_at).toLocaleString()}`;

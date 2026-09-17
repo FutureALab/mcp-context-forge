@@ -310,6 +310,7 @@ async def create_token(
         return TokenCreateResponse(
             token=token_response,
             access_token=raw_token,
+            renewed=not bool(raw_token),
             warnings=scope_warnings,
         )
     except PublicValidationError as e:
@@ -905,6 +906,7 @@ async def create_team_token(
         return TokenCreateResponse(
             token=token_response,
             access_token=raw_token,
+            renewed=not bool(raw_token),
         )
     except PublicValidationError as e:
         logger.error("Team token creation validation error: %s", SecurityValidator.sanitize_log_message(str(e)))

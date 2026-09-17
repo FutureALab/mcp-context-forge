@@ -1,5 +1,5 @@
 <div id="member-panel" class="member-workflows" data-root="{{ root_path }}">
-  <header><div><h2>成员调用统计</h2><p>按成员、虚拟 MCP 和 API Key 查看调用、延时与模型 Token 用量。</p></div><a href="{{ root_path }}/admin/api-key">领取 API Key</a></header>
+  <header><div><h2>成员调用统计</h2><p>在所选时间范围内，追踪各用户的 MCP 工具调用、成功率与响应延时。</p></div><a href="{{ root_path }}/admin/api-key">领取 API Key</a></header>
   <section class="controls" aria-label="统计筛选">
     <label>虚拟 MCP<select id="filter-server"><option value="">全部虚拟 MCP</option></select></label>
     <label>成员邮箱<input id="filter-email" type="email" placeholder="全部成员" /></label>
@@ -10,13 +10,20 @@
   </section>
   <p id="panel-status" role="status" aria-live="polite"></p>
   <section id="usage-cards" class="cards" aria-label="总体指标"></section>
+  <div id="member-state-cards" class="state-strip" aria-label="所选时段用户状态"></div>
   <p id="coverage-note" class="note"></p>
   <div class="usage-charts">
-    <section><h2>调用趋势 <small>UTC · 每日次数</small></h2><div class="chart-wrap"><canvas id="usage-trend" role="img" aria-label="每日调用次数与错误数"></canvas></div><p id="trend-empty" class="note"></p></section>
-    <section><h2>方法 / 工具调用排行 <small>前 10 项</small></h2><div class="chart-wrap"><canvas id="usage-method-chart" role="img" aria-label="方法与工具调用次数排行"></canvas></div><p id="methods-empty" class="note"></p></section>
+    <section><h2>调用趋势 <small>UTC · 工具调用</small></h2><div class="chart-wrap"><canvas id="usage-trend" role="img" aria-label="每日调用次数与错误数"></canvas></div><p id="trend-empty" class="note"></p></section>
+    <section><h2>工具调用排行 <small>前 10 项</small></h2><div class="chart-wrap"><canvas id="usage-method-chart" role="img" aria-label="方法与工具调用次数排行"></canvas></div><p id="methods-empty" class="note"></p></section>
+  </div>
+  <div class="usage-charts">
+    <section><h2>用户调用次数 <small>前 10 位 · tools/call</small></h2><div class="chart-wrap"><canvas id="usage-users" role="img" aria-label="用户工具调用次数排行"></canvas></div></section>
+    <section><h2>用户延时对比 <small>平均 / P95 · 毫秒</small></h2><div class="chart-wrap"><canvas id="usage-latency" role="img" aria-label="用户调用延时"></canvas></div></section>
+    <section><h2>用户成功率 <small>调用量前 10 位</small></h2><div class="chart-wrap"><canvas id="usage-success" role="img" aria-label="各用户工具调用成功率"></canvas></div></section>
+    <section><h2>用户使用状态 <small>所选时段 · 非在线状态</small></h2><div class="chart-wrap"><canvas id="usage-states" role="img" aria-label="正常调用、出现错误及未调用用户分布"></canvas></div></section>
   </div>
   <p id="usage-timezone" class="note"></p>
-  <section><h2>成员使用情况</h2><div id="member-table" class="table-scroll"></div></section>
+  <section><h2>成员使用情况 <small>全部成员 · 含初始化和工具发现请求</small></h2><div id="member-table" class="table-scroll"></div></section>
   <section><h2>MCP 方法与工具</h2><div id="method-table" class="table-scroll"></div></section>
   <section><h2>成员名下 API Key</h2><div id="token-table" class="table-scroll"></div></section>
   <section><h2>最近调用 <small>最多 100 条</small></h2><div id="recent-table" class="table-scroll"></div></section>

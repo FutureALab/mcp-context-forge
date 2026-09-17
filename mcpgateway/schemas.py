@@ -7721,7 +7721,8 @@ class TokenCreateResponse(BaseModel):
 
     Attributes:
         token: Token information
-        access_token: The actual token string (only returned on creation)
+        access_token: The token string on creation, or an empty string on renewal
+        renewed: Whether this response reuses an existing API key
         warnings: Non-fatal advisories about the created token's effective scope
 
     Examples:
@@ -7743,7 +7744,8 @@ class TokenCreateResponse(BaseModel):
     """
 
     token: TokenResponse = Field(..., description="Token information")
-    access_token: str = Field(..., description="The actual token string")
+    access_token: str = Field(..., description="New token string; empty when renewed. Continue using the existing API key on renewal.")
+    renewed: bool = Field(default=False, description="Whether an existing server-scoped API key was reused")
     warnings: List[str] = Field(default_factory=list, description="Non-fatal advisories about the created token's effective scope")
 
 

@@ -48,16 +48,89 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
         self.db.close()
         self.engine.dispose()
 
-    async def test_distinct_scoped_keys(self):
-        """Issue unique JWTs that cannot grant management permissions."""
+    async def test_reuse_scoped_keys(self):
+        """Renew matching JWTs without granting management permissions."""
         with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
             first = await issue_member_key(self.db, "MEMBER@example.com", "team-a", "server-a", 7, "self-service")
             second = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 7, "self-service")
-        self.assertNotEqual(first["api_key"], second["api_key"])
+        self.assertEqual(first["token_id"], second["token_id"])
+        self.assertTrue(second["renewed"])
+        self.assertEqual(second["api_key"], "")
+        self.assertGreater(second["expires_at"], first["expires_at"])
         claims = jwt.decode(first["api_key"], options={"verify_signature": False})
         self.assertEqual(claims["teams"], ["team-a"])
         self.assertEqual(claims["scopes"]["server_id"], "server-a")
         self.assertNotIn("tokens.create", claims["scopes"]["permissions"])
+
+    async def test_expired_and_disabled_keys_create_replacements(self):
+        """Create a replacement when the previous key cannot be renewed."""
+        # Standard
+        from datetime import timedelta
+
+        # First-Party
+        from mcpgateway.db import EmailApiToken, utc_now
+
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            first = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 180, "self-service")
+            self.db.get(EmailApiToken, first["token_id"]).expires_at = utc_now() - timedelta(seconds=1)
+            self.db.commit()
+            second = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 365, "self-service")
+            self.assertNotEqual(first["token_id"], second["token_id"])
+            self.assertTrue(second["api_key"])
+            self.db.get(EmailApiToken, second["token_id"]).is_active = False
+            self.db.commit()
+            third = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 180, "self-service")
+            self.assertNotEqual(second["token_id"], third["token_id"])
+            self.assertFalse(third["renewed"])
+
+    async def test_renewed_key_after_signed_expiration(self):
+        """Accept registry-renewed keys while rejecting expired, revoked, and forged keys."""
+        # Standard
+        from datetime import timedelta
+        import hashlib
+        import time
+
+        # First-Party
+        from mcpgateway.db import EmailApiToken, TokenRevocation, utc_now
+        from mcpgateway.utils.jwt_config_helper import get_jwt_public_key_or_secret
+        from mcpgateway.utils.verify_credentials import verify_jwt_token
+
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            issued = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 180, "self-service")
+        claims = jwt.decode(issued["api_key"], options={"verify_signature": False})
+        claims["exp"] = int(time.time()) - 60
+        raw = jwt.encode(claims, get_jwt_public_key_or_secret(), algorithm="HS256")
+        record = self.db.get(EmailApiToken, issued["token_id"])
+        record.token_hash = hashlib.sha256(raw.encode()).hexdigest()
+        self.db.commit()
+
+        async def inline(func, *args):
+            return func(*args)
+
+        with patch("mcpgateway.db.SessionLocal", side_effect=lambda: Session(self.engine)), patch("mcpgateway.utils.verify_credentials.asyncio.to_thread", side_effect=inline):
+            verified = await verify_jwt_token(raw)
+            self.assertGreater(verified["exp"], time.time())
+            record.is_active = False
+            self.db.commit()
+            with self.assertRaises(HTTPException):
+                await verify_jwt_token(raw)
+            record.is_active = True
+            self.db.commit()
+            with self.assertRaises(HTTPException):
+                await verify_jwt_token(raw + "tampered")
+            record.expires_at = utc_now() - timedelta(seconds=1)
+            self.db.commit()
+            with self.assertRaises(HTTPException):
+                await verify_jwt_token(raw)
+            record.expires_at = utc_now() + timedelta(days=365)
+            self.db.add(TokenRevocation(jti=record.jti, revoked_by="member@example.com", reason="test"))
+            self.db.commit()
+            with self.assertRaises(HTTPException):
+                await verify_jwt_token(raw)
+            session_claims = {**claims, "token_use": "session"}
+            session_raw = jwt.encode(session_claims, get_jwt_public_key_or_secret(), algorithm="HS256")
+            with self.assertRaises(HTTPException):
+                await verify_jwt_token(session_raw)
 
     async def test_membership_denials(self):
         """Reject unknown accounts, wrong teams, and nonmembers."""
@@ -157,6 +230,8 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
 
     def test_roster_and_method_filter(self):
         """Include unused members and filter records by their actual server."""
+        all_users = member_usage_summary(self.db, 7, None, None, None, None)
+        self.assertEqual(all_users["member_states"], {"active": 0, "errors": 0, "idle": 2})
         data = member_usage_summary(self.db, 7, "server-a", None, None, None)
         self.assertEqual(data["members"][0]["calls"], 0)
         self.db.add_all(

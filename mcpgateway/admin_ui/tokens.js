@@ -492,7 +492,12 @@ const createToken = async function (form) {
     }
 
     const result = await response.json();
-    showTokenCreatedModal(result);
+    if (result.access_token) showTokenCreatedModal(result);
+    else {
+      showNotification(result.token.expires_at
+        ? `原 API Key 已续期至 ${new Date(result.token.expires_at).toLocaleString()}，继续使用原 Key。`
+        : "原 API Key 长期有效，请继续使用原 Key。", "success");
+    }
     form.reset();
 
     // Clear any lingering inline error
@@ -505,7 +510,7 @@ const createToken = async function (form) {
 
     // Show appropriate success message
     const tokenType = currentTeamId ? "team-scoped" : "all-teams";
-    showNotification(`${tokenType} token created successfully!`, "success");
+    if (result.access_token) showNotification(`${tokenType} token created successfully!`, "success");
   } catch (error) {
     console.error("Error creating token:", error);
     showNotification(`Error creating token: ${error.message}`, "error");
