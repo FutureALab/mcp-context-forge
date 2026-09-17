@@ -353,13 +353,19 @@
   }
 }
 
-#member-panel { font-family: "Helvetica Neue", Arial, sans-serif; --member-soft: #F7F7F8; }
+#member-panel { font-family: "Helvetica Neue", Arial, sans-serif; --member-soft: #F7F7F8; background:var(--member-bg); padding:24px; border-radius:12px; }
 #member-panel section { border: 1px solid var(--member-border); box-shadow: none; }
-#member-panel .cards { border: 0; }
-#member-panel .card { box-shadow: none; border: 1px solid var(--member-border); border-top: 2px solid #002FA7; }
+#member-panel .cards { border: 0; gap:0; margin-bottom:12px; }
+#member-panel .card { box-shadow: none; border:0; border-right:1px solid var(--member-border); border-radius:0; padding:12px 18px; }
+#member-panel .card:last-child { border-right:0; }
 #member-panel .card strong { font-size: 30px; letter-spacing: -1px; }
 #member-panel .state-strip { display:flex; flex-wrap:wrap; gap:12px; margin:0 0 20px; }
-#member-panel .state-strip div { padding:10px 18px; background:var(--member-bg); border:1px solid var(--member-border); border-radius:6px; font-size:13px; }
+#member-panel .state-strip div { padding:6px 12px; color:var(--member-muted); font-size:13px; }
+#member-panel .controls { margin-bottom:12px; padding:16px; }
+#member-panel header { margin-bottom:16px; }
+#member-panel #panel-status { margin:8px 0; font-size:12px; }
+#server-members-dialog .server-selector { flex-wrap:wrap; }
+#server-members-dialog #management-team { flex-basis:100%; }
 #member-panel .chart-wrap { height:310px; }
 #member-panel button { background:#002FA7; border-color:#002FA7; }
 .user-import-card input[type=file] { padding:24px; border:1px dashed #aebbd9; background:#f7f7f8; border-radius:8px; }

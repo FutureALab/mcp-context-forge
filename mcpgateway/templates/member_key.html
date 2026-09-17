@@ -1,8 +1,8 @@
 {% extends "login.html" %}
-{% block page_title %}领取 MCP API Key - ContextForge{% endblock %}
+{% block page_title %}领取 MCP API Key - MCP Gateway{% endblock %}
 {% block login_card %}
 <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">领取 MCP API Key</h1>
-<p class="text-sm text-gray-500 dark:text-gray-300 mb-6">验证已注册邮箱和密码，选择所属 Team 与可访问的虚拟 MCP。</p>
+<p class="text-sm text-gray-500 dark:text-gray-300 mb-6">验证已注册邮箱和密码，选择所属团队与可访问的虚拟 MCP。同一 Key 从首次创建日起累计最多 365 天，达到上限后不再延长。</p>
 <form id="member-key-form" class="space-y-4" data-root="{{ root_path }}" autocomplete="off">
   <div><label for="member-email" class="block text-sm font-semibold dark:text-white mb-2">账号邮箱</label>
     <input id="member-email" type="email" required maxlength="255" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" placeholder="输入已注册邮箱" /></div>

@@ -1,10 +1,10 @@
 <dialog id="server-members-dialog" class="member-workflows" aria-labelledby="server-members-title" data-root="{{ root_path }}">
   <header><div><h2 id="server-members-title">虚拟 MCP 成员管理</h2><p id="selected-server-description">选择服务器，导入成员并发放独立 Key。</p></div><button id="close-server-members" class="secondary-button" type="button" aria-label="关闭成员管理">关闭</button></header>
   <div class="member-notice"><p id="management-status" role="status" aria-live="polite"></p><button id="retry-member-servers" type="button" class="secondary-button" hidden>重新加载</button></div>
-  <section class="server-selector"><label>当前虚拟 MCP<select id="management-server"><option value="">请选择虚拟 MCP</option></select></label><p id="management-team" class="note"></p></section>
+  <section class="server-selector"><label>当前虚拟 MCP<select id="management-server"><option value="">请选择虚拟 MCP</option></select></label><label>管理团队<select id="management-target-team"><option value="">请选择共享团队</option></select></label><p id="management-team" class="note"></p></section>
   <div class="member-actions-grid">
     <section class="excel-card">
-      <div class="section-heading"><div><h2>Excel 批量添加成员</h2><p class="note">上传邮箱名单，加入当前 MCP 所属 Team。</p></div><a class="template-link" href="{{ root_path }}/admin/member-usage/template">下载模板</a></div>
+      <div class="section-heading"><div><h2>Excel 批量添加成员</h2><p class="note">上传邮箱名单，加入上方所选共享团队。</p></div><a class="template-link" href="{{ root_path }}/admin/member-usage/template">下载模板</a></div>
       <label class="excel-upload" for="members-file">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 18v-7m-3 3 3-3 3 3"/></svg>
         <strong id="members-file-name">点击选择 Excel 文件</strong>
@@ -12,14 +12,14 @@
         <input id="members-file" type="file" accept=".xlsx" aria-label="选择成员 Excel 文件" />
       </label>
       <div class="upload-footer"><span class="note">模板只需填写“邮箱”列</span><button id="clear-members-file" class="secondary-button" type="button" hidden>重新选择</button></div>
-      <p class="note">仅支持已注册账号。成员获得该 Team 的现有权限；个人 Team 不支持导入。</p>
-      <button id="import-members" class="wide-button" type="button" disabled>导入到当前 MCP 的 Team</button>
+      <p class="note">仅支持已注册账号。导入会授予所选团队的现有权限；公众 MCP 可选择共享团队，个人空间本身不能添加成员。</p>
+      <button id="import-members" class="wide-button" type="button" disabled>添加到所选团队</button>
     </section>
     <section class="key-card"><h2>批量生成 Key</h2><p class="note">未到期的同范围 Key 自动续期，继续使用原 Key；其余情况生成新 Key。</p>
       <label>Key 有效期<select id="bulk-days"><option value="7">7 天</option><option value="30" selected>30 天</option><option value="90">90 天</option><option value="180">180 天</option><option value="365">365 天</option></select></label>
-      <button id="bulk-selected" class="wide-button" type="button" disabled>为当前 MCP 全部成员生成</button>
+      <button id="bulk-selected" class="wide-button" type="button" disabled>为所选团队成员生成当前 MCP 的 Key</button>
       <button id="bulk-all" class="wide-button secondary-button" type="button" hidden>为所有虚拟 MCP 成员生成</button>
-      <button id="download-keys" class="wide-button secondary-button" type="button" disabled>下载生成结果</button>
+      <button id="download-keys" class="wide-button secondary-button" type="button" disabled>下载 Excel 结果</button>
       <p class="note">完整 Key 仅在本次下载中提供，请及时保存。未选择服务器时可批量处理所有启用且关联 Team 的 MCP。</p>
     </section>
   </div>

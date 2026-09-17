@@ -5,6 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 """
 
 # Standard
+from datetime import timedelta
 import uuid
 
 # Third-Party
@@ -76,10 +77,15 @@ async def issue_member_key(db: Session, email: str, team_id: str, server_id: str
         "server_id": server.id,
         "server_name": server.name,
         "token_id": record.id,
+        "created_at": record.created_at.isoformat(),
         "api_key": raw,
         "renewed": not bool(raw),
+        "limit_reached": bool(record.expires_at and record.expires_at >= record.created_at + timedelta(days=365)),
         "expires_at": record.expires_at.isoformat() if record.expires_at else None,
     }
+    result["message"] = (
+        "已达累计 365 天上限，到期时间不再增加；请继续使用原 Key" if result["renewed"] and result["limit_reached"] else "已续期，请继续使用原 Key" if result["renewed"] else "新 Key 仅在本次导出中提供"
+    )
     get_audit_trail_service().log_action(
         action="update" if not raw else "create",
         resource_type="token",

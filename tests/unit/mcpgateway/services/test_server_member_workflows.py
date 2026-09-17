@@ -83,6 +83,68 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
             self.assertNotEqual(second["token_id"], third["token_id"])
             self.assertFalse(third["renewed"])
 
+    async def test_lifetime_is_capped_without_replacing_key(self):
+        """Clamp renewal to creation plus 365 days and preserve existing longer keys."""
+        # Standard
+        from datetime import datetime, timedelta
+
+        # First-Party
+        from mcpgateway.db import EmailApiToken
+
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            first = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 180, "self-service")
+            limit = datetime.fromisoformat(first["created_at"]) + timedelta(days=365)
+            for days in (365, 180):
+                renewed = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", days, "self-service")
+                self.assertEqual(renewed["token_id"], first["token_id"])
+                self.assertEqual(datetime.fromisoformat(renewed["expires_at"]), limit)
+                self.assertTrue(renewed["limit_reached"])
+                self.assertEqual(renewed["api_key"], "")
+            record = self.db.get(EmailApiToken, first["token_id"])
+            record.expires_at = limit + timedelta(days=30)
+            self.db.commit()
+            unchanged = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 365, "self-service")
+            self.assertEqual(datetime.fromisoformat(unchanged["expires_at"]), limit + timedelta(days=30))
+
+    def test_management_team_preserves_visibility_boundaries(self):
+        """Allow shared-team selection for public servers and reject unsafe targets."""
+        # First-Party
+        from mcpgateway.routers.server_members import management_team
+
+        server = self.db.get(Server, "server-a")
+        with self.assertRaises(HTTPException):
+            management_team(self.db, server, "team-b")
+        server.visibility = "public"
+        self.assertEqual(management_team(self.db, server, "team-b").id, "team-b")
+        for target in ("missing", "team-a"):
+            self.db.get(EmailTeam, "team-a").is_personal = True
+            with self.assertRaises(HTTPException):
+                management_team(self.db, server, target)
+        self.db.get(EmailTeam, "team-b").is_active = False
+        with self.assertRaises(HTTPException):
+            management_team(self.db, server, "team-b")
+
+    async def test_export_is_excel_and_formula_safe(self):
+        """Export text cells and reject nonadministrative callers."""
+        # Standard
+        import io
+
+        # Third-Party
+        import openpyxl
+
+        # First-Party
+        from mcpgateway.routers.server_members import KeyExportRequest, member_keys_export
+
+        body = KeyExportRequest(results=[{"email": "member@example.com", "server_name": "=1+1", "api_key": "test-only-key"}])
+        response = await member_keys_export.__wrapped__(body=body, user={"email": "admin@example.com", "is_admin": True, "auth_method": "session", "token_teams": None})
+        workbook = openpyxl.load_workbook(io.BytesIO(response.body))
+        self.assertEqual(workbook.active.cell(2, 2).data_type, "s")
+        self.assertEqual(workbook.active.cell(2, 6).value, "test-only-key")
+        self.assertEqual(response.headers["cache-control"], "no-store")
+        workbook.close()
+        with self.assertRaises(HTTPException):
+            await member_keys_export.__wrapped__(body=body, user={"email": "member@example.com", "is_admin": False, "auth_method": "session"})
+
     async def test_renewed_key_after_signed_expiration(self):
         """Accept registry-renewed keys while rejecting expired, revoked, and forged keys."""
         # Standard

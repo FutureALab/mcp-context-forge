@@ -536,7 +536,9 @@ class TokenCatalogService:
                     and (candidate.usage_limits or {}) == (scope.usage_limits or {})
                 ):
                     if candidate.expires_at is not None:
-                        candidate.expires_at += timedelta(days=expires_in_days)
+                        lifetime_limit = candidate.created_at + timedelta(days=365)
+                        if candidate.expires_at < lifetime_limit:
+                            candidate.expires_at = min(candidate.expires_at + timedelta(days=expires_in_days), lifetime_limit)
                     self.db.commit()
                     self.db.refresh(candidate)
                     return candidate, ""

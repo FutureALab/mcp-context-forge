@@ -4,6 +4,7 @@
   const base = `${el("member-panel").dataset.root}/admin/member-usage`;
   let generated = [];
   let serverOptions = [];
+  let teamOptions = [];
   let charts = [];
   let busy = false;
   let initialized = false;
@@ -34,7 +35,7 @@
       : typeof value === "number"
         ? value.toLocaleString()
         : String(value);
-  async function request(path, body) {
+  async function request(path, body, download = false) {
     const headers = { "X-CSRF-Token": csrf() };
     const token = await window.Admin?.getAuthToken?.();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -63,7 +64,7 @@
         typeof data.detail === "string" ? data.detail : "请求失败"
       );
     }
-    return response.json();
+    return download ? response.blob() : response.json();
   }
   function showFailure(id, error) {
     const status = el(id);
@@ -427,6 +428,7 @@
       "bulk-selected",
       "bulk-all",
       "management-server",
+      "management-target-team",
       "close-server-members",
     ].forEach((id) => {
       el(id).disabled = true;
@@ -452,6 +454,7 @@
         "bulk-selected",
         "bulk-all",
         "management-server",
+        "management-target-team",
         "close-server-members",
       ].forEach((id) => {
         el(id).disabled = false;
@@ -466,6 +469,7 @@
       if (!id || !file) throw new Error("请选择一个虚拟 MCP 和 Excel 文件");
       const data = new FormData();
       data.append("file", file);
+      data.append("team_id", el("management-target-team").value);
       return request(`/import/${encodeURIComponent(id)}`, data);
     })
   );
@@ -478,9 +482,15 @@
         }
         const data = await request("/keys", {
           server_id: server,
+          team_id: server ? el("management-target-team").value : null,
           days: Number(el("bulk-days").value),
         });
-        generated.push(...data.results);
+        generated = data.results.map((row) => {
+          const previous = generated.find(
+            (r) => r.token_id && r.token_id === row.token_id
+          );
+          return { ...row, api_key: row.api_key || previous?.api_key || "" };
+        });
         el("download-keys").disabled = !generated.some((r) =>
           ["created", "renewed"].includes(r.status)
         );
@@ -488,23 +498,21 @@
       })
     )
   );
-  el("download-keys").addEventListener("click", () => {
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          { generated_at: new Date().toISOString(), results: generated },
-          null,
-          2
-        ),
-      ],
-      { type: "application/json" }
-    );
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "mcp-member-keys.json";
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  el("download-keys").addEventListener("click", async () => {
+    el("download-keys").disabled = true;
+    try {
+      const blob = await request("/keys/export", { results: generated }, true);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "mcp-member-keys.xlsx";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      showFailure("management-status", error);
+    } finally {
+      el("download-keys").disabled = false;
+    }
   });
   el("refresh-usage").addEventListener("click", refresh);
   el("filter-server").addEventListener("change", () => {
@@ -517,19 +525,39 @@
     const server = serverOptions.find(
       (s) => s.id === el("management-server").value
     );
+    const teamId = el("management-target-team").value;
     el("management-team").textContent = server
-      ? `Team：${server.team_name || "未关联"}${server.enabled ? "" : " · 服务器已停用"}`
+      ? `归属：${server.is_personal ? "个人空间" : server.team_name || "未关联团队"} · ${server.visibility === "public" ? "公众可见（仍需调用权限）" : "按服务器可见性授权"}${teamId ? "" : "。请先选择共享团队；如无选项，请先创建团队或调整 MCP 归属。"}`
       : "请先选择虚拟 MCP";
     el("selected-server-description").textContent = server
       ? `当前操作对象：${server.name}`
       : "选择虚拟 MCP，导入成员或生成独立 Key。";
     el("import-members").disabled =
-      sessionExpired || !server?.team_id || !server?.can_import || !validFile();
+      sessionExpired || !server?.enabled || !teamId || !validFile();
     el("bulk-selected").disabled =
-      sessionExpired || !server?.team_id || !server?.enabled;
+      sessionExpired || !teamId || !server?.enabled;
     el("bulk-all").hidden = Boolean(server);
     el("bulk-all").disabled = sessionExpired || !serverOptions.length;
   }
+  function updateTeams() {
+    const server = serverOptions.find(
+      (s) => s.id === el("management-server").value
+    );
+    el("management-target-team").replaceChildren(
+      new Option("请选择共享团队", "")
+    );
+    teamOptions
+      .filter(
+        (t) =>
+          server && (server.visibility === "public" || server.team_id === t.id)
+      )
+      .forEach((t) => {
+        el("management-target-team").add(new Option(t.name, t.id));
+      });
+    if (server?.can_import) el("management-target-team").value = server.team_id;
+    updateManagement();
+  }
+  el("management-target-team").addEventListener("change", updateManagement);
   function validFile() {
     const file = el("members-file").files[0];
     return (
@@ -559,7 +587,7 @@
   el("management-server").addEventListener("change", () => {
     el("management-status").textContent = "";
     el("management-results").replaceChildren();
-    updateManagement();
+    updateTeams();
   });
   el("close-server-members").addEventListener("click", () => dialog.close());
   dialog.addEventListener("cancel", (event) => {
@@ -567,6 +595,10 @@
   });
   async function loadServers() {
     serverOptions = [];
+    teamOptions = [];
+    el("management-target-team").replaceChildren(
+      new Option("请选择共享团队", "")
+    );
     el("retry-member-servers").hidden = true;
     el("management-server").replaceChildren(new Option("正在加载…", ""));
     el("management-server").disabled = true;
@@ -577,6 +609,7 @@
       const data = await request("/servers");
       sessionExpired = false;
       serverOptions = data.servers;
+      teamOptions = data.teams || [];
       el("management-server").replaceChildren(
         new Option(
           serverOptions.length ? "请选择虚拟 MCP" : "暂无可管理的虚拟 MCP",
@@ -587,7 +620,7 @@
         el("management-server").add(new Option(s.name, s.id))
       );
       el("management-server").value = selectedServer;
-      updateManagement();
+      updateTeams();
       el("management-status").textContent = "";
     } catch (error) {
       el("management-server").replaceChildren(

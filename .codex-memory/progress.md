@@ -1,5 +1,18 @@
 # Progress
 
+## 2026-09-17 Public MCP follow-up verification
+
+- Reproduced personal-team import rejection and owner-only bulk membership in an isolated database.
+- Added explicit shared-team selection for public MCP management, preserving visibility and ownership boundaries.
+- Live checks cover Excel member import, selected-team bulk issuance, real workbook export, and original-key MCP calls.
+- Repeated 180/365/30-day requests stop at original creation plus 365 days without replacing the key.
+- Deny-path tests cover personal/inactive teams, wrong-team nonpublic MCP management, and nonadmin exports.
+- Export cells remain strings, including formula-looking input. Responses disable caching and do not persist raw keys.
+- Final validation: 19 Python tests and 9 subtests; 97 JavaScript tests; Ruff, ESLint, Vite build; live gateway integration.
+- Browser checks confirm the white statistics surface, MCP Gateway logo, and enabled batch action after shared-team selection.
+- Test gateway PID 45592 and upstream MCP PID 38420 are stopped; ports 4445 and 9009 have no listeners.
+- Full repository gates remain unrun because the Windows environment lacks make and required analysis tools.
+
 ## 2026-09-17 Member workflows and self-service keys
 
 - Added an opt-in, unauthenticated key page at `/admin/api-key`, sharing the login template.

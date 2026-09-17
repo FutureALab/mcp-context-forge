@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block page_title %}{{ _("Sign In - ContextForge") }}{% endblock %}</title>
+    <title>{% block page_title %}{{ _("Sign In - ContextForge") | replace("ContextForge", "MCP Gateway") }}{% endblock %}</title>
     <!-- Tailwind CSS - Using precompiled CSS for strict CSP compliance -->
     <link rel="stylesheet" href="{{ root_path }}/static/css/tailwind.min.css" />
     <!-- Font Awesome is bundled via Vite (imported in admin_ui/admin.js) -->
@@ -181,7 +181,7 @@
             <div class="mt-4 text-center">
               <p class="text-xs text-gray-500 dark:text-gray-400">
                 <i class="fas fa-shield-alt mr-1"></i>
-                {{ _("Secured by ContextForge Authentication") }}
+                {{ _("Secured by ContextForge Authentication") | replace("ContextForge", "MCP Gateway") }}
               </p>
             </div>
             {% endblock %}
@@ -227,8 +227,8 @@
                 class="hover:opacity-80 transition-opacity"
               >
                 <img
-                  src="{{ root_path }}/static/contextforge-logo-white.png"
-                  alt="{{ _("ContextForge logo") }}"
+                  src="{{ root_path }}/static/mcp-gateway-logo-white.svg"
+                  alt="{{ _("ContextForge logo") | replace("ContextForge", "MCP Gateway") }}"
                   class="h-12"
                 />
               </a>

@@ -1,5 +1,19 @@
 # Current Task
 
+## 2026-09-17: Shared-team management, lifetime cap, and branding
+
+- Personal ownership does not restrict public MCP visibility. Authentication and RBAC still apply.
+- Public MCP management now accepts an explicit shared team without changing resource ownership or visibility.
+- Personal teams cannot receive members. The UI explains the restriction and requires a shared-team choice.
+- Bulk issuance uses selected shared-team members. Downloads contain a real Excel workbook with formula-safe text cells.
+- Renewal now caps expiry at original creation plus 365 days. Existing longer keys remain unchanged and cannot extend.
+- This lifetime cap supersedes the uncapped extension behavior described below.
+- Monitoring uses a continuous white surface and compact metrics. UI branding now displays MCP Gateway.
+- Passed 19 Python tests, 9 subtests, 97 JavaScript tests, Ruff, ESLint, production build, and live gateway integration.
+- Browser checks confirm branding, populated statistics, and shared-team selection for personal public MCP servers.
+- Stopped both isolated test services on ports 4445 and 9009. The user's running service was not changed.
+- Full repository gates remain unrun. Restart the deployed gateway and refresh the browser to apply changes.
+
 ## 2026-09-17: Chinese imports, monitoring, and renewable API keys
 
 - Completed the four requested changes, including existing uncommitted implementation work.

@@ -54,13 +54,14 @@ class TestMemberKeyWorkflow(unittest.TestCase):
             issued = public.post("/admin/api-key/issue", json={"password": password, "email": email, "team_id": team, "server_id": server, "days": 7})
             self.assertEqual(issued.status_code, 200, issued.text if issued.status_code != 200 else "")
             key = issued.json()["api_key"]
-            for days in (180, 365):
+            limit = datetime.fromisoformat(issued.json()["created_at"]) + timedelta(days=365)
+            for days in (180, 365, 30):
                 renewed = public.post("/admin/api-key/issue", json={"password": password, "email": email, "team_id": team, "server_id": server, "days": days})
                 self.assertEqual(renewed.status_code, 200)
                 self.assertTrue(renewed.json()["renewed"])
                 self.assertEqual(renewed.json()["token_id"], issued.json()["token_id"])
                 self.assertEqual(renewed.json()["api_key"], "")
-                self.assertEqual(datetime.fromisoformat(renewed.json()["expires_at"]), datetime.fromisoformat(issued.json()["expires_at"]) + timedelta(days=days))
+                self.assertEqual(datetime.fromisoformat(renewed.json()["expires_at"]), min(datetime.fromisoformat(issued.json()["expires_at"]) + timedelta(days=days), limit))
                 issued = renewed
             self.assertIn("no-store", issued.headers["cache-control"])
             self.assertNotIn("jwt_token", public.cookies)
@@ -93,6 +94,26 @@ class TestMemberKeyWorkflow(unittest.TestCase):
             self.assertIn('id="tab-member-usage"', panel.text)
             admin.headers["Origin"] = origin
             admin.headers["X-CSRF-Token"] = admin.cookies["mcpgateway_csrf_token"]
+            if public_server and os.getenv("MEMBER_TEST_PERSONAL_PUBLIC"):
+                choices = admin.get("/admin/member-usage/servers").json()
+                selected = next(item for item in choices["servers"] if item["id"] == public_server)
+                self.assertTrue(selected["is_personal"])
+                self.assertIn(team, [item["id"] for item in choices["teams"]])
+                workbook = openpyxl.Workbook()
+                workbook.active.append(["邮箱"])
+                workbook.active.append(["outsider@example.com"])
+                content = io.BytesIO()
+                workbook.save(content)
+                workbook.close()
+                upload = {"file": ("members.xlsx", content.getvalue())}
+                rejected = admin.post(f"/admin/member-usage/import/{public_server}", files=upload)
+                self.assertEqual(rejected.status_code, 400)
+                accepted = admin.post(f"/admin/member-usage/import/{public_server}", files=upload, data={"team_id": team})
+                self.assertEqual(accepted.status_code, 200)
+                self.assertEqual(accepted.json()["results"][0]["status"], "added")
+                bulk = admin.post("/admin/member-usage/keys", json={"server_id": public_server, "team_id": team, "days": 180})
+                self.assertEqual(bulk.status_code, 200)
+                self.assertIn("outsider@example.com", [row["email"] for row in bulk.json()["results"] if row["status"] == "created"])
             token_request = {"name": "live-renewable-key", "team_id": team, "scope": {"server_id": server}, "expires_in_days": 180}
             created_token = admin.post("/tokens", json=token_request)
             self.assertEqual(created_token.status_code, 201)
@@ -136,6 +157,14 @@ class TestMemberKeyWorkflow(unittest.TestCase):
             keys = [r["api_key"] for r in response.json()["results"] if r["status"] == "created"]
             self.assertGreaterEqual(len(keys), 1)
             self.assertEqual(len(keys), len(set(keys)))
+            exported = admin.post("/admin/member-usage/keys/export", json={"results": response.json()["results"]})
+            self.assertEqual(exported.status_code, 200)
+            self.assertIn(".xlsx", exported.headers["content-disposition"])
+            self.assertIn("no-store", exported.headers["cache-control"])
+            workbook = openpyxl.load_workbook(io.BytesIO(exported.content))
+            self.assertEqual(workbook.active.cell(1, 6).value, "API Key")
+            self.assertGreaterEqual(workbook.active.max_row, 2)
+            workbook.close()
             for _ in range(10):
                 response = admin.get("/admin/member-usage/data", params={"server_id": server, "email": email})
                 self.assertEqual(response.status_code, 200, response.text[:200])

@@ -132,6 +132,10 @@
       });
       if (current !== version) return;
       if (data.renewed) {
+        if (data.limit_reached) {
+          message.textContent = `已达到从首次创建日起累计 365 天的上限，到期时间为 ${new Date(data.expires_at).toLocaleString()}，请继续使用原 Key。`;
+          return;
+        }
         message.textContent = data.expires_at
           ? `原 API Key 已续期至 ${new Date(data.expires_at).toLocaleString()}，请继续使用原 Key，无需修改客户端。`
           : "原 API Key 长期有效，请继续使用原 Key，无需修改客户端。";

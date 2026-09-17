@@ -106,6 +106,7 @@ test("monitoring renders charts, methods and formatted times; member actions tar
     response(
       url.endsWith("/servers")
         ? {
+          teams: [{ id: "team-a", name: "Team A" }],
           servers: [
             {
               id: "server-a",
@@ -161,7 +162,7 @@ test("monitoring renders charts, methods and formatted times; member actions tar
   el("bulk-selected").click();
   await vi.waitFor(() => expect(el("download-keys").disabled).toBe(false));
   const call = fetchMock.mock.calls.find(([url]) => url.endsWith("/keys"));
-  expect(JSON.parse(call[1].body)).toEqual({ server_id: "server-a", days: 30 });
+  expect(JSON.parse(call[1].body)).toEqual({ server_id: "server-a", team_id: "team-a", days: 30 });
   expect(el("management-results").textContent).toContain("member@example.com");
   expect(el("management-results").textContent).not.toContain("fixture");
   fetchMock.mockResolvedValueOnce({ status: 401, ok: false });
@@ -191,5 +192,14 @@ test("monitoring renders charts, methods and formatted times; member actions tar
   await vi.waitFor(() => expect(el("management-results").textContent).toContain("added"));
   expect(fetchMock.mock.calls.at(-1)[0]).toBe("/admin/member-usage/import/server-a");
   expect(fetchMock.mock.calls.at(-1)[1].body.get("file").name).toBe("members.xlsx");
+  expect(fetchMock.mock.calls.at(-1)[1].body.get("team_id")).toBe("team-a");
+  fetchMock.mockResolvedValueOnce(response({ teams: [{ id: "team-a", name: "Team A" }], servers: [{ id: "server-a", name: "Personal public MCP", team_id: "personal", is_personal: true, visibility: "public", enabled: true, can_import: false }] }));
+  el("open-member-fixture").click();
+  await vi.waitFor(() => expect(el("management-team").textContent).toContain("个人空间"));
+  expect(el("bulk-selected").disabled).toBe(true);
+  el("management-target-team").value = "team-a";
+  el("management-target-team").dispatchEvent(new Event("change"));
+  expect(el("bulk-selected").disabled).toBe(false);
+  expect(el("import-members").disabled).toBe(false);
   vi.unstubAllGlobals();
 });

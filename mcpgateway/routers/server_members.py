@@ -61,7 +61,24 @@ class BulkKeyRequest(BaseModel):
     """Select one server or all team-backed servers."""
 
     server_id: str | None = Field(default=None, max_length=36)
+    team_id: str | None = Field(default=None, max_length=36)
     days: int = Field(default=30, ge=1, le=365)
+
+
+class KeyExportRequest(BaseModel):
+    """Hold the current browser's bounded key issuance results."""
+
+    results: list[dict] = Field(min_length=1, max_length=500)
+
+
+def management_team(db: Session, server: Server, team_id: str | None) -> EmailTeam:
+    """Resolve a shared team without changing server ownership or visibility."""
+    team = db.get(EmailTeam, team_id or server.team_id) if team_id or server.team_id else None
+    if not team or not team.is_active or team.is_personal:
+        raise HTTPException(400, "请选择启用的共享团队；个人空间不能添加其他成员")
+    if server.visibility != "public" and server.team_id != team.id:
+        raise HTTPException(403, "非公众 MCP 只能管理其所属团队，请先在服务器设置中调整归属和可见性")
+    return team
 
 
 def require_self_service() -> None:
@@ -186,9 +203,20 @@ async def member_servers(user=Depends(get_current_user_with_permissions), db: Se
     require_platform_session(user)
     rows = db.execute(select(Server, EmailTeam).outerjoin(EmailTeam, Server.team_id == EmailTeam.id).order_by(Server.name)).all()
     return {
+        "teams": [{"id": t.id, "name": t.name} for t in db.execute(select(EmailTeam).where(EmailTeam.is_active.is_(True), EmailTeam.is_personal.is_(False)).order_by(EmailTeam.name)).scalars()],
         "servers": [
-            {"id": s.id, "name": s.name, "team_id": s.team_id, "team_name": t.name if t else None, "enabled": s.enabled, "can_import": bool(t and t.is_active and not t.is_personal)} for s, t in rows
-        ]
+            {
+                "id": s.id,
+                "name": s.name,
+                "team_id": s.team_id,
+                "team_name": t.name if t else None,
+                "visibility": s.visibility,
+                "is_personal": bool(t and t.is_personal),
+                "enabled": s.enabled,
+                "can_import": bool(t and t.is_active and not t.is_personal),
+            }
+            for s, t in rows
+        ],
     }
 
 
@@ -211,12 +239,10 @@ async def member_import(request: Request, server_id: str, user=Depends(get_curre
     """Add registered spreadsheet accounts to the selected server's team."""
     actor = require_platform_session(user)
     server = db.get(Server, server_id)
-    if server is None or not server.team_id:
-        raise HTTPException(400, "请选择已关联 Team 的虚拟 MCP")
-    team = db.get(EmailTeam, server.team_id)
-    if not team or not team.is_active or team.is_personal:
-        raise HTTPException(400, "只能导入到启用的非个人 Team")
+    if server is None or not server.enabled:
+        raise HTTPException(400, "请选择启用的虚拟 MCP")
     form = await request.form()
+    team = management_team(db, server, str(form.get("team_id") or "") or None)
     upload = form.get("file")
     if not hasattr(upload, "read") or not str(upload.filename).lower().endswith(".xlsx"):
         raise HTTPException(400, "请选择 .xlsx 文件")
@@ -251,7 +277,7 @@ async def member_import(request: Request, server_id: str, user=Depends(get_curre
 async def member_bulk_keys(body: BulkKeyRequest, user=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
     """Generate a different key for each active server and member pair."""
     actor = require_platform_session(user)
-    query = select(Server).where(Server.enabled.is_(True), Server.team_id.is_not(None))
+    query = select(Server).where(Server.enabled.is_(True))
     if body.server_id:
         query = query.where(Server.id == body.server_id)
     servers = db.execute(query).scalars().all()
@@ -259,12 +285,17 @@ async def member_bulk_keys(body: BulkKeyRequest, user=Depends(get_current_user_w
         raise HTTPException(404, "虚拟 MCP 不存在、已停用或未关联 Team")
     pairs = []
     for server in servers:
+        if not body.server_id and body.team_id is None:
+            owning_team = db.get(EmailTeam, server.team_id) if server.team_id else None
+            if not owning_team or owning_team.is_personal or not owning_team.is_active:
+                continue
+        team = management_team(db, server, body.team_id)
         emails = (
             db.execute(
                 select(EmailTeamMember.user_email)
                 .join(EmailUser, EmailTeamMember.user_email == EmailUser.email)
                 .where(
-                    EmailTeamMember.team_id == server.team_id,
+                    EmailTeamMember.team_id == team.id,
                     EmailTeamMember.is_active.is_(True),
                     EmailUser.is_active.is_(True),
                 )
@@ -272,13 +303,13 @@ async def member_bulk_keys(body: BulkKeyRequest, user=Depends(get_current_user_w
             .scalars()
             .all()
         )
-        pairs.extend((server, email) for email in emails)
+        pairs.extend((server, email, team.id) for email in emails)
     if len(pairs) > 500:
         raise HTTPException(400, "单次最多生成 500 个 Key，请按虚拟 MCP 分批生成")
     results = []
-    for server, email in pairs:
+    for server, email, team_id in pairs:
         try:
-            result = await issue_member_key(db, email, server.team_id, server.id, body.days, actor)
+            result = await issue_member_key(db, email, team_id, server.id, body.days, actor)
             results.append({"status": "renewed" if result.get("renewed") else "created", **result})
         except (HTTPException, ValueError) as exc:
             db.rollback()
@@ -287,6 +318,46 @@ async def member_bulk_keys(body: BulkKeyRequest, user=Depends(get_current_user_w
             db.rollback()
             results.append({"status": "failed", "email": email, "server_id": server.id, "message": "数据库写入失败，请稍后重试此成员"})
     return JSONResponse({"results": results}, headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
+
+
+@router.post("/member-usage/keys/export")
+@require_permission("tokens.create")
+async def member_keys_export(body: KeyExportRequest, user=Depends(get_current_user_with_permissions)):
+    """Export transient issuance results as text cells without persisting raw keys."""
+    require_platform_session(user)
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "成员 API Key"
+    columns = [
+        ("成员邮箱", "email"),
+        ("虚拟 MCP", "server_name"),
+        ("服务器 ID", "server_id"),
+        ("团队 ID", "team_id"),
+        ("状态", "status"),
+        ("API Key", "api_key"),
+        ("到期时间", "expires_at"),
+        ("说明", "message"),
+    ]
+    sheet.append([label for label, _ in columns])
+    for row in body.results:
+        values = [str(row.get(key) or "") for _, key in columns]
+        if any(len(value) > 16384 for value in values):
+            raise HTTPException(400, "导出字段过长，请分批操作")
+        sheet.append(values)
+        for cell in sheet[sheet.max_row]:
+            cell.data_type = "s"
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+    for column in "ABCDEFGH":
+        sheet.column_dimensions[column].width = 32 if column != "F" else 60
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return Response(
+        output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="mcp-member-keys.xlsx"', "Cache-Control": "no-store", "Pragma": "no-cache"},
+    )
 
 
 @router.get("/member-usage/data")
