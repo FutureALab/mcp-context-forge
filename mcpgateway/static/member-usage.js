@@ -7,6 +7,8 @@
   let charts = [];
   let busy = false;
   let initialized = false;
+  let sessionExpired = false;
+  let selectedServer = "";
   const dialog = el("server-members-dialog");
   const dateTime = (value) => {
     if (!value) return "—";
@@ -34,7 +36,10 @@
         : String(value);
   async function request(path, body) {
     const headers = { "X-CSRF-Token": csrf() };
+    const token = await window.Admin?.getAuthToken?.();
+    if (token) headers.Authorization = `Bearer ${token}`;
     const init = { credentials: "same-origin", headers };
+    if (!body) init.signal = AbortSignal.timeout(15000);
     if (body) {
       init.method = "POST";
       init.body = body instanceof FormData ? body : JSON.stringify(body);
@@ -43,6 +48,15 @@
       }
     }
     const response = await fetch(base + path, init);
+    if (
+      response.status === 401 ||
+      (response.redirected && response.url.includes("/admin/login"))
+    ) {
+      sessionExpired = true;
+      const error = new Error("登录已过期，请重新登录后加载虚拟 MCP。");
+      error.authExpired = true;
+      throw error;
+    }
     if (!response.ok) {
       const data = await response.json();
       throw new Error(
@@ -50,6 +64,18 @@
       );
     }
     return response.json();
+  }
+  function showFailure(id, error) {
+    const status = el(id);
+    status.textContent = ["TimeoutError", "AbortError"].includes(error.name)
+      ? "请求超时，请检查服务后重试。"
+      : error.message;
+    if (error.authExpired) {
+      const link = document.createElement("a");
+      link.href = `${dialog.dataset.root}/admin/login`;
+      link.textContent = "重新登录";
+      status.append(" ", link);
+    }
   }
   function table(id, rows, columns) {
     const container = el(id);
@@ -256,7 +282,7 @@
       el("panel-status").textContent =
         `已更新，共 ${data.coverage.matching_requests} 条匹配请求。`;
     } catch (error) {
-      el("panel-status").textContent = error.message;
+      showFailure("panel-status", error);
     } finally {
       el("refresh-usage").disabled = false;
     }
@@ -286,7 +312,7 @@
       el("management-status").textContent =
         `处理完成：${data.results.length} 条；失败 ${data.results.filter((r) => r.status === "failed").length} 条。`;
     } catch (error) {
-      el("management-status").textContent = error.message;
+      showFailure("management-status", error);
     } finally {
       busy = false;
       [
@@ -315,8 +341,9 @@
     el(id).addEventListener("click", () =>
       manage(async () => {
         const server = id === "bulk-all" ? null : el("management-server").value;
-        if (id === "bulk-selected" && !server)
-        {throw new Error("请先选择一个虚拟 MCP");}
+        if (id === "bulk-selected" && !server) {
+          throw new Error("请先选择一个虚拟 MCP");
+        }
         const data = await request("/keys", {
           server_id: server,
           days: Number(el("bulk-days").value),
@@ -364,11 +391,39 @@
     el("selected-server-description").textContent = server
       ? `当前操作对象：${server.name}`
       : "选择虚拟 MCP，导入成员或生成独立 Key。";
-    el("import-members").disabled = !server?.team_id || !server?.can_import;
-    el("bulk-selected").disabled = !server?.team_id || !server?.enabled;
+    el("import-members").disabled =
+      sessionExpired || !server?.team_id || !server?.can_import || !validFile();
+    el("bulk-selected").disabled =
+      sessionExpired || !server?.team_id || !server?.enabled;
     el("bulk-all").hidden = Boolean(server);
-    el("bulk-all").disabled = !serverOptions.length;
+    el("bulk-all").disabled = sessionExpired || !serverOptions.length;
   }
+  function validFile() {
+    const file = el("members-file").files[0];
+    return (
+      file &&
+      /\.xlsx$/i.test(file.name) &&
+      file.size > 0 &&
+      file.size <= 5 * 1024 * 1024
+    );
+  }
+  function updateFile() {
+    const file = el("members-file").files[0];
+    el("members-file-name").textContent = file
+      ? file.name
+      : "点击选择 Excel 文件";
+    el("members-file-info").textContent = file
+      ? validFile()
+        ? `${(file.size / 1024).toFixed(1)} KB · 已选择，可导入`
+        : "请选择不超过 5 MB 的非空 .xlsx 文件"
+      : ".xlsx 格式 · 最多 500 行 · 最大 5 MB";
+    el("clear-members-file").hidden = !file;
+    updateManagement();
+  }
+  el("members-file").addEventListener("change", updateFile);
+  el("clear-members-file").addEventListener("click", () =>
+    el("members-file").click()
+  );
   el("management-server").addEventListener("change", () => {
     el("management-status").textContent = "";
     el("management-results").replaceChildren();
@@ -378,32 +433,49 @@
   dialog.addEventListener("cancel", (event) => {
     if (busy) event.preventDefault();
   });
-  document.addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-server-members]");
-    if (!button) return;
-    dialog.showModal();
+  async function loadServers() {
     serverOptions = [];
+    el("retry-member-servers").hidden = true;
     el("management-server").replaceChildren(new Option("正在加载…", ""));
     el("management-server").disabled = true;
     el("management-results").replaceChildren();
-    el("members-file").value = "";
     updateManagement();
     el("management-status").textContent = "正在加载虚拟 MCP…";
     try {
       const data = await request("/servers");
+      sessionExpired = false;
       serverOptions = data.servers;
-      el("management-server").replaceChildren(new Option("请选择虚拟 MCP", ""));
+      el("management-server").replaceChildren(
+        new Option(
+          serverOptions.length ? "请选择虚拟 MCP" : "暂无可管理的虚拟 MCP",
+          ""
+        )
+      );
       serverOptions.forEach((s) =>
         el("management-server").add(new Option(s.name, s.id))
       );
-      el("management-server").value = button.dataset.serverMembers || "";
+      el("management-server").value = selectedServer;
       updateManagement();
       el("management-status").textContent = "";
     } catch (error) {
-      el("management-status").textContent = error.message;
+      el("management-server").replaceChildren(
+        new Option(error.authExpired ? "登录已过期" : "加载失败，请重试", "")
+      );
+      showFailure("management-status", error);
+      el("retry-member-servers").hidden = Boolean(error.authExpired);
     } finally {
-      el("management-server").disabled = false;
+      el("management-server").disabled = !serverOptions.length;
     }
+  }
+  el("retry-member-servers").addEventListener("click", loadServers);
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-server-members]");
+    if (!button) return;
+    selectedServer = button.dataset.serverMembers || "";
+    el("members-file").value = "";
+    updateFile();
+    dialog.showModal();
+    await loadServers();
   });
   document.addEventListener("member-usage:open", async () => {
     try {
@@ -418,7 +490,7 @@
       }
       await refresh();
     } catch (error) {
-      el("panel-status").textContent = error.message;
+      showFailure("panel-status", error);
     }
   });
 })();

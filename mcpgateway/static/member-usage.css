@@ -192,3 +192,163 @@
     flex-wrap: wrap;
   }
 }
+
+#server-members-dialog {
+  padding: 0;
+  width: min(980px, 94vw);
+}
+#server-members-dialog > header {
+  padding: 22px 26px 16px;
+  margin: 0;
+  border-bottom: 1px solid var(--member-border);
+  background: var(--member-bg);
+}
+#server-members-dialog header h2 {
+  font-size: 21px;
+  margin-bottom: 4px;
+}
+#server-members-dialog header p {
+  color: var(--member-muted);
+  margin: 0;
+}
+#server-members-dialog .server-selector {
+  margin: 20px 24px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  border: 1px solid var(--member-border);
+  box-shadow: none;
+}
+#server-members-dialog .server-selector label {
+  flex: 2;
+}
+#server-members-dialog .member-actions-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 20px;
+  padding: 0 24px 24px;
+}
+#server-members-dialog .member-actions-grid section {
+  margin: 0;
+  padding: 22px;
+  border: 1px solid var(--member-border);
+  box-shadow: none;
+}
+#server-members-dialog .section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+#server-members-dialog h2 {
+  font-size: 17px;
+  margin-bottom: 6px;
+}
+#server-members-dialog .template-link {
+  white-space: nowrap;
+  font-size: 12px;
+  padding: 5px 9px;
+  border: 1px solid var(--member-border);
+  border-radius: 6px;
+  text-decoration: none;
+}
+#server-members-dialog .excel-upload {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 170px;
+  margin: 14px 0 8px;
+  padding: 20px;
+  border: 1.5px dashed #a5b4fc;
+  border-radius: 10px;
+  background: var(--member-soft);
+  cursor: pointer;
+  text-align: center;
+}
+#server-members-dialog .excel-upload:hover,
+#server-members-dialog .excel-upload:focus-within {
+  border-color: #6366f1;
+  background: #6366f10d;
+}
+#server-members-dialog .excel-upload svg {
+  color: #6366f1;
+}
+#server-members-dialog .excel-upload strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+#server-members-dialog .excel-upload span {
+  font-size: 12px;
+  color: var(--member-muted);
+}
+#server-members-dialog .excel-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+#server-members-dialog .upload-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 32px;
+  gap: 8px;
+}
+#server-members-dialog .wide-button {
+  width: 100%;
+  margin-top: 12px;
+}
+#server-members-dialog .key-card label {
+  margin: 22px 0 8px;
+}
+#server-members-dialog .secondary-button {
+  background: var(--member-bg);
+  color: var(--member-text);
+  border-color: var(--member-border);
+}
+#server-members-dialog .member-notice {
+  margin: 0 24px;
+}
+#server-members-dialog .member-notice:has(p:not(:empty)) {
+  margin-top: 16px;
+  padding: 10px 14px;
+  border: 1px solid #a5b4fc;
+  border-radius: 8px;
+  background: #6366f10d;
+}
+#server-members-dialog .member-notice p {
+  margin: 0;
+}
+#server-members-dialog .member-notice a {
+  font-weight: 600;
+  margin-left: 8px;
+}
+#server-members-dialog .member-notice button {
+  margin-top: 8px;
+}
+#server-members-dialog #management-results:not(:empty) {
+  margin: 0 24px 24px;
+  padding: 12px;
+  border: 1px solid var(--member-border);
+  background: var(--member-bg);
+  border-radius: 8px;
+}
+#server-members-dialog [hidden] {
+  display: none !important;
+}
+@media (max-width: 720px) {
+  #server-members-dialog .member-actions-grid {
+    grid-template-columns: 1fr;
+  }
+  #server-members-dialog .server-selector {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

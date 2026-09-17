@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-09-17: Expired session and Excel layout follow-up
+
+- Screenshot confirms an expired login token blocked the MCP list; the loading placeholder survived the failed request.
+- Requests now use the existing Admin token helper. Expired sessions show a top-of-dialog login link and disable mutations.
+- Failed list requests replace the loading placeholder; network failures offer retry with a bounded read timeout.
+- Excel uses a compact file card beside Key management, showing filename, size, and validation before import.
+- Browser confirmed that fresh login loads and selects the MCP list. Existing expired sessions must sign in again.
+- DOM regression, live gateway integration, ESLint, and production build pass. Test services are stopped.
+
 ## 2026-09-17: Password and embedded management revision
 
 - The new password requirement supersedes email-only self-service below.

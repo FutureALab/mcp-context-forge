@@ -60,3 +60,14 @@
 - Historical records without MCP metadata remain explicitly unknown. New tools/call records include method, concrete tool, outcome, and time.
 - Full repository gates remain unavailable as noted above; targeted integration completed successfully.
 - Stopped both isolated validation services and verified ports 4445 and 9009 are closed. Existing business services remain unchanged.
+
+
+## 2026-09-17: Recover member-list failures and refine Excel UI
+
+- Fixed persistent loading placeholder after an expired-token response. Login recovery now appears at the top of the dialog.
+- Added list retry, read timeout, and compatibility with the existing Admin authentication helper.
+- Replaced native file-row layout with a file selection card, validation feedback, and responsive two-column actions.
+- Expanded DOM regression to cover expired sessions, failed reads, retry recovery, invalid files, and server-specific FormData submission.
+- Live gateway integration passed, including authenticated list retrieval, actual Excel import, issuance, and MCP calls.
+- Browser confirmed list selection and final layout after login. ESLint and Vite build passed.
+- Stopped isolated services and verified ports 4445 and 9009 are closed.
