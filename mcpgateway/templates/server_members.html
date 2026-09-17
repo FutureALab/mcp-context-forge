@@ -1,0 +1,13 @@
+<dialog id="server-members-dialog" class="member-workflows" aria-labelledby="server-members-title" data-root="{{ root_path }}">
+  <header><div><h2 id="server-members-title">虚拟 MCP 成员管理</h2><p id="selected-server-description">选择虚拟 MCP，导入成员或生成独立 Key。</p></div><button id="close-server-members" type="button" aria-label="关闭成员管理">关闭</button></header>
+  <section class="controls"><label>当前虚拟 MCP<select id="management-server"><option value="">请选择虚拟 MCP</option></select></label><p id="management-team" class="note"></p></section>
+  <section><h2>Excel 批量添加成员</h2><p>将已注册账号加入当前 MCP 的 Team；成员同时获得该 Team 的现有权限。</p>
+    <div class="controls"><a href="{{ root_path }}/admin/member-usage/template">下载 Excel 模板</a><label>成员文件（.xlsx，最多 500 行 / 5 MB）<input id="members-file" type="file" accept=".xlsx" /></label><button id="import-members" type="button">导入成员</button></div>
+    <p class="note">未注册的账号请先在用户管理中创建。个人 Team 不支持批量加入成员。</p>
+  </section>
+  <section><h2>批量生成成员 Key</h2><div class="controls"><label>有效期<select id="bulk-days"><option value="7">7 天</option><option value="30" selected>30 天</option><option value="90">90 天</option></select></label><button id="bulk-selected" type="button">为当前 MCP 全部成员生成 Key</button><button id="download-keys" type="button" disabled>下载生成结果</button></div>
+    <button id="bulk-all" type="button" hidden>为所有虚拟 MCP 的成员生成 Key</button>
+    <p class="note">每名有效成员与 MCP 的组合获得不同 Key；已有 Key 保留。完整 Key 只在本次结果下载中提供。未选择 MCP 时，可批量处理所有已关联 Team 的启用服务器。</p>
+  </section>
+  <p id="management-status" role="status" aria-live="polite"></p><div id="management-results" class="table-scroll"></div>
+</dialog>

@@ -87,7 +87,7 @@
             class="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           >{{ _("View") }}</button>
           {% if is_admin %}
-          <a role="menuitem" href="{{ root_path }}/admin/member-usage?server_id={{ server.id|urlencode }}" class="block px-4 py-2 text-sm text-indigo-600">成员与调用统计</a>
+          <button type="button" role="menuitem" data-server-members="{{ server.id }}" class="w-full text-left px-4 py-2 text-sm text-indigo-600">成员管理 · Excel / Key</button>
           {% endif %}
           {% if can_modify %}
           <button

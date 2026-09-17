@@ -178,6 +178,7 @@
     <link rel="stylesheet" href="{{ root_path }}/static/{{ css_file }}" />
     {% endfor %}
     <link href="{{ root_path }}/static/admin.css" rel="stylesheet" />
+    {% if is_admin %}<link href="{{ root_path }}/static/member-usage.css" rel="stylesheet" />{% endif %}
     <link href="{{ root_path }}/static/gantt-chart.css" rel="stylesheet" />
     <link href="{{ root_path }}/static/flame-graph.css" rel="stylesheet" />
     <style>
@@ -418,7 +419,7 @@
           </div>
           {% endif %}
 
-          {% if 'metrics' not in hidden_sections or performance_enabled or observability_enabled %}
+          {% if is_admin or 'metrics' not in hidden_sections or performance_enabled or observability_enabled %}
           <!-- Monitoring Section -->
           <div class="sidebar-section mt-4" x-show="!sidebarCollapsed">
             <span class="px-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{{ _("Monitoring") }}</span>
@@ -431,6 +432,15 @@
                data-action-click="showTab" data-arg0="metrics">
               <span class="sidebar-icon text-lg" :class="{ 'mr-3': !sidebarCollapsed }">📊</span>
               <span x-show="!sidebarCollapsed">{{ _("Metrics") }}</span>
+            </a>
+            {% endif %}
+            {% if is_admin %}
+            <a href="#member-usage" id="tab-member-usage"
+               class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors"
+               :class="{ 'justify-center': sidebarCollapsed }" title="成员调用统计"
+               data-action-click="showTab" data-arg0="member-usage">
+              <svg class="sidebar-icon" :class="{ 'mr-3': !sidebarCollapsed }" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3v18h18M7 16v-5m5 5V6m5 10v-8" /></svg>
+              <span x-show="!sidebarCollapsed">成员调用统计</span>
             </a>
             {% endif %}
             {% if performance_enabled and is_admin %}
@@ -2161,7 +2171,7 @@
         <div class="flex justify-between items-center mb-4">
           <div class="flex items-center space-x-10">
             <h2 class="text-2xl font-bold dark:text-gray-200">{{ _("Virtual MCP Servers") }}</h2>
-            {% if is_admin %}<a href="{{ root_path }}/admin/member-usage" class="text-sm text-indigo-600 underline">成员导入、批量 Key 与调用统计</a>{% endif %}
+            {% if is_admin %}<button type="button" data-server-members="" class="px-3 py-2 text-sm text-indigo-600 border border-indigo-300 rounded-lg">成员管理 · Excel / Key</button>{% endif %}
             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
               {{ _("Virtual Servers let you combine Tools, Resources, and Prompts into an MCP Server with its own API key (see API Tokens).") }}
             </p>
@@ -8068,6 +8078,9 @@ Hello &#123;&#123; name &#125;&#125;, welcome to &#123;&#123; company &#125;&#12
       </div>
       {% endif %}
 
+      {% if is_admin %}
+      <div id="member-usage-panel" class="tab-panel hidden">{% include "member_usage.html" %}</div>
+      {% endif %}
       {% if 'metrics' not in hidden_sections %}
       <!-- Metrics Panel -->
       <div id="metrics-panel" class="tab-panel hidden">
@@ -15065,5 +15078,9 @@ class="fixed z-40 inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-ce
         </main>
       </div>
     </div>
+    {% if is_admin %}
+    {% include "server_members.html" %}
+    <script src="{{ root_path }}/static/member-usage.js" defer></script>
+    {% endif %}
   </body>
 </html>

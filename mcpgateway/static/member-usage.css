@@ -1,199 +1,194 @@
 /* Copyright contributors to the MCP-CONTEXT-FORGE project. SPDX-License-Identifier: Apache-2.0 */
-:root {
-  color-scheme: light;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  color: #18181b;
-  background: #f7f7f8;
+.member-workflows {
+  --member-bg: #fff;
+  --member-soft: #f9fafb;
+  --member-border: #e5e7eb;
+  --member-text: #111827;
+  --member-muted: #6b7280;
+  color: var(--member-text);
 }
-body {
-  margin: 0;
+.dark .member-workflows {
+  --member-bg: #1f2937;
+  --member-soft: #111827;
+  --member-border: #374151;
+  --member-text: #e5e7eb;
+  --member-muted: #9ca3af;
 }
-main {
-  max-width: 1440px;
-  margin: auto;
-  padding: 32px;
-}
-header {
+.member-workflows header {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  padding-bottom: 24px;
-  border-bottom: 1px solid #d4d4d8;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
 }
-h1 {
-  font-size: 32px;
-  font-weight: 650;
-  margin: 12px 0;
-}
-h2 {
-  font-size: 19px;
+.member-workflows h2 {
+  font-size: 18px;
   font-weight: 600;
-  margin: 0 0 16px;
+  margin-bottom: 12px;
 }
-small,
-.note {
-  color: #71717a;
+.member-workflows header h2 {
+  font-size: 24px;
+  font-weight: 700;
+}
+.member-workflows p {
+  margin: 10px 0;
+  font-size: 14px;
+}
+.member-workflows small,
+.member-workflows .note {
   font-size: 12px;
   font-weight: normal;
+  color: var(--member-muted);
 }
-p {
-  margin: 12px 0;
+.member-workflows section {
+  padding: 24px;
+  margin-bottom: 24px;
+  background: var(--member-bg);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px #0000001a;
+  min-width: 0;
 }
-a {
-  color: #002fa7;
+.member-workflows a {
+  color: #6366f1;
   text-decoration: underline;
 }
-section {
-  background: #fff;
-  border: 1px solid #e4e4e7;
-  margin-top: 24px;
-  padding: 20px;
-}
-.controls {
+.member-workflows .controls {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 16px;
 }
-label {
-  font-size: 13px;
+.member-workflows label {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  font-size: 13px;
   flex: 1;
-  min-width: 150px;
+  min-width: 140px;
 }
-input,
-select,
-button {
+.member-workflows input,
+.member-workflows select,
+.member-workflows button {
   font: inherit;
-  border: 1px solid #a1a1aa;
+  font-size: 13px;
+  border: 1px solid var(--member-border);
+  border-radius: 6px;
+  padding: 9px 12px;
+  background: var(--member-bg);
+  color: var(--member-text);
   min-height: 40px;
-  padding: 8px 12px;
-  background: white;
   max-width: 100%;
 }
-button {
-  background: #002fa7;
-  border-color: #002fa7;
+.member-workflows button {
+  background: #4f46e5;
+  border-color: #4f46e5;
   color: white;
   cursor: pointer;
 }
-button:disabled {
+.member-workflows button:disabled {
   opacity: 0.45;
   cursor: default;
 }
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible {
-  outline: 3px solid #002fa7;
+.member-workflows :focus-visible {
+  outline: 2px solid #818cf8;
   outline-offset: 3px;
 }
-.cards {
+.member-workflows .cards {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   padding: 0;
+  gap: 16px;
+  box-shadow: none;
+  background: transparent;
 }
-.card {
-  padding: 22px;
-  border-right: 1px solid #e4e4e7;
+.member-workflows .card {
+  padding: 20px;
+  border-radius: 8px;
+  background: var(--member-bg);
+  border-top: 3px solid #6366f1;
+  box-shadow: 0 1px 3px #0000001a;
 }
-.card span {
+.member-workflows .card span {
+  display: block;
   font-size: 12px;
-  color: #52525b;
-  display: block;
+  color: var(--member-muted);
 }
-.card strong {
+.member-workflows .card strong {
   display: block;
-  font-size: 28px;
+  font-size: 26px;
   margin-top: 12px;
   font-variant-numeric: tabular-nums;
 }
-.table-scroll {
+.member-workflows .usage-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.member-workflows .chart-wrap {
+  height: 280px;
+  position: relative;
+}
+.member-workflows .table-scroll {
   overflow-x: auto;
 }
-table {
+.member-workflows table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
 }
-th,
-td {
+.member-workflows th,
+.member-workflows td {
   text-align: left;
   padding: 12px;
-  border-bottom: 1px solid #e4e4e7;
-  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--member-border);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-th {
-  color: #52525b;
-  background: #f7f7f8;
+.member-workflows th {
+  background: var(--member-soft);
+  color: var(--member-muted);
+  font-weight: 500;
 }
-tbody tr:hover {
-  background: #f7f7f8;
+.member-workflows tbody tr:hover {
+  background: var(--member-soft);
 }
-.trend {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-top: 10px;
-}
-.trend-day {
-  flex: 1;
-  min-width: 44px;
+.member-workflows .empty {
+  padding: 24px;
   text-align: center;
-  font-size: 11px;
+  color: var(--member-muted);
 }
-.trend-column {
-  height: 100px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
+#server-members-dialog {
+  width: min(1000px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid var(--member-border);
+  border-radius: 12px;
+  background: var(--member-soft);
+  padding: 24px;
 }
-.trend-bar {
-  background: #002fa7;
-  width: 60%;
-  min-height: 2px;
-}
-.trend-day span {
-  display: block;
-  margin-top: 6px;
-}
-.management .controls {
-  margin-top: 20px;
+#server-members-dialog::backdrop {
+  background: #0008;
 }
 #panel-status,
 #management-status {
-  color: #002fa7;
+  color: #6366f1;
 }
-.empty {
-  color: #71717a;
-  padding: 24px;
-  text-align: center;
-}
-@media (max-width: 900px) {
-  main {
-    padding: 16px;
+@media (max-width: 1100px) {
+  .member-workflows .cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .cards {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  header {
-    gap: 16px;
-  }
-  h1 {
-    font-size: 25px;
+  .member-workflows .usage-charts {
+    grid-template-columns: 1fr;
   }
 }
-@media (max-width: 520px) {
-  .cards {
-    grid-template-columns: repeat(2, 1fr);
+@media (max-width: 600px) {
+  .member-workflows .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  header {
-    display: block;
-  }
-  label {
+  .member-workflows label {
     min-width: 100%;
+  }
+  .member-workflows header {
+    flex-wrap: wrap;
   }
 }

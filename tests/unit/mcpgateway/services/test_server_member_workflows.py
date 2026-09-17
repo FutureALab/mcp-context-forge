@@ -59,7 +59,7 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(claims["scopes"]["server_id"], "server-a")
         self.assertNotIn("tokens.create", claims["scopes"]["permissions"])
 
-    def test_membership_denials(self):
+    async def test_membership_denials(self):
         """Reject unknown accounts, wrong teams, and nonmembers."""
         for email, team, server in [
             ("missing@example.com", "team-a", "server-a"),
@@ -68,9 +68,9 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
             ("member@example.com", "team-a", "missing"),
         ]:
             with self.subTest(email=email, team=team, server=server), self.assertRaises(HTTPException):
-                member_server(self.db, email, team, server)
+                await member_server(self.db, email, team, server)
 
-    def test_disabled_entities_and_private_visibility(self):
+    async def test_disabled_entities_and_private_visibility(self):
         """Reject disabled identities, memberships, teams, servers, and private resources."""
         objects = [
             (self.db.query(EmailUser).filter_by(email="member@example.com").one(), "is_active"),
@@ -82,14 +82,14 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
             setattr(obj, attribute, False)
             self.db.commit()
             with self.assertRaises(HTTPException):
-                member_server(self.db, "member@example.com", "team-a", "server-a")
+                await member_server(self.db, "member@example.com", "team-a", "server-a")
             setattr(obj, attribute, True)
             self.db.commit()
         server = self.db.get(Server, "server-a")
         server.visibility, server.owner_email = "private", "other@example.com"
         self.db.commit()
         with self.assertRaises(HTTPException):
-            member_server(self.db, "member@example.com", "team-a", "server-a")
+            await member_server(self.db, "member@example.com", "team-a", "server-a")
 
     async def test_missing_mcp_permission(self):
         """Reject issuance when membership grants no MCP transport permission."""
@@ -97,6 +97,63 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
         self.db.commit()
         with self.assertRaises(HTTPException):
             await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 7, "self-service")
+
+    async def test_public_server_uses_recipient_team_scope(self):
+        """Permit public servers across teams without expanding token team scope."""
+        server = self.db.get(Server, "server-a")
+        server.team_id, server.visibility = "team-b", "public"
+        self.db.commit()
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            result = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 7, "self-service")
+        claims = jwt.decode(result["api_key"], options={"verify_signature": False})
+        self.assertEqual(claims["teams"], ["team-a"])
+        server.visibility = "team"
+        self.db.commit()
+        with self.assertRaises(HTTPException):
+            await member_server(self.db, "member@example.com", "team-a", "server-a")
+
+    async def test_password_options_and_issue_boundaries(self):
+        """Require real passwords on both endpoints and honor account lockout."""
+        # Standard
+        from datetime import timedelta
+
+        # Third-Party
+        from argon2 import PasswordHasher
+        from fastapi import FastAPI
+        import httpx
+
+        # First-Party
+        from mcpgateway.db import utc_now
+        from mcpgateway.routers.server_members import get_db, router
+
+        user = self.db.query(EmailUser).filter_by(email="member@example.com").one()
+        user.password_hash = PasswordHasher().hash("Fixture-password-927!")
+        self.db.commit()
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_db] = lambda: self.db
+        csrf = "test-csrf-value-" * 3
+        with patch("mcpgateway.routers.server_members.settings.self_service_api_keys_enabled", True), patch("mcpgateway.routers.server_members.settings.email_auth_enabled", True):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Origin": "http://test", "X-CSRF-Token": csrf}, cookies={"mcpgateway_csrf_token": csrf}
+            ) as client:
+                body = {"email": user.email, "team_id": "team-a", "server_id": "server-a"}
+                for endpoint in ("options", "issue"):
+                    missing = await client.post(f"/api-key/{endpoint}", json=body)
+                    self.assertEqual(missing.status_code, 422)
+                    wrong = await client.post(f"/api-key/{endpoint}", json={**body, "password": "wrong-password"})
+                    self.assertEqual(wrong.status_code, 403)
+                self.db.refresh(user)
+                self.assertEqual(user.failed_login_attempts, 2)
+                valid = {**body, "password": "Fixture-password-927!"}
+                options = await client.post("/api-key/options", json=valid)
+                self.assertEqual(options.status_code, 200, options.text)
+                self.assertEqual(options.json()["servers"][0]["eligible_team_ids"], ["team-a"])
+                user.locked_until = utc_now() + timedelta(minutes=5)
+                self.db.commit()
+                for endpoint in ("options", "issue"):
+                    locked = await client.post(f"/api-key/{endpoint}", json=valid)
+                    self.assertEqual(locked.status_code, 403)
 
     def test_roster_and_method_filter(self):
         """Include unused members and filter records by their actual server."""

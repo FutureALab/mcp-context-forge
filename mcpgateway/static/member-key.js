@@ -2,6 +2,7 @@
 (() => {
   const form = document.getElementById("member-key-form");
   const email = document.getElementById("member-email");
+  const password = document.getElementById("member-password");
   const team = document.getElementById("member-team");
   const server = document.getElementById("member-server");
   const issue = document.getElementById("issue-member-key");
@@ -45,13 +46,20 @@
   function updateServers() {
     server.replaceChildren(new Option("请选择虚拟 MCP", ""));
     servers
-      .filter((s) => s.team_id === team.value)
-      .forEach((s) => server.add(new Option(s.name, s.id)));
+      .filter((s) => s.eligible_team_ids.includes(team.value))
+      .forEach((s) =>
+        server.add(
+          new Option(
+            s.name + (s.visibility === "public" ? " · 公开" : ""),
+            s.id
+          )
+        )
+      );
     server.disabled = !team.value;
     issue.disabled = true;
     clearResult();
   }
-  email.addEventListener("input", () => {
+  function invalidateAccount() {
     version++;
     account = "";
     servers = [];
@@ -59,14 +67,16 @@
     team.disabled = true;
     updateServers();
     message.textContent = "";
-  });
+  }
+  email.addEventListener("input", invalidateAccount);
+  password.addEventListener("input", invalidateAccount);
   team.addEventListener("change", updateServers);
   server.addEventListener("change", () => {
     issue.disabled = !server.value;
     clearResult();
   });
   load.addEventListener("click", async () => {
-    if (!email.reportValidity()) return;
+    if (!email.reportValidity() || !password.reportValidity()) return;
     const current = ++version;
     load.disabled = true;
     issue.disabled = true;
@@ -74,7 +84,10 @@
     message.textContent = "正在查询…";
     try {
       const requested = email.value.trim();
-      const data = await post("options", { email: requested });
+      const data = await post("options", {
+        email: requested,
+        password: password.value,
+      });
       if (current !== version) return;
       account = requested;
       servers = data.servers;
@@ -100,6 +113,7 @@
     const current = version;
     const controls = [
       email,
+      password,
       team,
       server,
       load,
@@ -111,6 +125,7 @@
     try {
       const data = await post("issue", {
         email: account,
+        password: password.value,
         team_id: team.value,
         server_id: server.value,
         days: Number(document.getElementById("member-days").value),

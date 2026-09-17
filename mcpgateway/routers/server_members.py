@@ -11,9 +11,9 @@ import secrets
 
 # Third-Party
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 import openpyxl
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, SecretStr
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -34,7 +34,9 @@ from mcpgateway.config import settings
 from mcpgateway.db import EmailApiToken, EmailTeam, EmailTeamMember, EmailUser, Server, utc_now
 from mcpgateway.middleware.rbac import get_current_user_with_permissions, require_permission
 from mcpgateway.routers.tokens import _require_authenticated_session
+from mcpgateway.services.email_auth_service import EmailAuthService
 from mcpgateway.services.server_member_service import issue_member_key, registered_user
+from mcpgateway.services.server_service import ServerService
 from mcpgateway.services.team_management_service import MemberAlreadyExistsError, TeamManagementError, TeamManagementService
 
 router = APIRouter()
@@ -44,6 +46,7 @@ class AccountRequest(BaseModel):
     """An existing account supplied by the visitor."""
 
     email: EmailStr
+    password: SecretStr = Field(min_length=1, max_length=1024)
 
 
 class MemberKeyRequest(AccountRequest):
@@ -83,6 +86,16 @@ def require_public_csrf(request: Request) -> None:
         raise HTTPException(403, "请刷新页面后重试")
 
 
+async def authenticate_member(request: Request, body: AccountRequest, db: Session) -> EmailUser:
+    """Verify the local password with the existing account lockout policy."""
+    user = await EmailAuthService(db).authenticate_user(
+        str(body.email), body.password.get_secret_value(), ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent")
+    )
+    if user is None:
+        raise HTTPException(403, "邮箱或密码错误，或账号不可用")
+    return user
+
+
 @router.get("/api-key")
 async def member_key_page(request: Request):
     """Render the public key page using the login template."""
@@ -106,7 +119,7 @@ async def member_key_options(request: Request, body: AccountRequest, db: Session
     """List active teams and servers accessible to the supplied account."""
     require_self_service()
     require_public_csrf(request)
-    user = registered_user(db, str(body.email))
+    user = await authenticate_member(request, body, db)
     teams = (
         db.execute(
             select(EmailTeam)
@@ -121,20 +134,29 @@ async def member_key_options(request: Request, body: AccountRequest, db: Session
         .scalars()
         .all()
     )
-    servers = db.execute(select(Server).where(Server.team_id.in_([t.id for t in teams]), Server.enabled.is_(True)).order_by(Server.name)).scalars().all()
-    visible = [s for s in servers if s.visibility != "private" or s.owner_email == user.email]
-    return JSONResponse(
-        {"teams": [{"id": t.id, "name": t.name} for t in teams], "servers": [{"id": s.id, "name": s.name, "team_id": s.team_id} for s in visible]}, headers={"Cache-Control": "no-store"}
+    servers = (
+        db.execute(
+            select(Server).where(Server.enabled.is_(True), (Server.team_id.in_([t.id for t in teams])) | (Server.visibility == "public") | (Server.owner_email == user.email)).order_by(Server.name)
+        )
+        .scalars()
+        .all()
     )
+    visible = []
+    service = ServerService()
+    for server in servers:
+        eligible = [team.id for team in teams if await service._check_server_access(db, server, user.email, [team.id])]
+        if eligible:
+            visible.append({"id": server.id, "name": server.name, "team_id": server.team_id, "visibility": server.visibility, "eligible_team_ids": eligible})
+    return JSONResponse({"teams": [{"id": t.id, "name": t.name} for t in teams], "servers": visible}, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/api-key/issue")
 @rate_limit(requests_per_minute=10)
 async def member_key_issue(request: Request, body: MemberKeyRequest, db: Session = Depends(get_db)):
-    """Issue a key after server-side membership checks without identity verification."""
+    """Issue a key after password, membership, and visibility checks."""
     require_self_service()
     require_public_csrf(request)
-    user = registered_user(db, str(body.email))
+    user = await authenticate_member(request, body, db)
     recent = db.scalar(
         select(func.count())
         .select_from(EmailApiToken)
@@ -152,19 +174,9 @@ async def member_key_issue(request: Request, body: MemberKeyRequest, db: Session
 @router.get("/member-usage")
 @require_permission("admin.overview")
 async def member_usage_page(request: Request, user=Depends(get_current_user_with_permissions)):
-    """Render the platform member management and analytics panel."""
+    """Open member analytics inside the existing administration interface."""
     require_platform_session(user)
-    response = request.app.state.templates.TemplateResponse(
-        request,
-        "member_usage.html",
-        {
-            "root_path": request.scope.get("root_path", ""),
-            "bundle_css": get_bundle_css_files(),
-        },
-    )
-    _set_admin_csrf_cookie(request, response)
-    response.headers["Cache-Control"] = "no-store"
-    return response
+    return RedirectResponse(f"{request.scope.get('root_path', '')}/admin/#member-usage", status_code=303)
 
 
 @router.get("/member-usage/servers")
@@ -172,8 +184,12 @@ async def member_usage_page(request: Request, user=Depends(get_current_user_with
 async def member_servers(user=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
     """List servers with their teams for the member management panel."""
     require_platform_session(user)
-    rows = db.execute(select(Server, EmailTeam.name).outerjoin(EmailTeam, Server.team_id == EmailTeam.id).order_by(Server.name)).all()
-    return {"servers": [{"id": s.id, "name": s.name, "team_id": s.team_id, "team_name": name, "enabled": s.enabled} for s, name in rows]}
+    rows = db.execute(select(Server, EmailTeam).outerjoin(EmailTeam, Server.team_id == EmailTeam.id).order_by(Server.name)).all()
+    return {
+        "servers": [
+            {"id": s.id, "name": s.name, "team_id": s.team_id, "team_name": t.name if t else None, "enabled": s.enabled, "can_import": bool(t and t.is_active and not t.is_personal)} for s, t in rows
+        ]
+    }
 
 
 @router.get("/member-usage/template")

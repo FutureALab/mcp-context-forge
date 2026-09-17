@@ -2,11 +2,13 @@
 {% block page_title %}领取 MCP API Key - ContextForge{% endblock %}
 {% block login_card %}
 <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">领取 MCP API Key</h1>
-<p class="text-sm text-gray-500 dark:text-gray-300 mb-6">使用已注册邮箱，选择所属 Team 和虚拟 MCP。</p>
+<p class="text-sm text-gray-500 dark:text-gray-300 mb-6">验证已注册邮箱和密码，选择所属 Team 与可访问的虚拟 MCP。</p>
 <form id="member-key-form" class="space-y-4" data-root="{{ root_path }}" autocomplete="off">
   <div><label for="member-email" class="block text-sm font-semibold dark:text-white mb-2">账号邮箱</label>
     <input id="member-email" type="email" required maxlength="255" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" placeholder="输入已注册邮箱" /></div>
-  <button id="load-memberships" type="button" class="w-full py-2 border border-indigo-600 text-indigo-600 rounded-lg">查询所属 Team</button>
+  <div><label for="member-password" class="block text-sm font-semibold dark:text-white mb-2">账号密码</label>
+    <input id="member-password" type="password" required maxlength="1024" autocomplete="current-password" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" placeholder="输入平台账号密码" /></div>
+  <button id="load-memberships" type="button" class="w-full py-2 border border-indigo-600 text-indigo-600 rounded-lg">验证并查询所属 Team</button>
   <div><label for="member-team" class="block text-sm font-semibold dark:text-white mb-2">Team</label>
     <select id="member-team" required disabled class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"><option value="">请先查询账号</option></select></div>
   <div><label for="member-server" class="block text-sm font-semibold dark:text-white mb-2">虚拟 MCP</label>

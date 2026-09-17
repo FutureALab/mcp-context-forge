@@ -1089,7 +1089,7 @@ class Settings(BaseSettings):
 
     # Email-Based Authentication
     email_auth_enabled: bool = Field(default=True, description="Enable email-based authentication")
-    self_service_api_keys_enabled: bool = Field(default=False, description="Allow registered team members to obtain server-scoped API keys using email without identity verification")
+    self_service_api_keys_enabled: bool = Field(default=False, description="Allow registered team members to obtain server-scoped API keys after email and password verification")
     public_registration_enabled: bool = Field(
         default=False,
         description="Allow unauthenticated users to self-register accounts. When false, only admins can create users via /admin/users endpoint.",

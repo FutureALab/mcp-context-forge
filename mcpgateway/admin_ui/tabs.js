@@ -25,6 +25,7 @@ import {
 export const ADMIN_ONLY_TABS = new Set([
   "users",
   "metrics",
+  "member-usage",
   "performance",
   "observability",
   "plugins",
@@ -459,6 +460,10 @@ export const showTab = function (tabName) {
           if (!panel.classList.contains("hidden")) {
             window.Admin.loadAggregatedMetrics();
           }
+        }
+        if (tabName === "member-usage" && !panel.classList.contains("hidden")) {
+          await loadFeature("charts");
+          document.dispatchEvent(new CustomEvent("member-usage:open"));
         }
         if (tabName === "llm-chat") {
           // llmChat.js is lazy-loaded above; loadFeature() populates window.Admin with its exports

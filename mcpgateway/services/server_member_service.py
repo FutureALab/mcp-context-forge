@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from mcpgateway.db import EmailTeam, EmailTeamMember, EmailUser, Server
 from mcpgateway.services.audit_trail_service import get_audit_trail_service
 from mcpgateway.services.permission_service import PermissionService
+from mcpgateway.services.server_service import ServerService
 from mcpgateway.services.token_catalog_service import TokenCatalogService, TokenScope
 
 MCP_PERMISSIONS = ("servers.use", "tools.read", "tools.execute", "resources.read", "prompts.read", "prompts.execute")
@@ -29,7 +30,7 @@ def registered_user(db: Session, email: str) -> EmailUser:
     return user
 
 
-def member_server(db: Session, email: str, team_id: str, server_id: str) -> tuple[EmailUser, Server]:
+async def member_server(db: Session, email: str, team_id: str, server_id: str) -> tuple[EmailUser, Server]:
     """Validate the user, active team membership, and server visibility."""
     user = registered_user(db, email)
     membership = db.execute(
@@ -43,16 +44,16 @@ def member_server(db: Session, email: str, team_id: str, server_id: str) -> tupl
         )
     ).scalar_one_or_none()
     server = db.get(Server, server_id)
-    if membership is None or server is None or not server.enabled or server.team_id != team_id:
+    if membership is None or server is None or not server.enabled:
         raise HTTPException(403, "账号不存在、已停用或不具备所选资源的访问权限")
-    if server.visibility == "private" and server.owner_email != user.email:
+    if not await ServerService()._check_server_access(db, server, user.email, [team_id]):
         raise HTTPException(403, "账号不存在、已停用或不具备所选资源的访问权限")
     return user, server
 
 
 async def issue_member_key(db: Session, email: str, team_id: str, server_id: str, days: int, actor: str) -> dict:
     """Issue a distinct key with only the recipient's MCP permissions."""
-    user, server = member_server(db, email, team_id, server_id)
+    user, server = await member_server(db, email, team_id, server_id)
     permissions = await PermissionService(db).get_user_permissions(user.email, team_id=team_id, token_teams=[team_id])
     allowed = [p for p in MCP_PERMISSIONS if p in permissions or "*" in permissions or p.split(".")[0] + ".*" in permissions]
     if "servers.use" not in allowed:

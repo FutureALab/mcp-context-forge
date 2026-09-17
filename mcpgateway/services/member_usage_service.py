@@ -59,7 +59,7 @@ def member_usage_summary(db: Session, days: int, server_id: str | None, email: s
         )
         query = query.where((recorded_server == server_id) | (recorded_server.is_(None) & legacy_match))
     if method:
-        query = query.where(TokenUsageLog.mcp_details["method"].as_string() == method)
+        query = query.where((TokenUsageLog.mcp_details["method"].as_string() == method) | (TokenUsageLog.mcp_details["resource"].as_string() == method))
     total = db.scalar(select(func.count()).select_from(query.subquery()))
     logs = db.execute(query.order_by(TokenUsageLog.timestamp.desc()).limit(50000)).scalars().all()
     members, methods, by_token, trend = (defaultdict(list) for _ in range(4))

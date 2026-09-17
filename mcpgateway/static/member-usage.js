@@ -3,6 +3,20 @@
   const el = (id) => document.getElementById(id);
   const base = `${el("member-panel").dataset.root}/admin/member-usage`;
   let generated = [];
+  let serverOptions = [];
+  let charts = [];
+  let busy = false;
+  let initialized = false;
+  const dialog = el("server-members-dialog");
+  const dateTime = (value) => {
+    if (!value) return "—";
+    const date = new Date(
+      /[zZ]|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`
+    );
+    if (Number.isNaN(date.getTime())) return "—";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  };
   const csrf = () =>
     decodeURIComponent(
       document.cookie
@@ -119,10 +133,10 @@
         ["Key 数", "token_count"],
         ["有效 Key", "active_tokens"],
         ...metrics,
-        ["最近使用 UTC", "last_used"],
+        ["最近使用", (r) => dateTime(r.last_used)],
       ]);
       table("method-table", data.methods, [
-        ["MCP 方法", "method"],
+        ["MCP 方法", (r) => r.method || "历史记录未采集"],
         ["工具 / 资源", "resource"],
         ...metrics,
       ]);
@@ -131,38 +145,107 @@
         ["Key 名称", "name"],
         ["虚拟 MCP", "server"],
         ["状态", "status"],
-        ["到期时间 UTC", "expires_at"],
+        ["到期时间", (r) => dateTime(r.expires_at)],
         ...metrics,
-        ["最近使用 UTC", "last_used"],
+        ["最近使用", (r) => dateTime(r.last_used)],
       ]);
       table("recent-table", data.recent, [
-        ["时间 UTC", "timestamp"],
+        ["调用时间", (r) => dateTime(r.timestamp)],
         ["成员", "email"],
         ["Key", "token_name"],
         ["虚拟 MCP", "server"],
-        ["MCP 方法", "method"],
+        ["MCP 方法", (r) => r.method || "历史记录未采集"],
         ["工具 / 资源", "resource"],
         ["HTTP", "http_status"],
         ["MCP 结果", "outcome"],
         ["延时 ms", "latency_ms"],
       ]);
-      el("usage-trend").replaceChildren();
-      const max = Math.max(1, ...data.trend.map((d) => d.calls));
-      data.trend.forEach((day) => {
-        const group = document.createElement("div");
-        const column = document.createElement("div");
-        const bar = document.createElement("div");
-        const label = document.createElement("span");
-        group.className = "trend-day";
-        column.className = "trend-column";
-        bar.className = "trend-bar";
-        bar.style.height = `${(day.calls / max) * 100}%`;
-        label.textContent = `${day.date.slice(5)} · ${day.calls}`;
-        column.append(bar);
-        group.append(column, label);
-        el("usage-trend").append(group);
-      });
-      if (!data.trend.length) el("usage-trend").textContent = "暂无调用数据";
+      charts.forEach((chart) => chart.destroy());
+      charts = [];
+      const dark = document.documentElement.classList.contains("dark");
+      const color = dark ? "#d1d5db" : "#4b5563";
+      const grid = dark ? "#374151" : "#e5e7eb";
+      const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color } } },
+        scales: {
+          x: { ticks: { color }, grid: { color: grid } },
+          y: {
+            beginAtZero: true,
+            ticks: { color, precision: 0 },
+            grid: { color: grid },
+          },
+        },
+      };
+      if (window.Chart) {
+        charts.push(
+          new window.Chart(el("usage-trend"), {
+            type: "line",
+            data: {
+              labels: data.trend.map((d) => d.date.slice(5)),
+              datasets: [
+                {
+                  label: "调用次数",
+                  data: data.trend.map((d) => d.calls),
+                  borderColor: "#6366f1",
+                  backgroundColor: "#6366f120",
+                  fill: true,
+                  tension: 0.2,
+                },
+                {
+                  label: "错误次数",
+                  data: data.trend.map((d) => d.errors),
+                  borderColor: "#ef4444",
+                  tension: 0.2,
+                },
+              ],
+            },
+            options,
+          })
+        );
+        const ranked = [...data.methods]
+          .sort((a, b) => b.calls - a.calls)
+          .slice(0, 10);
+        charts.push(
+          new window.Chart(el("usage-method-chart"), {
+            type: "bar",
+            data: {
+              labels: ranked.map((m) =>
+                m.resource ? `${m.method} · ${m.resource}` : m.method
+              ),
+              datasets: [
+                {
+                  label: "调用次数",
+                  data: ranked.map((m) => m.calls),
+                  backgroundColor: "#6366f1",
+                  borderRadius: 4,
+                },
+              ],
+            },
+            options: {
+              ...options,
+              indexAxis: "y",
+              scales: {
+                ...options.scales,
+                x: {
+                  ...options.scales.x,
+                  beginAtZero: true,
+                  ticks: { color, precision: 0 },
+                },
+              },
+            },
+          })
+        );
+      }
+      el("trend-empty").textContent = data.trend.length
+        ? ""
+        : "当前筛选条件下暂无调用数据";
+      el("methods-empty").textContent = data.methods.length
+        ? ""
+        : "当前筛选条件下暂无方法数据";
+      el("usage-timezone").textContent =
+        `表格时间：${Intl.DateTimeFormat().resolvedOptions().timeZone} · YYYY-MM-dd HH:mm:ss；历史未采集的方法无法回填。`;
       const selected = el("filter-token").value;
       if (!selected) {
         el("filter-token").replaceChildren(new Option("全部 Key", ""));
@@ -178,8 +261,18 @@
       el("refresh-usage").disabled = false;
     }
   }
-  async function manage(button, work) {
-    button.disabled = true;
+  async function manage(work) {
+    if (busy) return;
+    busy = true;
+    [
+      "import-members",
+      "bulk-selected",
+      "bulk-all",
+      "management-server",
+      "close-server-members",
+    ].forEach((id) => {
+      el(id).disabled = true;
+    });
     el("management-status").textContent = "正在处理…";
     try {
       const data = await work();
@@ -195,12 +288,22 @@
     } catch (error) {
       el("management-status").textContent = error.message;
     } finally {
-      button.disabled = false;
+      busy = false;
+      [
+        "import-members",
+        "bulk-selected",
+        "bulk-all",
+        "management-server",
+        "close-server-members",
+      ].forEach((id) => {
+        el(id).disabled = false;
+      });
+      updateManagement();
     }
   }
-  el("import-members").addEventListener("click", (event) =>
-    manage(event.target, async () => {
-      const id = el("filter-server").value;
+  el("import-members").addEventListener("click", () =>
+    manage(async () => {
+      const id = el("management-server").value;
       const file = el("members-file").files[0];
       if (!id || !file) throw new Error("请选择一个虚拟 MCP 和 Excel 文件");
       const data = new FormData();
@@ -209,12 +312,11 @@
     })
   );
   ["bulk-selected", "bulk-all"].forEach((id) =>
-    el(id).addEventListener("click", (event) =>
-      manage(event.target, async () => {
-        const server = id === "bulk-all" ? null : el("filter-server").value;
-        if (id === "bulk-selected" && !server) {
-          throw new Error("请先选择一个虚拟 MCP");
-        }
+    el(id).addEventListener("click", () =>
+      manage(async () => {
+        const server = id === "bulk-all" ? null : el("management-server").value;
+        if (id === "bulk-selected" && !server)
+        {throw new Error("请先选择一个虚拟 MCP");}
         const data = await request("/keys", {
           server_id: server,
           days: Number(el("bulk-days").value),
@@ -252,18 +354,71 @@
   window.addEventListener("pagehide", () => {
     generated = [];
   });
-  request("/servers")
-    .then((data) => {
-      data.servers.forEach((s) =>
-        el("filter-server").add(
-          new Option(`${s.name} · ${s.team_name || "未关联 Team"}`, s.id)
-        )
+  function updateManagement() {
+    const server = serverOptions.find(
+      (s) => s.id === el("management-server").value
+    );
+    el("management-team").textContent = server
+      ? `Team：${server.team_name || "未关联"}${server.enabled ? "" : " · 服务器已停用"}`
+      : "请先选择虚拟 MCP";
+    el("selected-server-description").textContent = server
+      ? `当前操作对象：${server.name}`
+      : "选择虚拟 MCP，导入成员或生成独立 Key。";
+    el("import-members").disabled = !server?.team_id || !server?.can_import;
+    el("bulk-selected").disabled = !server?.team_id || !server?.enabled;
+    el("bulk-all").hidden = Boolean(server);
+    el("bulk-all").disabled = !serverOptions.length;
+  }
+  el("management-server").addEventListener("change", () => {
+    el("management-status").textContent = "";
+    el("management-results").replaceChildren();
+    updateManagement();
+  });
+  el("close-server-members").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("cancel", (event) => {
+    if (busy) event.preventDefault();
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-server-members]");
+    if (!button) return;
+    dialog.showModal();
+    serverOptions = [];
+    el("management-server").replaceChildren(new Option("正在加载…", ""));
+    el("management-server").disabled = true;
+    el("management-results").replaceChildren();
+    el("members-file").value = "";
+    updateManagement();
+    el("management-status").textContent = "正在加载虚拟 MCP…";
+    try {
+      const data = await request("/servers");
+      serverOptions = data.servers;
+      el("management-server").replaceChildren(new Option("请选择虚拟 MCP", ""));
+      serverOptions.forEach((s) =>
+        el("management-server").add(new Option(s.name, s.id))
       );
-      const selected = new URLSearchParams(location.search).get("server_id");
-      if (selected) el("filter-server").value = selected;
-      return refresh();
-    })
-    .catch((error) => {
+      el("management-server").value = button.dataset.serverMembers || "";
+      updateManagement();
+      el("management-status").textContent = "";
+    } catch (error) {
+      el("management-status").textContent = error.message;
+    } finally {
+      el("management-server").disabled = false;
+    }
+  });
+  document.addEventListener("member-usage:open", async () => {
+    try {
+      if (!initialized) {
+        const data = await request("/servers");
+        data.servers.forEach((s) =>
+          el("filter-server").add(
+            new Option(`${s.name} · ${s.team_name || "未关联 Team"}`, s.id)
+          )
+        );
+        initialized = true;
+      }
+      await refresh();
+    } catch (error) {
       el("panel-status").textContent = error.message;
-    });
+    }
+  });
 })();

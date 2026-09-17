@@ -46,3 +46,17 @@
 - Ordinary and narrowed-admin callers retain ownership checks. Anonymous and API-token callers remain denied.
 - Two unittest cases with eight access scenarios passed; Ruff passed. Live browser displayed four requests for the member token.
 - Stopped temporary gateway on port 4445. Existing gateway requires restart.
+
+
+## 2026-09-17: Password, monitoring tab, and server member dialog
+
+- Added required passwords to self-service options and issuance. Existing authentication enforces failures and lockout.
+- Fixed public MCP discovery across Team ownership while preserving membership, visibility, and RBAC restrictions.
+- Moved analytics into Monitoring and member imports/bulk keys into the Virtual MCP Servers page.
+- Added Chart.js trends and method ranking. Tables display concrete tool names and local YYYY-MM-dd HH:mm:ss timestamps.
+- Passed 14 Python regressions, 88 JavaScript tests, Ruff, ESLint, and the Vite production build.
+- Live isolated integration passed password checks, key issuance, real upstream tools/call, Excel import, distinct member keys, and method-filtered analytics.
+- Browser verified the Monitoring tab, real chart/table rendering, per-server dialog, password entry, and Team/public-server discovery.
+- Historical records without MCP metadata remain explicitly unknown. New tools/call records include method, concrete tool, outcome, and time.
+- Full repository gates remain unavailable as noted above; targeted integration completed successfully.
+- Stopped both isolated validation services and verified ports 4445 and 9009 are closed. Existing business services remain unchanged.
