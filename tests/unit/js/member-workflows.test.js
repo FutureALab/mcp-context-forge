@@ -165,6 +165,30 @@ test("monitoring renders charts, methods and formatted times; member actions tar
   expect(JSON.parse(call[1].body)).toEqual({ server_id: "server-a", team_id: "team-a", days: 30 });
   expect(el("management-results").textContent).toContain("member@example.com");
   expect(el("management-results").textContent).not.toContain("fixture");
+  fetchMock.mockResolvedValueOnce(response({ total: 2, offset: 0, limit: 50, results: [
+    { token_id: "saved-key", email: "other@example.com", name: "Saved", status: "有效", key_available: true },
+    { token_id: "legacy-key", email: "legacy@example.com", name: "Legacy", status: "已停用", key_available: false },
+  ] }));
+  el("load-key-history").click();
+  await vi.waitFor(() => expect(el("key-history-status").textContent).toContain("共 2 条"));
+  expect(el("key-history-table").textContent).toContain("other@example.com");
+  expect(el("key-history-table").textContent).toContain("无法恢复");
+  expect(fetchMock.mock.calls.at(-1)[0]).toContain("/key-history/server-a?");
+  fetchMock.mockResolvedValueOnce(response({ token_id: "saved-key", email: "other@example.com", api_key: "stored-secret", key_message: "可查看", permissions: ["tools.read"] }));
+  el("key-history-table").querySelector("button").click();
+  await vi.waitFor(() => expect(el("key-history-value").value).toBe("stored-secret"));
+  expect(el("key-history-metadata").textContent).toContain("tools.read");
+  el("close-history-key").click();
+  expect(el("key-history-value").value).toBe("");
+  expect(el("key-history-detail").hidden).toBe(true);
+  let resolveDetail;
+  fetchMock.mockImplementationOnce(() => new Promise(resolve => { resolveDetail = resolve; }));
+  el("key-history-table").querySelector("button").click();
+  await vi.waitFor(() => expect(resolveDetail).toBeDefined());
+  el("server-members-dialog").dispatchEvent(new Event("close"));
+  resolveDetail(response({ api_key: "late-secret" }));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(el("key-history-value").value).toBe("");
   fetchMock.mockResolvedValueOnce({ status: 401, ok: false });
   el("open-member-fixture").click();
   await vi.waitFor(() => expect(el("management-status").textContent).toContain("登录已过期"));

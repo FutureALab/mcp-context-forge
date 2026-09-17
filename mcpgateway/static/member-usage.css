@@ -365,6 +365,11 @@
 #member-panel header { margin-bottom:16px; }
 #member-panel #panel-status { margin:8px 0; font-size:12px; }
 #server-members-dialog .server-selector { flex-wrap:wrap; }
+#server-members-dialog .key-history { margin:0 24px 24px; padding:20px; border:1px solid var(--member-border); border-radius:8px; }
+#server-members-dialog .history-controls { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:12px 0; }
+#server-members-dialog #key-history-metadata { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; font-size:13px; line-height:1.8; }
+#server-members-dialog #key-history-value { width:100%; overflow-wrap:anywhere; font-family:monospace; }
+#server-members-dialog #key-history-detail { margin-top:16px; border-top:1px solid var(--member-border); padding-top:16px; }
 #server-members-dialog #management-team { flex-basis:100%; }
 #member-panel .chart-wrap { height:310px; }
 #member-panel button { background:#002FA7; border-color:#002FA7; }

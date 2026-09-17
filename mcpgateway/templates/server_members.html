@@ -20,8 +20,16 @@
       <button id="bulk-selected" class="wide-button" type="button" disabled>为所选团队成员生成当前 MCP 的 Key</button>
       <button id="bulk-all" class="wide-button secondary-button" type="button" hidden>为所有虚拟 MCP 成员生成</button>
       <button id="download-keys" class="wide-button secondary-button" type="button" disabled>下载 Excel 结果</button>
-      <p class="note">完整 Key 仅在本次下载中提供，请及时保存。未选择服务器时可批量处理所有启用且关联 Team 的 MCP。</p>
+      <p class="note">本次结果可直接下载，已有 Key 可在下方台账查询。未选择服务器时可批量处理所有启用且关联 Team 的 MCP。</p>
     </section>
   </div>
   <div id="management-results" class="table-scroll"></div>
+  <section class="key-history">
+    <div class="section-heading"><div><h2>成员 API Key 台账</h2><p class="note">查询当前虚拟 MCP 限定的所有 Key，包含各团队成员及历史记录。未限定服务器的通用 Key 不在此列。</p></div></div>
+    <div class="history-controls"><button id="load-key-history" type="button" class="secondary-button" disabled>查询已有 Key</button><button id="export-key-history" type="button" class="secondary-button" disabled>导出全部明细（Excel）</button></div>
+    <p id="key-history-status" role="status" aria-live="polite"></p>
+    <div id="key-history-table" class="table-scroll"></div>
+    <div class="history-controls"><button id="key-history-prev" type="button" class="secondary-button" disabled>上一页</button><span id="key-history-page"></span><button id="key-history-next" type="button" class="secondary-button" disabled>下一页</button></div>
+    <section id="key-history-detail" hidden><h3>Key 详细内容</h3><pre id="key-history-metadata"></pre><label>完整 API Key<textarea id="key-history-value" readonly rows="3"></textarea></label><p id="key-history-message" role="status"></p><button id="copy-history-key" type="button" class="secondary-button">复制 Key</button><button id="close-history-key" type="button" class="secondary-button">隐藏详情</button></section>
+  </section>
 </dialog>

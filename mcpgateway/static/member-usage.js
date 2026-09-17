@@ -10,6 +10,10 @@
   let initialized = false;
   let sessionExpired = false;
   let selectedServer = "";
+  let historyVersion = 0;
+  let historyOffset = 0;
+  let historyTotal = 0;
+  let historyBusy = false;
   const dialog = el("server-members-dialog");
   const dateTime = (value) => {
     if (!value) return "—";
@@ -423,6 +427,7 @@
   async function manage(work) {
     if (busy) return;
     busy = true;
+    historyControls();
     [
       "import-members",
       "bulk-selected",
@@ -520,7 +525,175 @@
   });
   window.addEventListener("pagehide", () => {
     generated = [];
+    resetHistory();
   });
+  function hideHistoryDetail() {
+    el("key-history-value").value = "";
+    el("key-history-metadata").textContent = "";
+    el("key-history-message").textContent = "";
+    el("key-history-detail").hidden = true;
+  }
+  function historyControls() {
+    const disabled =
+      historyBusy || busy || sessionExpired || !el("management-server").value;
+    el("load-key-history").disabled = disabled;
+    el("export-key-history").disabled = disabled;
+    el("key-history-prev").disabled = disabled || !historyOffset;
+    el("key-history-next").disabled =
+      disabled || historyOffset + 50 >= historyTotal;
+  }
+  function resetHistory() {
+    historyVersion++;
+    historyOffset = historyTotal = 0;
+    historyBusy = false;
+    hideHistoryDetail();
+    el("key-history-table").replaceChildren();
+    el("key-history-status").textContent = "";
+    el("key-history-page").textContent = "";
+    historyControls();
+  }
+  async function loadHistory(offset = 0) {
+    const server = el("management-server").value;
+    if (!server || historyBusy || busy) return;
+    const version = ++historyVersion;
+    historyBusy = true;
+    hideHistoryDetail();
+    historyControls();
+    el("key-history-status").textContent = "正在查询已有 Key…";
+    try {
+      const data = await request(
+        `/key-history/${encodeURIComponent(server)}?offset=${offset}&limit=50`
+      );
+      if (version !== historyVersion) return;
+      historyOffset = data.offset;
+      historyTotal = data.total;
+      table("key-history-table", data.results, [
+        ["成员", "email"],
+        ["团队", "team_name"],
+        ["名称", "name"],
+        ["状态", "status"],
+        ["账号", "account_status"],
+        ["到期时间", (r) => dateTime(r.expires_at)],
+        ["Key 原文", (r) => (r.key_available ? "可查看" : "无法恢复")],
+      ]);
+      const header = el("key-history-table").querySelector("thead tr");
+      if (header) {
+        const th = document.createElement("th");
+        th.textContent = "操作";
+        header.append(th);
+        el("key-history-table")
+          .querySelectorAll("tbody tr")
+          .forEach((tr, index) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "secondary-button";
+            button.textContent = "查看详情 / Key";
+            button.addEventListener("click", () =>
+              showHistoryDetail(server, data.results[index].token_id)
+            );
+            tr.insertCell().append(button);
+          });
+      }
+      el("key-history-status").textContent =
+        `共 ${data.total} 条已有 Key，包含到期、停用和吊销记录。`;
+      el("key-history-page").textContent = data.total
+        ? `${offset + 1}–${offset + data.results.length} / ${data.total}`
+        : "0 条";
+    } catch (error) {
+      if (version === historyVersion) showFailure("key-history-status", error);
+    } finally {
+      if (version === historyVersion) {
+        historyBusy = false;
+        historyControls();
+      }
+    }
+  }
+  async function showHistoryDetail(server, tokenId) {
+    if (historyBusy || busy) return;
+    const version = ++historyVersion;
+    hideHistoryDetail();
+    try {
+      const row = await request(
+        `/key-history/${encodeURIComponent(server)}/${encodeURIComponent(tokenId)}`,
+        {}
+      );
+      if (version !== historyVersion) return;
+      const fields = [
+        ["成员", row.email],
+        ["团队", row.team_name],
+        ["名称", row.name],
+        ["Key ID", row.token_id],
+        ["状态", row.status],
+        ["账号", row.account_status],
+        ["创建时间", dateTime(row.created_at)],
+        ["到期时间", dateTime(row.expires_at)],
+        ["最后使用", dateTime(row.last_used)],
+        ["权限", row.permissions],
+        ["IP 限制", row.ip_restrictions],
+        ["时间限制", row.time_restrictions],
+        ["使用限制", row.usage_limits],
+        ["说明", row.description],
+        ["吊销时间", dateTime(row.revoked_at)],
+        ["吊销原因", row.revocation_reason],
+      ];
+      el("key-history-metadata").textContent = fields
+        .map(
+          ([label, value]) =>
+            `${label}：${typeof value === "object" && value !== null ? JSON.stringify(value) : value || "—"}`
+        )
+        .join("\n");
+      el("key-history-value").value = row.api_key || "";
+      el("key-history-message").textContent = row.key_message;
+      el("copy-history-key").disabled = !row.api_key;
+      el("key-history-detail").hidden = false;
+    } catch (error) {
+      if (version === historyVersion) showFailure("key-history-status", error);
+    }
+  }
+  el("load-key-history").addEventListener("click", () => loadHistory());
+  el("key-history-prev").addEventListener("click", () =>
+    loadHistory(Math.max(0, historyOffset - 50))
+  );
+  el("key-history-next").addEventListener("click", () =>
+    loadHistory(historyOffset + 50)
+  );
+  el("close-history-key").addEventListener("click", () => {
+    historyVersion++;
+    hideHistoryDetail();
+  });
+  el("copy-history-key").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(el("key-history-value").value);
+      el("key-history-message").textContent = "已复制";
+    } catch {
+      el("key-history-message").textContent = "复制失败，请手动选择复制。";
+    }
+  });
+  el("export-key-history").addEventListener("click", async () => {
+    const server = el("management-server").value;
+    if (!server || historyBusy) return;
+    historyBusy = true;
+    historyControls();
+    try {
+      const blob = await request(
+        `/key-history/${encodeURIComponent(server)}/export`,
+        {},
+        true
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `mcp-${server}-keys.xlsx`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      showFailure("key-history-status", error);
+    } finally {
+      historyBusy = false;
+      historyControls();
+    }
+  });
+  dialog.addEventListener("close", resetHistory);
   function updateManagement() {
     const server = serverOptions.find(
       (s) => s.id === el("management-server").value
@@ -538,6 +711,7 @@
       sessionExpired || !teamId || !server?.enabled;
     el("bulk-all").hidden = Boolean(server);
     el("bulk-all").disabled = sessionExpired || !serverOptions.length;
+    historyControls();
   }
   function updateTeams() {
     const server = serverOptions.find(
@@ -585,6 +759,7 @@
     el("members-file").click()
   );
   el("management-server").addEventListener("change", () => {
+    resetHistory();
     el("management-status").textContent = "";
     el("management-results").replaceChildren();
     updateTeams();
@@ -594,6 +769,7 @@
     if (busy) event.preventDefault();
   });
   async function loadServers() {
+    resetHistory();
     serverOptions = [];
     teamOptions = [];
     el("management-target-team").replaceChildren(

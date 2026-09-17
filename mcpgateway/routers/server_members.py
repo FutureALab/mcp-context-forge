@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 # Standard
 from datetime import timedelta
 import io
+import json
 import secrets
 
 # Third-Party
@@ -35,6 +36,8 @@ from mcpgateway.db import EmailApiToken, EmailTeam, EmailTeamMember, EmailUser, 
 from mcpgateway.middleware.rbac import get_current_user_with_permissions, require_permission
 from mcpgateway.routers.tokens import _require_authenticated_session
 from mcpgateway.services.email_auth_service import EmailAuthService
+from mcpgateway.services.audit_trail_service import get_audit_trail_service
+from mcpgateway.services.server_key_inventory import inventory_query, inventory_record, inventory_secret
 from mcpgateway.services.server_member_service import issue_member_key, registered_user
 from mcpgateway.services.server_service import ServerService
 from mcpgateway.services.team_management_service import MemberAlreadyExistsError, TeamManagementError, TeamManagementService
@@ -358,6 +361,89 @@ async def member_keys_export(body: KeyExportRequest, user=Depends(get_current_us
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="mcp-member-keys.xlsx"', "Cache-Control": "no-store", "Pragma": "no-cache"},
     )
+
+
+@router.get("/member-usage/key-history/{server_id}")
+@require_permission("tokens.read")
+async def member_key_history(server_id: str, offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=100), user=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
+    """List existing keys across all members and teams for a virtual server."""
+    require_platform_session(user)
+    if not db.get(Server, server_id):
+        raise HTTPException(404, "虚拟 MCP 不存在")
+    total = db.scalar(select(func.count()).select_from(EmailApiToken).where(EmailApiToken.server_id == server_id))
+    rows = db.execute(inventory_query(server_id).offset(offset).limit(limit)).all()
+    return JSONResponse({"results": [inventory_record(row) for row in rows], "total": total, "offset": offset, "limit": limit}, headers={"Cache-Control": "no-store"})
+
+
+@router.post("/member-usage/key-history/{server_id}/export")
+@require_permission("tokens.read")
+async def export_member_key_history(server_id: str, user=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
+    """Export all persisted server keys and details without modifying token lifetimes."""
+    actor = require_platform_session(user)
+    server = db.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, "虚拟 MCP 不存在")
+    workbook = openpyxl.Workbook(write_only=True)
+    sheet = workbook.create_sheet("成员 Key 明细")
+    columns = [
+        ("成员邮箱", "email"),
+        ("团队", "team_name"),
+        ("团队 ID", "team_id"),
+        ("Key 名称", "name"),
+        ("Key ID", "token_id"),
+        ("状态", "status"),
+        ("账号状态", "account_status"),
+        ("API Key", "api_key"),
+        ("原文情况", "key_message"),
+        ("创建时间 UTC", "created_at"),
+        ("到期时间 UTC", "expires_at"),
+        ("最后使用 UTC", "last_used"),
+        ("权限", "permissions"),
+        ("IP 限制", "ip_restrictions"),
+        ("时间限制", "time_restrictions"),
+        ("使用限制", "usage_limits"),
+        ("说明", "description"),
+        ("吊销时间 UTC", "revoked_at"),
+        ("吊销原因", "revocation_reason"),
+    ]
+    sheet.freeze_panes = "A2"
+    sheet.append(["虚拟 MCP", "服务器 ID"] + [title for title, _ in columns])
+    count = 0
+    for row in db.execute(inventory_query(server_id).execution_options(yield_per=100)):
+        record = {**inventory_record(row), **await inventory_secret(row[0])}
+        values = [server.name, server.id] + [record[key] for _, key in columns]
+        cells = []
+        for value in values:
+            value = json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict)) else str(value) if value is not None else ""
+            cell = openpyxl.cell.WriteOnlyCell(sheet, value=value)
+            cell.data_type = "s"
+            cells.append(cell)
+        sheet.append(cells)
+        count += 1
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    get_audit_trail_service().log_action(action="READ", resource_type="server", resource_id=server_id, user_id=actor, user_email=actor, details={"operation": "export_member_keys", "count": count})
+    return Response(
+        output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="mcp-member-key-history.xlsx"', "Cache-Control": "no-store", "Pragma": "no-cache"},
+    )
+
+
+@router.post("/member-usage/key-history/{server_id}/{token_id}")
+@require_permission("tokens.read")
+async def member_key_detail(server_id: str, token_id: str, user=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
+    """Reveal one key only when it belongs to the requested server."""
+    actor = require_platform_session(user)
+    row = db.execute(inventory_query(server_id).where(EmailApiToken.id == token_id)).first()
+    if not row:
+        raise HTTPException(404, "指定虚拟 MCP 中未找到此 Key")
+    result = {**inventory_record(row), **await inventory_secret(row[0])}
+    get_audit_trail_service().log_action(
+        action="READ", resource_type="api_token", resource_id=token_id, user_id=actor, user_email=actor, details={"operation": "reveal_member_key", "server_id": server_id}
+    )
+    return JSONResponse(result, headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
 
 
 @router.get("/member-usage/data")

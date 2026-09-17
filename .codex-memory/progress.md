@@ -1,5 +1,18 @@
 # Progress
 
+## 2026-09-17 Server key inventory verification
+
+- Added database-backed server key listing, detail retrieval, and complete Excel export.
+- Tests include cross-owner/team history, pagination, general-token exclusion, missing originals, status changes, and formula-safe export cells.
+- Deny tests cover nonadmin sessions, API tokens, narrowed admins, and mismatched server/key pairs.
+- Live export returns every matching row even when the list page limit is one. Original key material and expiry remain unchanged.
+- DOM checks cover detail display and clearing, including a delayed response after the dialog closes.
+- The supplied PNG and deployed asset have matching SHA-256 hashes. No image pixels were changed.
+- Passed 25 Python tests plus 27 subtests, 99 JavaScript tests, Ruff, ESLint, Vite build, and live integration.
+- Browser confirms the supplied branding and five member key records with detailed permissions.
+- Stopped gateway PID 43940 and test MCP PID 14232. Ports 4445 and 9009 have no listeners.
+- Full repository gates remain unrun. Restart the deployed gateway and refresh browser assets after applying this commit.
+
 ## 2026-09-17 Key retrieval and team navigation verification
 
 - Added encrypted token persistence with the existing encryption service and an idempotent nullable-column migration.

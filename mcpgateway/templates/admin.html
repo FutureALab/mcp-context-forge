@@ -13,9 +13,9 @@
     <!-- Favicon -->
     <link
       rel="icon"
-      type="image/svg+xml"
+      type="image/png"
       sizes="32x32"
-      href="{{ root_path }}/static/mcp-gateway-icon.svg"
+      href="{{ root_path }}/static/mcp-gateway-brand.png"
     />
     <!-- Tailwind CSS - Using precompiled CSS for strict CSP compliance -->
     <link rel="stylesheet" href="{{ root_path }}/static/css/tailwind.min.css" />
@@ -252,12 +252,12 @@
         <div class="flex items-center h-16 px-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0"
              :class="sidebarCollapsed ? 'justify-center' : 'justify-between'">
           <a href="{{ root_path }}/admin" class="flex items-center" x-show="!sidebarCollapsed">
-            <img src="{{ root_path }}/static/mcp-gateway-logo.svg" alt="{{ _("ContextForge logo") | replace("ContextForge", "MCP Gateway") }}" class="h-8 dark:hidden" />
-            <img src="{{ root_path }}/static/mcp-gateway-logo-white.svg" alt="{{ _("ContextForge logo") | replace("ContextForge", "MCP Gateway") }}" class="h-8 hidden dark:block" />
+            <img src="{{ root_path }}/static/mcp-gateway-brand.png" alt="{{ _("ContextForge logo") | replace("ContextForge", "MCP Gateway") }}" class="h-8 w-8 rounded-full object-cover dark:hidden" />
+            <img src="{{ root_path }}/static/mcp-gateway-brand.png" alt="{{ _("ContextForge logo") | replace("ContextForge", "MCP Gateway") }}" class="h-8 w-8 rounded-full object-cover hidden dark:block" /><span class="ml-2 font-bold text-lg text-gray-900 dark:text-white">MCP Gateway</span>
           </a>
           <button @click="sidebarCollapsed = false" class="flex items-center justify-center" x-show="sidebarCollapsed" title="{{ _("Expand sidebar") }}">
-            <img src="{{ root_path }}/static/mcp-gateway-icon.svg" alt="{{ _("ContextForge icon") | replace("ContextForge", "MCP Gateway") }}" class="h-8 w-8 dark:hidden" />
-            <img src="{{ root_path }}/static/mcp-gateway-icon.svg" alt="{{ _("ContextForge icon") | replace("ContextForge", "MCP Gateway") }}" class="h-8 w-8 hidden dark:block" />
+            <img src="{{ root_path }}/static/mcp-gateway-brand.png" alt="{{ _("ContextForge icon") | replace("ContextForge", "MCP Gateway") }}" class="h-8 w-8 dark:hidden" />
+            <img src="{{ root_path }}/static/mcp-gateway-brand.png" alt="{{ _("ContextForge icon") | replace("ContextForge", "MCP Gateway") }}" class="h-8 w-8 hidden dark:block" />
           </button>
           <button
             @click="sidebarCollapsed = !sidebarCollapsed"

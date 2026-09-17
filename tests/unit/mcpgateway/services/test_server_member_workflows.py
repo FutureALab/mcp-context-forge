@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Standard
 import importlib
+import io
 import json
 from types import SimpleNamespace
 import unittest
@@ -14,6 +15,7 @@ from unittest.mock import AsyncMock, patch
 # Third-Party
 from fastapi import HTTPException
 import jwt
+import openpyxl
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 
@@ -61,6 +63,78 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(claims["teams"], ["team-a"])
         self.assertEqual(claims["scopes"]["server_id"], "server-a")
         self.assertNotIn("tokens.create", claims["scopes"]["permissions"])
+
+    async def test_server_key_inventory_includes_all_owners_and_exports_existing_keys(self):
+        """Keep historical and cross-team records while exporting exact stored material."""
+        from mcpgateway.db import EmailApiToken
+        from mcpgateway.routers.server_members import export_member_key_history, member_key_detail, member_key_history
+
+        admin = {"email": "admin@example.com", "auth_method": "jwt", "is_admin": True, "token_teams": None}
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            issued = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 7, "test")
+        record = self.db.get(EmailApiToken, issued["token_id"])
+        original_expiry = record.expires_at
+        self.db.add(EmailApiToken(id="legacy", user_email="other@example.com", team_id="team-b", name="=1+1", token_hash="historical", server_id="server-a", is_active=False))
+        self.db.add(EmailApiToken(id="unscoped", user_email="other@example.com", name="general", token_hash="general"))
+        self.db.commit()
+        response = await member_key_history.__wrapped__("server-a", 0, 1, admin, self.db)
+        payload = json.loads(response.body)
+        self.assertEqual(payload["total"], 2)
+        self.assertEqual(len(payload["results"]), 1)
+        self.assertNotIn(issued["api_key"], response.body.decode())
+        self.assertNotIn("encrypted_token", response.body.decode())
+        with patch("mcpgateway.routers.server_members.get_audit_trail_service") as audit:
+            detail = await member_key_detail.__wrapped__("server-a", issued["token_id"], admin, self.db)
+            exported = await export_member_key_history.__wrapped__("server-a", admin, self.db)
+        self.assertEqual(json.loads(detail.body)["api_key"], issued["api_key"])
+        self.assertNotIn(issued["api_key"], str(audit.mock_calls))
+        workbook = openpyxl.load_workbook(io.BytesIO(exported.body))
+        rows = list(workbook.active.iter_rows())
+        headers = [cell.value for cell in rows[0]]
+        records = [{headers[i]: cell.value for i, cell in enumerate(row)} for row in rows[1:]]
+        self.assertEqual({row["成员邮箱"] for row in records}, {"member@example.com", "other@example.com"})
+        self.assertIn(issued["api_key"], [row["API Key"] for row in records])
+        legacy = next(row for row in records if row["Key ID"] == "legacy")
+        self.assertEqual(legacy["状态"], "已停用")
+        self.assertIn("无法恢复", legacy["原文情况"])
+        name_cell = next(row[headers.index("Key 名称")] for row in rows[1:] if row[headers.index("Key ID")].value == "legacy")
+        self.assertEqual(name_cell.data_type, "s")
+        workbook.close()
+        self.assertEqual(exported.headers["cache-control"], "no-store")
+        self.assertEqual(record.expires_at, original_expiry)
+        from datetime import timedelta
+        from mcpgateway.db import TokenRevocation, utc_now
+        from mcpgateway.services.server_key_inventory import inventory_query, inventory_record
+
+        record.expires_at = utc_now() - timedelta(days=1)
+        self.db.commit()
+        query = inventory_query("server-a").where(EmailApiToken.id == record.id)
+        self.assertEqual(inventory_record(self.db.execute(query).first())["status"], "已到期")
+        self.db.add(TokenRevocation(jti=record.jti, revoked_by="member@example.com", reason="test revocation"))
+        self.db.commit()
+        revoked = inventory_record(self.db.execute(query).first())
+        self.assertEqual(revoked["status"], "已吊销")
+        self.assertEqual(revoked["revocation_reason"], "test revocation")
+
+    async def test_server_key_inventory_rejects_non_platform_sessions_and_wrong_server(self):
+        """Deny nonadministrative sessions and mismatched server/key pairs."""
+        from mcpgateway.routers.server_members import export_member_key_history, member_key_detail, member_key_history
+
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            issued = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 7, "test")
+        for user in [
+            {"email": "member@example.com"},
+            {"email": "member@example.com", "auth_method": "jwt", "is_admin": False},
+            {"email": "member@example.com", "auth_method": "api_token", "is_admin": True},
+            {"email": "member@example.com", "auth_method": "jwt", "is_admin": True, "token_teams": ["team-a"]},
+        ]:
+            for function, args in [(member_key_history, ("server-a", 0, 50)), (export_member_key_history, ("server-a",)), (member_key_detail, ("server-a", issued["token_id"]))]:
+                with self.subTest(user=user, endpoint=function.__name__), self.assertRaises(HTTPException):
+                    await function.__wrapped__(*args, user, self.db)
+        admin = {"email": "admin@example.com", "auth_method": "jwt", "is_admin": True}
+        with self.assertRaises(HTTPException) as error:
+            await member_key_detail.__wrapped__("wrong-server", issued["token_id"], admin, self.db)
+        self.assertEqual(error.exception.status_code, 404)
 
     async def test_reveal_persists_encrypted_key_across_sessions_and_renewal(self):
         """Reveal the original key after reopening storage and renewing its registry expiry."""

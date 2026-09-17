@@ -1,5 +1,18 @@
 # Current Task
 
+## 2026-09-17: Supplied brand image and server key inventory
+
+- Brand images now use the user-supplied PNG unchanged on login, password-change, sidebar, collapsed-sidebar, and favicon surfaces.
+- Virtual MCP member management includes a paginated key inventory across all owners and teams for the selected server.
+- Inventory includes active, expired, disabled, and revoked records. Unscoped general tokens are excluded explicitly.
+- Metadata lists omit secret material. Detail and full Excel export decrypt persisted keys only on explicit requests.
+- Historical hash-only records remain listed with an unavailable-original notice. No inventory action issues or renews keys.
+- Inventory endpoints require tokens.read and unrestricted platform sessions. Detail also matches the requested server and token.
+- Detail and export write audits without secret material. Export uses text cells and no-cache responses.
+- Browser checks confirm five member records, details, secret clearing, and the supplied image.
+- Passed 25 Python tests, 27 subtests, 99 JavaScript tests, Ruff, ESLint, build, and live gateway integration.
+- Test services on ports 4445 and 9009 are stopped. Full repository gates remain unrun.
+
 ## 2026-09-17: Key retrieval and team switching
 
 - New API tokens retain encrypted material alongside their verification hash. This supersedes the previous hash-only storage policy.
