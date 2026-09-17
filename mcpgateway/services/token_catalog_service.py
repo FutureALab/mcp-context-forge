@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from mcpgateway.common.validators import SecurityValidator
 from mcpgateway.config import settings
 from mcpgateway.db import EmailApiToken, EmailTeam, EmailUser, Permissions, TokenRevocation, TokenUsageLog, utc_now
+from mcpgateway.services.encryption_service import get_encryption_service
 from mcpgateway.services.logging_service import LoggingService
 from mcpgateway.utils.create_jwt_token import create_jwt_token
 
@@ -580,7 +581,8 @@ class TokenCatalogService:
             name=name,
             jti=jti,
             description=description,
-            token_hash=token_hash,  # Store hash, not raw token
+            token_hash=token_hash,
+            encrypted_token=await get_encryption_service(settings.auth_encryption_secret).encrypt_secret_async(raw_token),
             expires_at=expires_at,
             tags=tags or [],
             # Store scoping information

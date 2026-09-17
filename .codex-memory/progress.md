@@ -1,5 +1,17 @@
 # Progress
 
+## 2026-09-17 Key retrieval and team navigation verification
+
+- Added encrypted token persistence with the existing encryption service and an idempotent nullable-column migration.
+- Retrieval validates management authentication, owner/admin access, team scope, and the stored token hash.
+- Tests cover reopening storage, renewal preserving the original key, historical null values, and rejected unauthorized access.
+- Live checks compare retrieved material with the issued key, verify real MCP calls, and confirm lists omit secret fields.
+- Browser checks confirm the reveal dialog, clearing secrets on close, and team navigation after registering an MCP server.
+- Final checks pass: 23 Python tests plus 15 subtests; 274 JavaScript tests; Ruff; product ESLint; Vite production build.
+- Existing formFieldHandlers.test.js has unrelated unused-variable lint findings at lines near 184, 450, and 525.
+- Migration heads report only d72f8a1c903e. Upgrade/downgrade tests preserve historical token hashes.
+- Test gateway PID 23908 and upstream MCP PID 41160 are stopped. Full repository gates remain unrun.
+
 ## 2026-09-17 Public MCP follow-up verification
 
 - Reproduced personal-team import rejection and owner-only bulk membership in an isolated database.

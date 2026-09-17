@@ -1,5 +1,20 @@
 # Current Task
 
+## 2026-09-17: Key retrieval and team switching
+
+- New API tokens retain encrypted material alongside their verification hash. This supersedes the previous hash-only storage policy.
+- Migration `d72f8a1c903e` follows verified head `c31d7e4a092b`; historical rows retain null encrypted material.
+- Historical hash-only keys cannot be recovered. Retrieval reports this without replacing or renewing them.
+- POST `/tokens/{id}/reveal` requires management authentication, tokens.read, and ownership or unrestricted platform administration.
+- Narrowed sessions retain team restrictions. Successful reveals write an audit event without key material and disable response caching.
+- Token lists expose a Chinese reveal/copy dialog. Closing it clears the displayed key.
+- Team switching uses a bundled navigation module and Alpine 3 state access. Selector requests time out after 15 seconds.
+- Browser checks confirm switching to a shared team and back after MCP registration, plus key retrieval and modal cleanup.
+- Passed 23 Python tests, 15 subtests, 274 JavaScript tests, production build, Ruff, and live gateway integration.
+- Product JavaScript lint passes. The existing formFieldHandlers test file retains three unrelated unused-variable lint findings.
+- Test services on ports 4445 and 9009 are stopped. Full repository gates remain unrun.
+- Restart the deployed gateway to apply the migration and refresh frontend assets.
+
 ## 2026-09-17: Shared-team management, lifetime cap, and branding
 
 - Personal ownership does not restrict public MCP visibility. Authentication and RBAC still apply.

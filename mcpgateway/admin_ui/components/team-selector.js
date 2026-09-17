@@ -1,3 +1,5 @@
+import { switchTeamContext } from '../teamContext.js';
+
 export function teamSelector() {
   return {
     open: false,
@@ -53,7 +55,7 @@ export function teamSelector() {
       if (this.open && window.Admin) window.Admin.loadTeamSelectorDropdown();
     },
     updateTeamContext: function (teamId) {
-      if (typeof window.updateTeamContext === 'function') window.updateTeamContext(teamId);
+      switchTeamContext(teamId);
     },
   };
 }

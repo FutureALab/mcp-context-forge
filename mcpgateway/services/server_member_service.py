@@ -84,7 +84,7 @@ async def issue_member_key(db: Session, email: str, team_id: str, server_id: str
         "expires_at": record.expires_at.isoformat() if record.expires_at else None,
     }
     result["message"] = (
-        "已达累计 365 天上限，到期时间不再增加；请继续使用原 Key" if result["renewed"] and result["limit_reached"] else "已续期，请继续使用原 Key" if result["renewed"] else "新 Key 仅在本次导出中提供"
+        "已达累计 365 天上限，到期时间不再增加；请继续使用原 Key" if result["renewed"] and result["limit_reached"] else "已续期，请继续使用原 Key" if result["renewed"] else "Key 已加密保存，可在 API 令牌列表查看"
     )
     get_audit_trail_service().log_action(
         action="update" if not raw else "create",

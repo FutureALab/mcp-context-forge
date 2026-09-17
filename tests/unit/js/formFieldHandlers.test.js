@@ -21,6 +21,8 @@ import {
   selectTeamFromSelector,
 } from "../../../mcpgateway/admin_ui/formFieldHandlers.js";
 import { AppState } from "../../../mcpgateway/admin_ui/appState.js";
+import { switchTeamContext } from "../../../mcpgateway/admin_ui/teamContext.js";
+vi.mock("../../../mcpgateway/admin_ui/teamContext.js", () => ({ switchTeamContext: vi.fn() }));
 
 vi.mock("../../../mcpgateway/admin_ui/security.js", () => ({
   validateInputName: vi.fn((name) => {
@@ -1045,14 +1047,14 @@ describe("selectTeamFromSelector", () => {
     expect(itemsContainer.dataset.loaded).toBeUndefined();
   });
 
-  test("calls window.updateTeamContext with teamId", () => {
+  test("switches teams through the module without a page global", () => {
     window.updateTeamContext = vi.fn();
     const btn = makeButton({ teamId: "team-42" });
     document.body.appendChild(btn);
 
     selectTeamFromSelector(btn);
 
-    expect(window.updateTeamContext).toHaveBeenCalledWith("team-42");
+    expect(switchTeamContext).toHaveBeenCalledWith("team-42");
   });
 
   test("does not throw when window.updateTeamContext is not defined", () => {

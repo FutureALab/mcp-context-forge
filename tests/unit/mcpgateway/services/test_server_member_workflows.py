@@ -62,6 +62,61 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(claims["scopes"]["server_id"], "server-a")
         self.assertNotIn("tokens.create", claims["scopes"]["permissions"])
 
+    async def test_reveal_persists_encrypted_key_across_sessions_and_renewal(self):
+        """Reveal the original key after reopening storage and renewing its registry expiry."""
+        from mcpgateway.db import EmailApiToken
+        from mcpgateway.routers.tokens import reveal_token
+
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            issued = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 7, "test")
+            await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 7, "test")
+        stored = self.db.get(EmailApiToken, issued["token_id"])
+        self.assertTrue(stored.encrypted_token.startswith("v2:"))
+        self.assertNotIn(issued["api_key"], stored.encrypted_token)
+        self.db.close()
+        self.db = Session(self.engine)
+        with patch("mcpgateway.routers.tokens.get_audit_trail_service") as audit:
+            response = await reveal_token.__wrapped__(issued["token_id"], {"email": "member@example.com", "auth_method": "jwt", "token_teams": ["team-a"]}, self.db)
+        self.assertEqual(json.loads(response.body)["access_token"], issued["api_key"])
+        self.assertEqual(response.headers["cache-control"], "no-store")
+        self.assertNotIn(issued["api_key"], str(audit.mock_calls))
+
+    async def test_reveal_rejects_other_owners_and_narrowed_sessions(self):
+        """Deny unauthenticated, API-token, wrong-owner, and wrong-team retrieval."""
+        from mcpgateway.routers.tokens import reveal_token
+
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            issued = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 7, "test")
+        for user in [
+            {"email": "member@example.com"},
+            {"email": "member@example.com", "auth_method": "anonymous"},
+            {"email": "member@example.com", "auth_method": "api_token"},
+            {"email": "other@example.com", "auth_method": "jwt"},
+            {"email": "member@example.com", "auth_method": "jwt", "token_teams": []},
+            {"email": "other@example.com", "auth_method": "jwt", "is_admin": True, "token_teams": ["team-b"]},
+        ]:
+            with self.subTest(user=user), self.assertRaises(HTTPException):
+                await reveal_token.__wrapped__(issued["token_id"], user, self.db)
+        with patch("mcpgateway.routers.tokens.get_audit_trail_service"):
+            response = await reveal_token.__wrapped__(issued["token_id"], {"email": "other@example.com", "auth_method": "jwt", "is_admin": True, "token_teams": None}, self.db)
+        self.assertEqual(json.loads(response.body)["access_token"], issued["api_key"])
+
+    async def test_historical_key_is_unrecoverable_without_replacing_it(self):
+        """Return an explicit historical notice without minting a replacement."""
+        from mcpgateway.db import EmailApiToken
+        from mcpgateway.routers.tokens import reveal_token
+
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            issued = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 7, "test")
+        record = self.db.get(EmailApiToken, issued["token_id"])
+        record.encrypted_token = None
+        original_hash = record.token_hash
+        self.db.commit()
+        response = await reveal_token.__wrapped__(issued["token_id"], {"email": "member@example.com", "auth_method": "jwt"}, self.db)
+        self.assertIsNone(json.loads(response.body)["access_token"])
+        self.assertIn("无法恢复", json.loads(response.body)["message"])
+        self.assertEqual(record.token_hash, original_hash)
+
     async def test_expired_and_disabled_keys_create_replacements(self):
         """Create a replacement when the previous key cannot be renewed."""
         # Standard
@@ -405,6 +460,25 @@ class TestManagementBoundaries(unittest.TestCase):
                 migration.downgrade()
                 migration.downgrade()
             self.assertEqual(connection.scalar(text("SELECT user_email FROM token_usage_logs WHERE id=1")), "member@example.com")
+        engine.dispose()
+
+    def test_encrypted_token_migration(self):
+        """Preserve historical hashes through repeated upgrades and downgrades."""
+        from alembic.migration import MigrationContext
+        from alembic.operations import Operations
+
+        migration = importlib.import_module("mcpgateway.alembic.versions.d72f8a1c903e_store_encrypted_api_tokens")
+        engine = create_engine("sqlite:///:memory:")
+        with engine.begin() as connection:
+            connection.execute(text("CREATE TABLE email_api_tokens (id INTEGER PRIMARY KEY, token_hash VARCHAR(255))"))
+            connection.execute(text("INSERT INTO email_api_tokens VALUES (1, 'historical-hash')"))
+            with Operations.context(MigrationContext.configure(connection)):
+                migration.upgrade()
+                migration.upgrade()
+                self.assertIsNone(connection.scalar(text("SELECT encrypted_token FROM email_api_tokens WHERE id=1")))
+                migration.downgrade()
+                migration.downgrade()
+            self.assertEqual(connection.scalar(text("SELECT token_hash FROM email_api_tokens WHERE id=1")), "historical-hash")
         engine.dispose()
 
 

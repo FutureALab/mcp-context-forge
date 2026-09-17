@@ -85,6 +85,10 @@
       {% endif %}
     </div>
     <div class="flex flex-wrap gap-2 ml-4">
+      <button type="button" data-action="token-reveal" data-token-id="{{ token.id }}"
+        class="px-3 py-1 text-sm font-medium text-blue-600 border border-blue-300 rounded-md">
+        查看 Key
+      </button>
       <button
         data-action="token-details"
         data-token="{{ token._json }}"

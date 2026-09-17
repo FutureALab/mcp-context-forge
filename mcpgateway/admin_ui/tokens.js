@@ -149,7 +149,9 @@ export const setupTokenListEventHandlers = function (container) {
 
     const action = button.dataset.action;
 
-    if (action === "token-details") {
+    if (action === "token-reveal") {
+      if (button.dataset.tokenId) revealToken(button);
+    } else if (action === "token-details") {
       const tokenData = button.dataset.token;
       if (tokenData) {
         try {
@@ -178,6 +180,51 @@ export const setupTokenListEventHandlers = function (container) {
     }
   });
 };
+
+/** Fetch secret material only after an explicit reveal action. */
+export async function revealToken(button) {
+  button.disabled = true;
+  const modal = document.createElement("div");
+  modal.className = "fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-label", "查看 API Key");
+  modal.innerHTML = `<div class="bg-white dark:bg-gray-800 p-6 rounded-lg w-11/12 max-w-2xl">
+    <h3 class="text-lg font-semibold mb-4">查看 API Key</h3>
+    <p role="status" class="mb-4">正在读取…</p>
+    <input aria-label="API Key" id="revealed-token-value" readonly hidden class="w-full border rounded p-2 font-mono text-sm" />
+    <div class="flex justify-end gap-3 mt-4"><button data-copy hidden class="px-3 py-2 border rounded">复制 Key</button>
+    <button data-close class="px-3 py-2 border rounded">关闭</button></div></div>`;
+  const close = () => {
+    modal.querySelector("input").value = "";
+    modal.remove();
+    button.focus();
+  };
+  modal.querySelector("[data-close]").addEventListener("click", close);
+  modal.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
+  modal.querySelector("[data-copy]").addEventListener("click", async () => {
+    try { await copyToClipboard("revealed-token-value"); }
+    catch { modal.querySelector("[role=status]").textContent = "复制失败，请手动选择 Key 复制。"; }
+  });
+  document.body.appendChild(modal);
+  modal.querySelector("[data-close]").focus();
+  try {
+    const response = await fetchWithTimeout(`${window.ROOT_PATH || ""}/tokens/${encodeURIComponent(button.dataset.tokenId)}/reveal`, {
+      method: "POST", headers: await getAuthHeaders(), credentials: "same-origin", cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "读取 Key 失败");
+    if (!modal.isConnected) return;
+    modal.querySelector("[role=status]").textContent = data.access_token ? "请妥善保管，不要向他人泄露。" : data.message;
+    if (data.access_token) {
+      const input = modal.querySelector("input");
+      input.value = data.access_token;
+      input.hidden = false;
+      modal.querySelector("[data-copy]").hidden = false;
+    }
+  } catch (error) {
+    if (modal.isConnected) modal.querySelector("[role=status]").textContent = error.message;
+  } finally { button.disabled = false; }
+}
 
 /**
  * Update the team scoping warning/info visibility based on team selection
@@ -565,7 +612,7 @@ const showTokenCreatedModal = function (tokenData) {
                                     Important: Save your token now!
                                 </h3>
                                 <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-                                    This is the only time you will be able to see this token. Make sure to save it in a secure location.
+                                    请妥善保存。之后可在 API 令牌列表点击“查看 Key”重新查看。
                                 </div>
                             </div>
                         </div>

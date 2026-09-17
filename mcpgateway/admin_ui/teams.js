@@ -1249,7 +1249,7 @@ export const loadTeamSelectorDropdown = function () {
   const rootPath = window.ROOT_PATH || "";
   fetch(
     rootPath + "/admin/teams/partial?page=1&per_page=10&render=selector",
-    { credentials: "same-origin" }, // pragma: allowlist secret
+    { credentials: "same-origin", signal: AbortSignal.timeout(15000) }, // pragma: allowlist secret
   )
     .then(function (resp) {
       if (!resp.ok) {

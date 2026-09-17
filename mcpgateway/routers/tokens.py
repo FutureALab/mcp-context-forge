@@ -13,16 +13,20 @@ from typing import List, Optional
 
 # Third-Party
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 # First-Party
 from mcpgateway.auth_context import get_user_email
 from mcpgateway.common.validators import SecurityValidator
+from mcpgateway.config import settings
 from mcpgateway.db import get_db
 from mcpgateway.middleware.rbac import get_current_user_with_permissions, require_permission
 from mcpgateway.schemas import TokenCreateRequest, TokenCreateResponse, TokenListResponse, TokenResponse, TokenRevokeRequest, TokenUpdateRequest, TokenUsageStatsResponse
 from mcpgateway.services.permission_service import PermissionService
+from mcpgateway.services.encryption_service import get_encryption_service
+from mcpgateway.services.audit_trail_service import get_audit_trail_service
 from mcpgateway.services.token_catalog_service import TokenCatalogService, TokenScope
 from mcpgateway.utils.error_formatter import PublicValidationError, safe_error_detail, should_expose_error_details
 
@@ -455,6 +459,30 @@ async def get_token(
         time_restrictions=token.time_restrictions,
         usage_limits=token.usage_limits,
     )
+
+
+@router.post("/{token_id}/reveal")
+@require_permission("tokens.read")
+async def reveal_token(token_id: str, current_user=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
+    """Return encrypted token material to its owner or an unrestricted platform administrator."""
+    _require_authenticated_session(current_user)
+    email = get_user_email(current_user)
+    teams = current_user.get("token_teams")
+    admin = bool(current_user.get("is_admin") and teams is None)
+    token = await TokenCatalogService(db).get_token(token_id, None if admin else email)
+    if not token or (teams is not None and token.team_id not in teams):
+        raise HTTPException(404, "API Key 不存在或无权查看")
+    headers = {"Cache-Control": "no-store", "Pragma": "no-cache"}
+    if not token.encrypted_token:
+        return JSONResponse({"access_token": None, "message": "此历史 Key 仅保存了哈希，无法恢复原文。请使用创建时保存的 Key。"}, headers=headers)
+    try:
+        raw_token = await get_encryption_service(settings.auth_encryption_secret).decrypt_secret_strict_async(token.encrypted_token)
+    except ValueError as exc:
+        raise HTTPException(409, "无法解密此 Key，请检查服务器加密配置") from exc
+    if TokenCatalogService(db)._hash_token(raw_token) != token.token_hash:
+        raise HTTPException(409, "Key 完整性校验失败")
+    get_audit_trail_service().log_action(action="READ", resource_type="api_token", resource_id=token.id, user_id=email, user_email=email, details={"operation": "reveal"})
+    return JSONResponse({"access_token": raw_token}, headers=headers)
 
 
 @router.put("/{token_id}", response_model=TokenResponse)

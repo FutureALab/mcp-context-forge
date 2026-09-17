@@ -94,6 +94,16 @@ class TestMemberKeyWorkflow(unittest.TestCase):
             self.assertIn('id="tab-member-usage"', panel.text)
             admin.headers["Origin"] = origin
             admin.headers["X-CSRF-Token"] = admin.cookies["mcpgateway_csrf_token"]
+            reveal_path = f"/tokens/{issued.json()['token_id']}/reveal"
+            revealed = admin.post(reveal_path)
+            self.assertEqual(revealed.status_code, 200)
+            self.assertEqual(revealed.json()["access_token"], key)
+            self.assertIn("no-store", revealed.headers["cache-control"])
+            token_list = admin.get("/tokens").text
+            self.assertNotIn(key, token_list)
+            self.assertNotIn("encrypted_token", token_list)
+            self.assertIn(public.post(reveal_path).status_code, (401, 403))
+            self.assertIn(public.post(reveal_path, headers={"Authorization": f"Bearer {key}"}).status_code, (401, 403))
             if public_server and os.getenv("MEMBER_TEST_PERSONAL_PUBLIC"):
                 choices = admin.get("/admin/member-usage/servers").json()
                 selected = next(item for item in choices["servers"] if item["id"] == public_server)

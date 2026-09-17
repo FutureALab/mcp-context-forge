@@ -5,6 +5,7 @@
 import { AppState } from "./appState.js";
 import { validateInputName } from "./security.js";
 import { safeGetElement } from "./utils.js";
+import { switchTeamContext } from "./teamContext.js";
 
 
 export const generateSchema = function () {
@@ -491,7 +492,7 @@ export const performTeamSelectorSearch = function (searchTerm) {
       '<div class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">Loading\u2026</div>';
   }
 
-  fetch(url, { credentials: "same-origin" }) // pragma: allowlist secret
+  fetch(url, { credentials: "same-origin", signal: AbortSignal.timeout(15000) }) // pragma: allowlist secret
     .then(function (resp) {
       if (!resp.ok) {
         throw new Error("HTTP " + resp.status);
@@ -539,8 +540,8 @@ export const selectTeamFromSelector = function (button) {
 
   // Update the Alpine.js component state
   const selectorContainer = button.closest("[x-data]");
-  if (selectorContainer && selectorContainer.__x) {
-    const alpineData = selectorContainer.__x.$data;
+  const alpineData = selectorContainer && (window.Alpine?.$data(selectorContainer) || selectorContainer.__x?.$data);
+  if (alpineData) {
     alpineData.selectedTeam = teamId;
     alpineData.selectedTeamName = (isPersonal ? "👤 " : "🏢 ") + teamName;
     alpineData.open = false;
@@ -558,8 +559,5 @@ export const selectTeamFromSelector = function (button) {
     delete itemsContainer.dataset.loaded;
   }
 
-  // Call the existing updateTeamContext function (defined in admin.html)
-  if (typeof window.updateTeamContext === "function") {
-    window.updateTeamContext(teamId);
-  }
+  switchTeamContext(teamId);
 }

@@ -20,6 +20,7 @@ import {
   setupTokenListEventHandlers,
   debouncedServerSideTokenSearch,
   performTokenSearch,
+  revealToken,
 } from "../../../mcpgateway/admin_ui/tokens.js";
 import {
   getCookie,
@@ -2076,5 +2077,39 @@ describe("showTokenDetailsModal - additional coverage", () => {
 
     vi.advanceTimersByTime(1500);
     expect(copyBtn.textContent).toBe("Copy");
+  });
+});
+
+describe("revealToken", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = '<button data-token-id="saved-token">查看 Key</button>';
+  });
+  afterEach(() => { document.body.innerHTML = ""; });
+
+  test("fetches on demand, copies, and clears the modal on close", async () => {
+    fetchWithTimeout.mockResolvedValue({ ok: true, json: async () => ({ access_token: "synthetic-key" }) });
+    const button = document.querySelector("button");
+    await revealToken(button);
+    expect(fetchWithTimeout).toHaveBeenCalledWith(expect.stringContaining("/tokens/saved-token/reveal"), expect.objectContaining({ method: "POST", cache: "no-store" }));
+    const input = document.querySelector("#revealed-token-value");
+    expect(input.value).toBe("synthetic-key");
+    document.querySelector("[data-copy]").click();
+    expect(copyToClipboard).toHaveBeenCalledWith("revealed-token-value");
+    document.querySelector("[data-close]").click();
+    expect(input.value).toBe("");
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(button.disabled).toBe(false);
+  });
+
+  test("shows historical-key and access-denied messages without a secret field", async () => {
+    fetchWithTimeout.mockResolvedValue({ ok: true, json: async () => ({ access_token: null, message: "历史 Key 无法恢复" }) });
+    await revealToken(document.querySelector("button"));
+    expect(document.querySelector("[role=status]").textContent).toContain("无法恢复");
+    expect(document.querySelector("#revealed-token-value").hidden).toBe(true);
+    document.querySelector("[data-close]").click();
+    fetchWithTimeout.mockResolvedValue({ ok: false, json: async () => ({ detail: "无权查看" }) });
+    await revealToken(document.querySelector("button"));
+    expect(document.querySelector("[role=status]").textContent).toBe("无权查看");
   });
 });

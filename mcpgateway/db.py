@@ -5492,6 +5492,7 @@ class EmailApiToken(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     jti: Mapped[str] = mapped_column(String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    encrypted_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Scoping fields
     server_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("servers.id", ondelete="CASCADE"), nullable=True)
