@@ -1,0 +1,27 @@
+{% extends "login.html" %}
+{% block page_title %}领取 MCP API Key - ContextForge{% endblock %}
+{% block login_card %}
+<h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">领取 MCP API Key</h1>
+<p class="text-sm text-gray-500 dark:text-gray-300 mb-6">使用已注册邮箱，选择所属 Team 和虚拟 MCP。</p>
+<form id="member-key-form" class="space-y-4" data-root="{{ root_path }}" autocomplete="off">
+  <div><label for="member-email" class="block text-sm font-semibold dark:text-white mb-2">账号邮箱</label>
+    <input id="member-email" type="email" required maxlength="255" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" placeholder="输入已注册邮箱" /></div>
+  <button id="load-memberships" type="button" class="w-full py-2 border border-indigo-600 text-indigo-600 rounded-lg">查询所属 Team</button>
+  <div><label for="member-team" class="block text-sm font-semibold dark:text-white mb-2">Team</label>
+    <select id="member-team" required disabled class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"><option value="">请先查询账号</option></select></div>
+  <div><label for="member-server" class="block text-sm font-semibold dark:text-white mb-2">虚拟 MCP</label>
+    <select id="member-server" required disabled class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"><option value="">请选择 Team</option></select></div>
+  <div><label for="member-days" class="block text-sm font-semibold dark:text-white mb-2">有效期</label>
+    <select id="member-days" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"><option value="7">7 天</option><option value="30" selected>30 天</option><option value="90">90 天</option></select></div>
+  <button id="issue-member-key" disabled type="submit" class="w-full py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg disabled:opacity-50">生成 API Key</button>
+</form>
+<p id="member-key-message" role="status" aria-live="polite" class="mt-4 text-sm text-indigo-600 dark:text-indigo-300"></p>
+<section id="member-key-result" class="hidden mt-4 space-y-3">
+  <label for="member-key-value" class="block font-semibold dark:text-white">API Key（仅本次展示）</label>
+  <textarea id="member-key-value" readonly rows="4" class="w-full p-3 border rounded-lg text-xs dark:bg-gray-700 dark:text-white"></textarea>
+  <button id="copy-member-key" type="button" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">复制 API Key</button>
+  <p class="text-xs text-gray-500">请保存此 Key。它仅用于所选虚拟 MCP；管理员可在 API Tokens 中撤销。</p>
+</section>
+<a href="{{ root_path }}/admin/login" class="block mt-6 text-sm text-center text-indigo-600">返回登录</a>
+{% endblock %}
+{% block page_scripts %}<script src="{{ root_path }}/static/member-key.js" defer></script>{% endblock %}

@@ -2879,6 +2879,7 @@ class AdminAuthMiddleware(BaseHTTPMiddleware):
         "/v1/admin/login",
         "/v1/admin/logout",
         "/v1/admin/forgot-password",
+        "/v1/admin/api-key",
         "/v1/admin/reset-password",
         "/v1/admin/language",  # Language switcher must work before sign-in
         "/admin/static",  # Legacy path

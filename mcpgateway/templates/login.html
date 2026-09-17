@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ _("Sign In - ContextForge") }}</title>
+    <title>{% block page_title %}{{ _("Sign In - ContextForge") }}{% endblock %}</title>
     <!-- Tailwind CSS - Using precompiled CSS for strict CSP compliance -->
     <link rel="stylesheet" href="{{ root_path }}/static/css/tailwind.min.css" />
     <!-- Font Awesome is bundled via Vite (imported in admin_ui/admin.js) -->
@@ -36,6 +36,7 @@
             class="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl py-6 px-6 shadow-2xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 animate-slide-up"
             style="animation-delay: 0.2s"
           >
+            {% block login_card %}
             <!-- Error messages -->
             <div
               id="error-message"
@@ -172,6 +173,9 @@
                 {{ _("Sign In") }}
               </button>
             </form>
+            {% if self_service_api_keys_enabled %}
+            <a href="{{ root_path }}/admin/api-key" class="block mt-4 text-center text-sm text-indigo-600">自助领取 MCP API Key</a>
+            {% endif %}
 
             <!-- Footer -->
             <div class="mt-4 text-center">
@@ -180,6 +184,7 @@
                 {{ _("Secured by ContextForge Authentication") }}
               </p>
             </div>
+            {% endblock %}
           </div>
         </div>
       </div>
@@ -376,6 +381,7 @@
       </div>
     </div>
 
+    {% block page_scripts %}
     <script nonce="{{ csp_nonce(request) }}">
       // Initialize ROOT_PATH for JavaScript URL composition
       window.ROOT_PATH = {{ root_path | tojson }};
@@ -692,5 +698,6 @@
         }, 1000);
       }
     </script>
+    {% endblock %}
   </body>
 </html>

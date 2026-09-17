@@ -288,6 +288,10 @@ def _assemble_routers(  # noqa: C901 — deliberate single-function assembly, co
 
             set_logging_service(logging_service)
             target_router.include_router(admin_router)
+            # First-Party
+            from mcpgateway.routers.server_members import router as server_members_router  # pylint: disable=import-outside-toplevel
+
+            target_router.include_router(server_members_router, prefix="/admin", dependencies=[Depends(enforce_admin_csrf)])
             validate_section_permissions(admin_router)
             logger.info("Admin router included - Admin API enabled")
 

@@ -4527,6 +4527,7 @@ async def admin_login_page(request: Request) -> Response:
             "secure_cookie_warning": secure_cookie_warning,
             "ui_airgapped": settings.mcpgateway_ui_airgapped,
             "prefill_email": prefill_email,
+            "self_service_api_keys_enabled": settings.self_service_api_keys_enabled,
             "password_reset_enabled": getattr(settings, "password_reset_enabled", True),
             "sri_hashes": load_sri_hashes(),
             "bundle_css": get_bundle_css_files(),

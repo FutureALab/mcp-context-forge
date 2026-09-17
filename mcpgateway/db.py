@@ -5648,6 +5648,7 @@ class TokenUsageLog(Base):
     # Response details
     status_code: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     response_time_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    mcp_details: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     # Security fields
     blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

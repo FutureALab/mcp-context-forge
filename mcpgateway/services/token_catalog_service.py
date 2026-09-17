@@ -1067,6 +1067,7 @@ class TokenCatalogService:
         response_time_ms: Optional[int] = None,
         blocked: bool = False,
         block_reason: Optional[str] = None,
+        mcp_details: Optional[dict] = None,
     ) -> None:
         """Log token usage for analytics and security.
 
@@ -1081,6 +1082,7 @@ class TokenCatalogService:
             response_time_ms: Response time in milliseconds
             blocked: Whether request was blocked
             block_reason: Reason for blocking
+            mcp_details: MCP method, resource, outcome, and reported model usage.
 
         Examples:
             >>> service = TokenCatalogService(None)  # Would use real DB session
@@ -1097,6 +1099,7 @@ class TokenCatalogService:
             response_time_ms=response_time_ms,
             blocked=blocked,
             block_reason=block_reason,
+            mcp_details=mcp_details,
         )
 
         self.db.add(usage_log)

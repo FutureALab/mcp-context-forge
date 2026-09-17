@@ -19,6 +19,7 @@ Examples:
 
 # Standard
 import logging
+import re
 import time
 from typing import Optional
 
@@ -32,6 +33,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from mcpgateway.auth_context import get_jwt_user_email_from_payload, is_trusted_internal_mcp_request
 from mcpgateway.db import fresh_db_session
 from mcpgateway.middleware.path_filter import should_skip_auth_context
+from mcpgateway.services.mcp_usage_capture import MCPUsageCapture
 from mcpgateway.services.token_catalog_service import TokenCatalogService
 from mcpgateway.utils.verify_credentials import get_auth_header_value, verify_jwt_token_cached
 
@@ -110,6 +112,14 @@ class TokenUsageMiddleware:
 
         # Capture response status
         status_code = 200  # Default
+        capture = MCPUsageCapture() if scope.get("method") == "POST" and path.rstrip("/").endswith(("/mcp", "/rpc", "/message")) else None
+
+        async def receive_wrapper() -> dict:
+            """Inspect consumed request bytes without changing their delivery."""
+            message = await receive()
+            if capture is not None and message["type"] == "http.request":
+                capture.append(message.get("body", b""))
+            return message
 
         async def send_wrapper(message: dict) -> None:
             """Wrap send to capture response status.
@@ -120,10 +130,12 @@ class TokenUsageMiddleware:
             nonlocal status_code
             if message["type"] == "http.response.start":
                 status_code = message["status"]
+            elif capture is not None and message["type"] == "http.response.body":
+                capture.append(message.get("body", b""), response=True)
             await send(message)
 
         # Process request
-        await self.app(scope, receive, send_wrapper)
+        await self.app(scope, receive_wrapper, send_wrapper)
 
         # Calculate response time
         response_time_ms = round((time.time() - start_time) * 1000)
@@ -256,6 +268,10 @@ class TokenUsageMiddleware:
                 ip_address = client[0] if client else None
                 headers = Headers(scope=scope)
                 user_agent = headers.get("user-agent")
+                mcp_details = capture.details() if capture is not None else None
+                server_match = re.search(r"/(?:servers|virtual-servers)/([^/]+)/", scope.get("modified_path", path))
+                if server_match:
+                    mcp_details = {**(mcp_details or {}), "server_id": server_match.group(1)}
 
                 await token_service.log_token_usage(
                     jti=jti,
@@ -268,6 +284,7 @@ class TokenUsageMiddleware:
                     response_time_ms=response_time_ms,
                     blocked=blocked,
                     block_reason=block_reason,
+                    mcp_details=mcp_details,
                 )
         except Exception as e:
             logger.debug(f"Failed to log token usage: {e}")

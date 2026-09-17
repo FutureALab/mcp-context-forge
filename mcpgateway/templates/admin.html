@@ -2161,6 +2161,7 @@
         <div class="flex justify-between items-center mb-4">
           <div class="flex items-center space-x-10">
             <h2 class="text-2xl font-bold dark:text-gray-200">{{ _("Virtual MCP Servers") }}</h2>
+            {% if is_admin %}<a href="{{ root_path }}/admin/member-usage" class="text-sm text-indigo-600 underline">成员导入、批量 Key 与调用统计</a>{% endif %}
             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
               {{ _("Virtual Servers let you combine Tools, Resources, and Prompts into an MCP Server with its own API key (see API Tokens).") }}
             </p>

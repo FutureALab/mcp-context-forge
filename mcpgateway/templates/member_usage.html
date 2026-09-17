@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>成员与调用统计 - ContextForge</title>
+<link rel="stylesheet" href="{{ root_path }}/static/css/tailwind.min.css" />
+<link rel="stylesheet" href="{{ root_path }}/static/member-usage.css" />
+</head><body>
+<main id="member-panel" data-root="{{ root_path }}">
+  <header><div><a href="{{ root_path }}/admin/#catalog">返回虚拟 MCP</a><h1>成员与调用统计</h1><p>查看成员、API Key 和 MCP 方法的实际使用情况。</p></div><a href="{{ root_path }}/admin/api-key">自助领取 API Key</a></header>
+  <section class="controls" aria-label="统计筛选">
+    <label>虚拟 MCP<select id="filter-server"><option value="">全部虚拟 MCP</option></select></label>
+    <label>成员邮箱<input id="filter-email" type="email" placeholder="全部成员" /></label>
+    <label>API Key<select id="filter-token"><option value="">全部 Key</option></select></label>
+    <label>MCP 方法<input id="filter-method" placeholder="例如 tools/call" /></label>
+    <label>时间范围<select id="filter-days"><option value="1">最近 24 小时</option><option value="7" selected>最近 7 天</option><option value="30">最近 30 天</option><option value="90">最近 90 天</option></select></label>
+    <button id="refresh-usage">查询统计</button>
+  </section>
+  <p id="panel-status" role="status" aria-live="polite"></p>
+  <section id="usage-cards" class="cards" aria-label="总体指标"></section>
+  <p id="coverage-note" class="note"></p>
+  <section><h2>调用趋势 <small>UTC · 每日请求次数</small></h2><div id="usage-trend" class="trend"></div></section>
+  <section><h2>成员使用情况</h2><div id="member-table" class="table-scroll"></div></section>
+  <section><h2>MCP 方法与工具</h2><div id="method-table" class="table-scroll"></div></section>
+  <section><h2>成员名下 API Key</h2><div id="token-table" class="table-scroll"></div></section>
+  <section><h2>最近调用 <small>最多 100 条</small></h2><div id="recent-table" class="table-scroll"></div></section>
+  <section class="management"><h2>成员管理与批量发放</h2>
+    <p>Excel 将已有账号加入所选虚拟 MCP 的 Team。成员会获得该 Team 的现有权限。未注册账号请先在用户管理中创建。</p>
+    <div class="controls"><a href="{{ root_path }}/admin/member-usage/template">下载 Excel 模板</a>
+      <label>成员 Excel<input id="members-file" type="file" accept=".xlsx" /></label><button id="import-members">导入到所选 MCP 的 Team</button></div>
+    <div class="controls"><label>Key 有效期<select id="bulk-days"><option value="7">7 天</option><option value="30" selected>30 天</option><option value="90">90 天</option></select></label>
+      <button id="bulk-selected">为所选 MCP 的成员生成 Key</button><button id="bulk-all">为全部 MCP 的成员生成 Key</button>
+      <button id="download-keys" disabled>下载本页生成结果</button></div>
+    <p class="note">每个成员与服务器组合生成独立 Key；已有 Key 保留。下载内容包含完整 Key，请妥善保存，离开页面后不可重新获取。</p>
+    <p id="management-status" role="status" aria-live="polite"></p><div id="management-results" class="table-scroll"></div>
+  </section>
+</main><script src="{{ root_path }}/static/member-usage.js" defer></script></body></html>
