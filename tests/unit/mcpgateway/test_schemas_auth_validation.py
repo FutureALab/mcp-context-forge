@@ -239,6 +239,14 @@ def test_a2a_agent_update_authheaders_missing_legacy_fields_message():
 # =========================================================================
 
 
+@pytest.mark.parametrize("request_type", [PublicRegistrationRequest, AdminCreateUserRequest])
+def test_registration_password_ten_character_boundary(request_type):
+    """Reject nine characters and accept ten for either registration route."""
+    with pytest.raises(ValueError, match="at least 10 characters"):
+        request_type(email="test@example.com", password="NineChars")  # pragma: allowlist secret
+    assert request_type(email="test@example.com", password="TenChars!!").password == "TenChars!!"  # pragma: allowlist secret
+
+
 def test_public_registration_request_valid():
     """Test PublicRegistrationRequest with valid data."""
     request = PublicRegistrationRequest(
@@ -262,7 +270,7 @@ def test_public_registration_request_password_required():
 
 def test_public_registration_request_password_too_short():
     """Test PublicRegistrationRequest rejects short password."""
-    with pytest.raises(ValueError, match="at least 8 characters"):
+    with pytest.raises(ValueError, match="at least 10 characters"):
         PublicRegistrationRequest(
             email="test@example.com",
             password="Short1!",  # pragma: allowlist secret
@@ -354,7 +362,7 @@ def test_admin_create_user_request_with_all_fields():
 
 def test_admin_create_user_request_password_too_short():
     """Test AdminCreateUserRequest rejects short password."""
-    with pytest.raises(ValueError, match="at least 8 characters"):
+    with pytest.raises(ValueError, match="at least 10 characters"):
         AdminCreateUserRequest(
             email="test@example.com",
             password="Short1!",  # pragma: allowlist secret

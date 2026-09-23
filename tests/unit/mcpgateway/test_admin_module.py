@@ -380,21 +380,21 @@ def test_serialize_datetime_and_password_strength(monkeypatch):
     assert admin.validate_password_strength("short") == (True, "")
 
     monkeypatch.setattr(admin.settings, "password_policy_enabled", True)
-    # PasswordPolicyService uses password_min_length_user=12 and 3-of-4 complexity
+    # PasswordPolicyService uses password_min_length_user=10 and 3-of-4 complexity
 
     ok, msg = admin.validate_password_strength("AzxWq1!MnbvC2@")
     assert ok is True and msg == ""
 
     ok, msg = admin.validate_password_strength("abcdef1!")
-    assert ok is False and "at least 12" in msg
+    assert ok is False and "at least 10" in msg
 
 
 @pytest.mark.parametrize(
     ("password", "expected_fragment"),
     [
-        ("ABCDEFGH", "at least 12"),  # Too short, no lowercase/numbers/special
-        ("Abcdefgh", "at least 12"),  # Too short, no numbers/special
-        ("Abcdefg1", "at least 12"),  # Too short, no special
+        ("ABCDEFGH", "at least 10"),  # Too short, no lowercase/numbers/special
+        ("Abcdefgh", "at least 10"),  # Too short, no numbers/special
+        ("Abcdefg1", "at least 10"),  # Too short, no special
     ],
 )
 def test_validate_password_strength_requirement_failures(monkeypatch, password, expected_fragment):

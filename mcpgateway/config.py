@@ -1114,8 +1114,8 @@ class Settings(BaseSettings):
 
     # Password Policy Configuration (Enhanced per pentesting recommendations)
     password_min_length: int = Field(default=8, description="Minimum password length (legacy - use password_min_length_user)")
-    password_min_length_user: int = Field(default=12, description="Minimum password length for user accounts (OWASP recommendation)")
-    password_min_length_privileged: int = Field(default=22, description="Minimum password length for privileged accounts (12 + 10 chars)")
+    password_min_length_user: int = Field(default=10, description="Minimum password length for user accounts")
+    password_min_length_privileged: int = Field(default=22, description="Minimum password length for privileged accounts")
     password_min_length_service: int = Field(default=20, description="Minimum password length for service accounts (64-128 bit entropy)")
     password_require_uppercase: bool = Field(default=True, description="Require uppercase letters in passwords")
     password_require_lowercase: bool = Field(default=True, description="Require lowercase letters in passwords")
@@ -1715,7 +1715,7 @@ class Settings(BaseSettings):
         unconditionally for empty, placeholder, weak, short, and low-entropy
         values.  Password credentials (``basic_auth_password``,
         empty, placeholder, known-weak, and too-short (below
-        ``password_min_length_user``, the OWASP baseline) values when their
+        ``password_min_length_user``, the configured user minimum) values when their
         consuming authentication feature is enabled (feature-gated fail-closed).
         No entropy floor is applied to passwords: the Shannon-entropy check used
         for random secrets is a poor signal for human-chosen passwords and the

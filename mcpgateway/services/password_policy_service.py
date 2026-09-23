@@ -89,7 +89,7 @@ class PasswordPolicyService:
     """Service for comprehensive password policy enforcement.
 
     This service implements OWASP and NIST password guidelines including:
-    - Minimum 12 characters for user accounts
+    - Minimum 10 characters for user accounts
     - Minimum 20 characters for service accounts (privileged)
     - Complexity requirements (3 of 4 character types)
     - Password history (prevent reuse of last 5 passwords)
@@ -142,9 +142,9 @@ class PasswordPolicyService:
         if not password:
             raise PasswordPolicyError("Password is required")
 
-        # Minimum length: 12 characters (OWASP recommendation)
-        # Privileged accounts: 22 characters (12 + 10 as recommended)
-        min_length = getattr(settings, "password_min_length_user", 12)
+        # Minimum length for user accounts
+        # Privileged accounts retain their separate minimum
+        min_length = getattr(settings, "password_min_length_user", 10)
         if is_privileged:
             min_length = getattr(settings, "password_min_length_privileged", 22)
 
@@ -488,7 +488,7 @@ class PasswordPolicyService:
         if not isinstance(is_privileged, bool):
             raise TypeError(f"is_privileged must be bool, got {type(is_privileged).__name__}")
 
-        min_length = getattr(settings, "password_min_length_user", 12)
+        min_length = getattr(settings, "password_min_length_user", 10)
         if is_privileged:
             min_length = getattr(settings, "password_min_length_privileged", 22)
 

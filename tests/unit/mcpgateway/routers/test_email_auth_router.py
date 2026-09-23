@@ -1745,7 +1745,7 @@ class TestAdminCreateUserEdgeCases:
         # First-Party
         from mcpgateway.routers import email_auth
 
-        user_request = AdminCreateUserRequest(email="exists@example.com", password="pass1234", full_name="User", is_admin=False)  # pragma: allowlist secret
+        user_request = AdminCreateUserRequest(email="exists@example.com", password="pass1234AB", full_name="User", is_admin=False)  # pragma: allowlist secret
         mock_db = MagicMock()
 
         with patch("mcpgateway.routers.email_auth.EmailAuthService") as MockSvc:
@@ -1762,7 +1762,7 @@ class TestAdminCreateUserEdgeCases:
         # First-Party
         from mcpgateway.routers import email_auth
 
-        user_request = AdminCreateUserRequest(email="new@example.com", password="pass1234", full_name="User", is_admin=False)  # pragma: allowlist secret
+        user_request = AdminCreateUserRequest(email="new@example.com", password="pass1234AB", full_name="User", is_admin=False)  # pragma: allowlist secret
         mock_db = MagicMock()
 
         with patch("mcpgateway.routers.email_auth.EmailAuthService") as MockSvc:

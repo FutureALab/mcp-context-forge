@@ -1,5 +1,7 @@
 # Project Memory
 
+- [[tasks/2026-09-23-member-key-oauth]]: OAuth key self-service, registration minimum, and sidebar cleanup.
+
 - [[tasks/2026-09-23-iframe-oauth-demo]]: Same-host, different-port Nginx iframe OAuth demo and verification.
 
 - [[current-task]]: Member workflows, key self-service, and rollout status.

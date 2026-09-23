@@ -11663,7 +11663,7 @@ def test_validate_password_strength_policy(monkeypatch):
     assert validate_password_strength("weak") == (True, "")
 
     monkeypatch.setattr(settings, "password_policy_enabled", True)
-    # PasswordPolicyService uses password_min_length_user=12 and 3-of-4 complexity
+    # PasswordPolicyService uses password_min_length_user=10 and 3-of-4 complexity
 
     ok, msg = validate_password_strength("Aa1!Aa1!Aa1!")
     assert ok is True

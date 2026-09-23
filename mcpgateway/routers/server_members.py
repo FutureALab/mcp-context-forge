@@ -60,6 +60,14 @@ class MemberKeyRequest(AccountRequest):
     days: int = Field(default=30, ge=1, le=365)
 
 
+class SsoMemberKeyRequest(BaseModel):
+    """A server-scoped key request authorized by an SSO browser session."""
+
+    team_id: str = Field(min_length=1, max_length=36)
+    server_id: str = Field(min_length=1, max_length=36)
+    days: int = Field(default=30, ge=1, le=365)
+
+
 class BulkKeyRequest(BaseModel):
     """Select one server or all team-backed servers."""
 
@@ -84,9 +92,10 @@ def management_team(db: Session, server: Server, team_id: str | None) -> EmailTe
     return team
 
 
-def require_self_service() -> None:
+def require_self_service(auth_mode: str | None = None) -> None:
     """Reject self-service when the operator disables the feature."""
-    if not settings.self_service_api_keys_enabled or not settings.email_auth_enabled:
+    mode_enabled = {None: settings.email_auth_enabled or settings.sso_enabled, "password": settings.email_auth_enabled, "sso": settings.sso_enabled}
+    if not settings.self_service_api_keys_enabled or not mode_enabled.get(auth_mode, False):
         raise HTTPException(404, "自助领取未启用")
 
 
@@ -116,30 +125,20 @@ async def authenticate_member(request: Request, body: AccountRequest, db: Sessio
     return user
 
 
-@router.get("/api-key")
-async def member_key_page(request: Request):
-    """Render the public key page using the login template."""
-    require_self_service()
-    response = request.app.state.templates.TemplateResponse(
-        request,
-        "member_key.html",
-        {
-            "root_path": request.scope.get("root_path", ""),
-            "bundle_css": get_bundle_css_files(),
-        },
-    )
-    _set_admin_csrf_cookie(request, response)
-    response.headers["Cache-Control"] = "no-store"
-    return response
+def authenticate_sso_member(request: Request, principal: dict, db: Session) -> EmailUser:
+    """Use only the OAuth browser session and resolve its current account."""
+    if request.headers.get("authorization") or not (request.cookies.get("jwt_token") or request.cookies.get("access_token")):
+        raise HTTPException(403, "请先使用 OAuth 登录")
+    if principal.get("auth_method") != "jwt" or principal.get("token_use") != "session":
+        raise HTTPException(403, "请先使用 OAuth 登录")
+    user = registered_user(db, get_user_email(principal))
+    if not user.auth_provider or user.auth_provider == "local":
+        raise HTTPException(403, "请先使用 OAuth 登录")
+    return user
 
 
-@router.post("/api-key/options")
-@rate_limit(requests_per_minute=20)
-async def member_key_options(request: Request, body: AccountRequest, db: Session = Depends(get_db)):
-    """List active teams and servers accessible to the supplied account."""
-    require_self_service()
-    require_public_csrf(request)
-    user = await authenticate_member(request, body, db)
+async def member_options_for_user(db: Session, user: EmailUser) -> JSONResponse:
+    """List active teams and accessible servers for one verified account."""
     teams = (
         db.execute(
             select(EmailTeam)
@@ -167,16 +166,11 @@ async def member_key_options(request: Request, body: AccountRequest, db: Session
         eligible = [team.id for team in teams if await service._check_server_access(db, server, user.email, [team.id])]
         if eligible:
             visible.append({"id": server.id, "name": server.name, "team_id": server.team_id, "visibility": server.visibility, "eligible_team_ids": eligible})
-    return JSONResponse({"teams": [{"id": t.id, "name": t.name} for t in teams], "servers": visible}, headers={"Cache-Control": "no-store"})
+    return JSONResponse({"email": user.email, "full_name": user.full_name, "teams": [{"id": t.id, "name": t.name} for t in teams], "servers": visible}, headers={"Cache-Control": "no-store"})
 
 
-@router.post("/api-key/issue")
-@rate_limit(requests_per_minute=10)
-async def member_key_issue(request: Request, body: MemberKeyRequest, db: Session = Depends(get_db)):
-    """Issue a key after password, membership, and visibility checks."""
-    require_self_service()
-    require_public_csrf(request)
-    user = await authenticate_member(request, body, db)
+async def issue_for_user(db: Session, user: EmailUser, body: MemberKeyRequest | SsoMemberKeyRequest) -> JSONResponse:
+    """Apply the shared rate limit and resource checks before key issuance."""
     recent = db.scalar(
         select(func.count())
         .select_from(EmailApiToken)
@@ -189,6 +183,63 @@ async def member_key_issue(request: Request, body: MemberKeyRequest, db: Session
         raise HTTPException(429, "该账号每小时最多生成 10 个 Key，请稍后重试")
     result = await issue_member_key(db, user.email, body.team_id, body.server_id, body.days, "self-service")
     return JSONResponse(result, headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
+
+
+@router.get("/api-key")
+async def member_key_page(request: Request):
+    """Render the public key page using the login template."""
+    require_self_service()
+    response = request.app.state.templates.TemplateResponse(
+        request,
+        "member_key.html",
+        {
+            "root_path": request.scope.get("root_path", ""),
+            "bundle_css": get_bundle_css_files(),
+        },
+    )
+    _set_admin_csrf_cookie(request, response)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@router.post("/api-key/options")
+@rate_limit(requests_per_minute=20)
+async def member_key_options(request: Request, body: AccountRequest, db: Session = Depends(get_db)):
+    """List active teams and servers accessible to the supplied account."""
+    require_self_service("password")
+    require_public_csrf(request)
+    user = await authenticate_member(request, body, db)
+    return await member_options_for_user(db, user)
+
+
+@router.post("/api-key/issue")
+@rate_limit(requests_per_minute=10)
+async def member_key_issue(request: Request, body: MemberKeyRequest, db: Session = Depends(get_db)):
+    """Issue a key after password, membership, and visibility checks."""
+    require_self_service("password")
+    require_public_csrf(request)
+    user = await authenticate_member(request, body, db)
+    return await issue_for_user(db, user, body)
+
+
+@router.post("/api-key/sso/options")
+@rate_limit(requests_per_minute=20)
+async def member_key_sso_options(request: Request, principal=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
+    """Check the registered SSO account and list its available resources."""
+    require_self_service("sso")
+    require_public_csrf(request)
+    user = authenticate_sso_member(request, principal, db)
+    return await member_options_for_user(db, user)
+
+
+@router.post("/api-key/sso/issue")
+@rate_limit(requests_per_minute=10)
+async def member_key_sso_issue(request: Request, body: SsoMemberKeyRequest, principal=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
+    """Issue a key for the SSO session's account after access checks."""
+    require_self_service("sso")
+    require_public_csrf(request)
+    user = authenticate_sso_member(request, principal, db)
+    return await issue_for_user(db, user, body)
 
 
 @router.get("/member-usage")

@@ -419,6 +419,102 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
                     locked = await client.post(f"/api-key/{endpoint}", json=valid)
                     self.assertEqual(locked.status_code, 403)
 
+    async def test_sso_member_key_boundaries(self):
+        """Accept only a registered OAuth session and enforce CSRF and team access."""
+        # Third-Party
+        from fastapi import FastAPI
+        import httpx
+
+        # First-Party
+        from mcpgateway.middleware.rbac import get_current_user_with_permissions
+        from mcpgateway.routers.server_members import get_db, router
+
+        user = self.db.query(EmailUser).filter_by(email="member@example.com").one()
+        user.auth_provider = "google"
+        self.db.commit()
+        principal = {"email": user.email, "auth_method": "jwt", "token_use": "session"}
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_db] = lambda: self.db
+        app.dependency_overrides[get_current_user_with_permissions] = lambda: principal
+        csrf = "test-csrf-value-" * 3
+        body = {"team_id": "team-a", "server_id": "server-a", "days": 7}
+        with patch("mcpgateway.routers.server_members.settings.self_service_api_keys_enabled", True), patch("mcpgateway.routers.server_members.settings.email_auth_enabled", True), patch("mcpgateway.routers.server_members.settings.sso_enabled", True):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=("127.0.0.2", 12345)), base_url="http://test", headers={"Origin": "http://test", "X-CSRF-Token": csrf}, cookies={"mcpgateway_csrf_token": csrf}) as client:
+                for endpoint in ("options", "issue"):
+                    missing_cookie = await client.post(f"/api-key/sso/{endpoint}", json=body)
+                    self.assertEqual(missing_cookie.status_code, 403)
+                client.cookies.set("jwt_token", "fixture-session")
+                with patch("mcpgateway.routers.server_members.settings.sso_enabled", False):
+                    self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 404)
+                api_token = {**principal, "auth_method": "api_token", "token_use": "api"}
+                app.dependency_overrides[get_current_user_with_permissions] = lambda: api_token
+                self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 403)
+                app.dependency_overrides[get_current_user_with_permissions] = lambda: principal
+                no_csrf = await client.post("/api-key/sso/options", json={}, headers={"X-CSRF-Token": "wrong"})
+                self.assertEqual(no_csrf.status_code, 403)
+                user.auth_provider = "local"
+                self.db.commit()
+                self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 403)
+                user.auth_provider = "google"
+                self.db.commit()
+                options = await client.post("/api-key/sso/options", json={})
+                self.assertEqual(options.status_code, 200, options.text)
+                self.assertEqual(options.json()["email"], user.email)
+                self.assertEqual(options.json()["servers"][0]["eligible_team_ids"], ["team-a"])
+                wrong_team = await client.post("/api-key/sso/issue", json={**body, "team_id": "team-b"})
+                self.assertEqual(wrong_team.status_code, 403)
+                with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+                    issued = await client.post("/api-key/sso/issue", json=body)
+                self.assertEqual(issued.status_code, 200, issued.text)
+                self.assertEqual(issued.json()["email"], user.email)
+                user.is_active = False
+                self.db.commit()
+                self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 403)
+
+    async def test_sso_key_flow_does_not_register_unknown_user(self):
+        """Block new account creation during the key page's OAuth flow."""
+        # First-Party
+        from mcpgateway.services.sso_service import SSOService
+
+        token = await SSOService(self.db).authenticate_or_create_user({"email": "unknown@example.com", "email_verified": True, "provider": "google"}, allow_creation=False)
+        self.assertIsNone(token)
+        self.assertIsNone(self.db.query(EmailUser).filter_by(email="unknown@example.com").one_or_none())
+
+    async def test_sso_member_key_reads_verified_browser_cookie(self):
+        """Route a browser cookie through the real auth dependency before listing resources."""
+        # Third-Party
+        from fastapi import FastAPI
+        import httpx
+
+        # First-Party
+        from mcpgateway.routers.server_members import get_db, router
+
+        user = self.db.query(EmailUser).filter_by(email="member@example.com").one()
+        user.auth_provider = "google"
+        self.db.commit()
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_db] = lambda: self.db
+        csrf = "test-csrf-value-" * 3
+
+        async def verified_session(request, token):
+            self.assertEqual(token, "fixture-session")
+            request.state.auth_method = "jwt"
+            request.state.token_use = "session"
+            return user
+
+        with patch("mcpgateway.auth.validate_token_user", new=verified_session), patch("mcpgateway.routers.server_members.settings.self_service_api_keys_enabled", True), patch("mcpgateway.routers.server_members.settings.sso_enabled", True):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=("127.0.0.3", 12345)), base_url="http://test", headers={"Origin": "http://test", "X-CSRF-Token": csrf, "Accept": "text/html"}, cookies={"mcpgateway_csrf_token": csrf}) as client:
+                missing = await client.post("/api-key/sso/options", json={})
+                self.assertEqual(missing.status_code, 302)
+                client.cookies.set("jwt_token", "fixture-session")
+                options = await client.post("/api-key/sso/options", json={})
+                self.assertEqual(options.status_code, 200, options.text)
+                self.assertEqual(options.json()["email"], user.email)
+                bearer = await client.post("/api-key/sso/options", json={}, headers={"Authorization": "Bearer fixture-session"})
+                self.assertEqual(bearer.status_code, 403)
+
     def test_roster_and_method_filter(self):
         """Include unused members and filter records by their actual server."""
         all_users = member_usage_summary(self.db, 7, None, None, None, None)

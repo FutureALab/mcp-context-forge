@@ -2,13 +2,21 @@
 {% block page_title %}领取 MCP API Key - MCP Gateway{% endblock %}
 {% block login_card %}
 <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">领取 MCP API Key</h1>
-<p class="text-sm text-gray-500 dark:text-gray-300 mb-6">验证已注册邮箱和密码，选择所属团队与可访问的虚拟 MCP。同一 Key 从首次创建日起累计最多 365 天，达到上限后不再延长。</p>
+<p class="text-sm text-gray-500 dark:text-gray-300 mb-6">检测已注册账号，选择所属团队与可访问的虚拟 MCP。同一 Key 从首次创建日起累计最多 365 天，达到上限后不再延长。</p>
 <form id="member-key-form" class="space-y-4" data-root="{{ root_path }}" autocomplete="off">
-  <div><label for="member-email" class="block text-sm font-semibold dark:text-white mb-2">账号邮箱</label>
-    <input id="member-email" type="email" required maxlength="255" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" placeholder="输入已注册邮箱" /></div>
-  <div><label for="member-password" class="block text-sm font-semibold dark:text-white mb-2">账号密码</label>
-    <input id="member-password" type="password" required maxlength="1024" autocomplete="current-password" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" placeholder="输入平台账号密码" /></div>
-  <button id="load-memberships" type="button" class="w-full py-2 border border-indigo-600 text-indigo-600 rounded-lg">验证并查询所属 Team</button>
+  <div class="flex gap-2" role="group" aria-label="授权方式">
+    <button id="member-mode-sso" type="button" aria-pressed="true" class="flex-1 py-2 border border-indigo-600 text-indigo-600 rounded-lg">OAuth 自动授权</button>
+    <button id="member-mode-password" type="button" aria-pressed="false" class="flex-1 py-2 border rounded-lg dark:text-white">账号密码登录</button>
+  </div>
+  <div id="member-sso-fields"><label for="member-sso-provider" class="block text-sm font-semibold dark:text-white mb-2">OAuth 服务</label>
+    <select id="member-sso-provider" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"><option value="">正在获取授权方式…</option></select></div>
+  <div id="member-password-fields" class="hidden space-y-4">
+    <div><label for="member-email" class="block text-sm font-semibold dark:text-white mb-2">账号邮箱</label>
+      <input id="member-email" type="email" maxlength="255" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" placeholder="输入已注册邮箱" /></div>
+    <div><label for="member-password" class="block text-sm font-semibold dark:text-white mb-2">账号密码</label>
+      <input id="member-password" type="password" maxlength="1024" autocomplete="current-password" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" placeholder="输入平台账号密码" /></div>
+  </div>
+  <button id="load-memberships" type="button" class="w-full py-2 border border-indigo-600 text-indigo-600 rounded-lg">检测账号并查询所属 Team</button>
   <div><label for="member-team" class="block text-sm font-semibold dark:text-white mb-2">Team</label>
     <select id="member-team" required disabled class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"><option value="">请先查询账号</option></select></div>
   <div><label for="member-server" class="block text-sm font-semibold dark:text-white mb-2">虚拟 MCP</label>

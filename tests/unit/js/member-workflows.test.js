@@ -12,31 +12,35 @@ const response = (data) => ({ ok: true, json: async () => data });
 
 test("self-service sends passwords and invalidates changed account input", async () => {
   document.body.innerHTML = template("member_key");
-  const fetchMock = vi.fn(async (url) =>
-    response(
-      url.endsWith("options")
-        ? {
-          teams: [{ id: "my-team", name: "My Team" }],
-          servers: [
-            {
-              id: "public-server",
-              name: "Public MCP",
-              team_id: "other-team",
-              visibility: "public",
-              eligible_team_ids: ["my-team"],
-            },
-          ],
-        }
-        : { api_key: "fixture-key", expires_at: "2026-10-17T12:00:00Z" }
-    )
-  );
+  const fetchMock = vi.fn(async (url) => {
+    if (url.endsWith("/auth/sso/providers")) {
+      return response([{ id: "example", display_name: "Example" }]);
+    }
+    if (url.endsWith("options")) {
+      return response({
+        teams: [{ id: "my-team", name: "My Team" }],
+        servers: [
+          {
+            id: "public-server",
+            name: "Public MCP",
+            team_id: "other-team",
+            visibility: "public",
+            eligible_team_ids: ["my-team"],
+          },
+        ],
+      });
+    }
+    return response({ api_key: "fixture-key", expires_at: "2026-10-17T12:00:00Z" });
+  });
   vi.stubGlobal("fetch", fetchMock);
   await import("../../../mcpgateway/static/member-key.js");
+  await vi.waitFor(() => expect(el("member-sso-provider").value).toBe("example"));
+  el("member-mode-password").click();
   el("member-email").value = "member@example.com";
   el("member-password").value = "fixture-password";
   el("load-memberships").click();
   await vi.waitFor(() => expect(el("member-team").disabled).toBe(false));
-  expect(JSON.parse(fetchMock.mock.calls[0][1].body).password).toBe(
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body).password).toBe(
     "fixture-password"
   );
   el("member-team").value = "my-team";
@@ -50,7 +54,7 @@ test("self-service sends passwords and invalidates changed account input", async
   await vi.waitFor(() =>
     expect(el("member-key-value").value).toBe("fixture-key")
   );
-  expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+  expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({
     password: "fixture-password",
     team_id: "my-team",
     server_id: "public-server",
@@ -60,11 +64,55 @@ test("self-service sends passwords and invalidates changed account input", async
   el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
   await vi.waitFor(() => expect(document.body.textContent).toContain("原 API Key 已续期至"));
   expect(el("member-key-value").value).toBe("");
-  expect(JSON.parse(fetchMock.mock.calls[2][1].body).days).toBe(365);
+  expect(JSON.parse(fetchMock.mock.calls[3][1].body).days).toBe(365);
   el("member-password").dispatchEvent(new Event("input"));
   expect(el("member-team").disabled).toBe(true);
   expect(el("issue-member-key").disabled).toBe(true);
   expect(el("member-key-value").value).toBe("");
+  vi.unstubAllGlobals();
+});
+
+test("self-service OAuth checks the session and issues without password fields", async () => {
+  document.body.innerHTML = template("member_key");
+  const fetchMock = vi.fn(async (url) => {
+    if (url.endsWith("/auth/sso/providers")) {
+      return response([{ id: "example", display_name: "Example" }]);
+    }
+    if (url.endsWith("sso/options")) {
+      return response({
+        email: "member@example.com",
+        full_name: "Member",
+        teams: [{ id: "my-team", name: "My Team" }],
+        servers: [{ id: "server-a", name: "MCP", eligible_team_ids: ["my-team"] }],
+      });
+    }
+    return response({ api_key: "oauth-key", expires_at: "2026-10-17T12:00:00Z" });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  await import("../../../mcpgateway/static/member-key.js?oauth-flow");
+  await vi.waitFor(() => expect(el("member-sso-provider").value).toBe("example"));
+  el("load-memberships").click();
+  await vi.waitFor(() => expect(el("member-team").disabled).toBe(false));
+  expect(fetchMock.mock.calls[1][0]).toContain("sso/options");
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({});
+  el("member-team").value = "my-team";
+  el("member-team").dispatchEvent(new Event("change"));
+  el("member-server").value = "server-a";
+  el("member-server").dispatchEvent(new Event("change"));
+  el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
+  await vi.waitFor(() => expect(el("member-key-value").value).toBe("oauth-key"));
+  expect(fetchMock.mock.calls[2][0]).toContain("sso/issue");
+  expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ team_id: "my-team", server_id: "server-a", days: 30 });
+  vi.unstubAllGlobals();
+});
+
+test("self-service shows the administrator notice for an unregistered OAuth user", async () => {
+  window.history.replaceState({}, "", "?error=unregistered");
+  document.body.innerHTML = template("member_key");
+  vi.stubGlobal("fetch", vi.fn(async () => response([{ id: "example", display_name: "Example" }])));
+  await import("../../../mcpgateway/static/member-key.js?unregistered");
+  await vi.waitFor(() => expect(el("member-key-message").textContent).toBe("该用户未在系统中注册，请联系管理员处理。"));
+  window.history.replaceState({}, "", "/");
   vi.unstubAllGlobals();
 });
 

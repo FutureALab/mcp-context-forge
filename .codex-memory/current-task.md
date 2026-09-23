@@ -1,5 +1,13 @@
 # Current Task
 
+## 2026-09-23: Member key OAuth and registration minimum
+
+- The API Key page defaults to OAuth detection and retains a password mode switch.
+- OAuth key requests use a validated browser session. Unknown OAuth users are not created through this flow.
+- New regular user passwords require at least 10 characters by default.
+- The sidebar documentation and GitHub icons are removed.
+- Targeted API and JavaScript tests passed. See [[tasks/2026-09-23-member-key-oauth]] for verification limits.
+
 ## 2026-09-23: iframe OAuth demo
 
 - Implemented the isolated demo in `infra/iframe-oauth` using existing Nginx and Node images.

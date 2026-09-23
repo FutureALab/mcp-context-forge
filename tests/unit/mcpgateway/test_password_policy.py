@@ -45,8 +45,8 @@ class TestPasswordPolicyService:
         assert policy_service.validate_user_password("Tr0ng!Password", "test@example.com")
 
     def test_validate_user_password_too_short(self, policy_service):
-        """Test that passwords under 12 characters are rejected."""
-        with pytest.raises(PasswordPolicyError, match="at least 12 characters"):
+        """Test that passwords under 10 characters are rejected."""
+        with pytest.raises(PasswordPolicyError, match="at least 10 characters"):
             policy_service.validate_user_password("Short1!", "user@example.com")
 
     def test_validate_user_password_insufficient_complexity(self, policy_service):

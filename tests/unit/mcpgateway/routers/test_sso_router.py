@@ -284,6 +284,74 @@ async def test_handle_sso_callback_user_creation_failed(monkeypatch: pytest.Monk
 
 
 @pytest.mark.asyncio
+async def test_member_key_sso_rejects_unregistered_account(monkeypatch: pytest.MonkeyPatch):
+    """Keep the OAuth key flow from creating an account or issuing a session."""
+    monkeypatch.setattr(sso_router.settings, "sso_enabled", True)
+    creation_flags = []
+
+    class DummyService:
+        def __init__(self, _db):
+            pass
+
+        async def handle_oauth_callback_with_tokens(self, *_args, **_kwargs):
+            return {"email": "unknown@example.com", "email_verified": True}, {}
+
+        async def authenticate_or_create_user(self, _user_info, allow_creation=True):
+            creation_flags.append(allow_creation)
+
+        @staticmethod
+        def _is_email_verified_claim(_user_info):
+            return True
+
+    monkeypatch.setattr(sso_router, "SSOService", DummyService)
+    db = MagicMock()
+    db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(redirect_uri="https://gateway.example/auth/sso/callback/example?member_key=1")
+    db.scalar.return_value = None
+    request = MagicMock()
+    request.scope = {"root_path": ""}
+    request.cookies = {"sso_session_id": "session-1"}
+    response = await sso_router.handle_sso_callback("example", "code", "state", request=request, response=MagicMock(), db=db)
+    assert response.headers["location"] == "/admin/api-key?error=unregistered"
+    assert creation_flags == [False]
+
+
+@pytest.mark.asyncio
+async def test_member_key_sso_returns_to_key_page(monkeypatch: pytest.MonkeyPatch):
+    """Return a registered OAuth user to the key page with a browser session."""
+    import jwt
+
+    monkeypatch.setattr(sso_router.settings, "sso_enabled", True)
+    token = jwt.encode({"user": {"email": "member@example.com", "is_admin": False}}, "secret", algorithm="HS256")
+    creation_flags = []
+
+    class DummyService:
+        def __init__(self, _db):
+            pass
+
+        async def handle_oauth_callback_with_tokens(self, *_args, **_kwargs):
+            return {"email": "member@example.com", "email_verified": True}, {}
+
+        async def authenticate_or_create_user(self, _user_info, allow_creation=True):
+            creation_flags.append(allow_creation)
+            return token
+
+    monkeypatch.setattr(sso_router, "SSOService", DummyService)
+    import mcpgateway.utils.security_cookies as cookie_module
+
+    set_cookie = MagicMock()
+    monkeypatch.setattr(cookie_module, "set_auth_cookie", set_cookie)
+    db = MagicMock()
+    db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(redirect_uri="https://gateway.example/auth/sso/callback/example?member_key=1")
+    request = MagicMock()
+    request.scope = {"root_path": ""}
+    request.cookies = {"sso_session_id": "session-1"}
+    response = await sso_router.handle_sso_callback("example", "code", "state", request=request, response=MagicMock(), db=db)
+    assert response.headers["location"] == "/admin/api-key?sso=success"
+    assert creation_flags == [False]
+    assert set_cookie.called
+
+
+@pytest.mark.asyncio
 async def test_handle_sso_callback_success_sets_cookie(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(sso_router.settings, "sso_enabled", True)
 

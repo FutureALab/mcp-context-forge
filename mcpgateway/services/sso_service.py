@@ -2054,11 +2054,12 @@ class SSOService:
         logger.warning("Unknown SSO pending approval status '%s' for user %s. Denying by default.", pending.status, SecurityValidator.sanitize_log_message(email))
         return False
 
-    async def authenticate_or_create_user(self, user_info: Dict[str, Any]) -> Optional[str]:
+    async def authenticate_or_create_user(self, user_info: Dict[str, Any], allow_creation: bool = True) -> Optional[str]:
         """Authenticate existing user or create new user from SSO info.
 
         Args:
             user_info: Normalized user info from SSO provider
+            allow_creation: Whether an unknown user may be created
 
         Returns:
             JWT token for authenticated user or None if failed
@@ -2223,7 +2224,7 @@ class SSOService:
             resolved_is_admin = current_is_admin
         else:
             # Auto-create user if enabled
-            if not provider or not provider.auto_create_users:
+            if not allow_creation or not provider or not provider.auto_create_users:
                 return None
 
             provider_id = provider.id

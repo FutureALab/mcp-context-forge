@@ -6413,13 +6413,13 @@ class PublicRegistrationRequest(BaseModel):
 
     Attributes:
         email: User's email address
-        password: User's password (required, min 8 chars)
+        password: User's password (required, min 10 chars)
         full_name: Optional full name for display
 
     Examples:
         >>> request = PublicRegistrationRequest(
         ...     email="new@example.com",
-        ...     password="secure123",  # pragma: allowlist secret
+        ...     password="secure1234",  # pragma: allowlist secret
         ...     full_name="New User"
         ... )
         >>> request.email
@@ -6431,7 +6431,7 @@ class PublicRegistrationRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     email: EmailStr = Field(..., description="User's email address")
-    password: str = Field(..., min_length=8, description="User's password")
+    password: str = Field(..., min_length=10, description="User's password")
     full_name: Optional[str] = Field(None, max_length=255, description="User's full name")
 
 
@@ -6440,7 +6440,7 @@ class AdminCreateUserRequest(BaseModel):
 
     Attributes:
         email: User's email address
-        password: User's password (required, min 8 chars)
+        password: User's password (required, min 10 chars)
         full_name: Optional full name for display
         is_admin: Whether user should have admin privileges (default: False)
         is_active: Whether user account is active (default: True)
@@ -6449,7 +6449,7 @@ class AdminCreateUserRequest(BaseModel):
     Examples:
         >>> request = AdminCreateUserRequest(
         ...     email="new@example.com",
-        ...     password="secure123",  # pragma: allowlist secret
+        ...     password="secure1234",  # pragma: allowlist secret
         ...     full_name="New User"
         ... )
         >>> request.email
@@ -6467,7 +6467,7 @@ class AdminCreateUserRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     email: EmailStr = Field(..., description="User's email address")
-    password: str = Field(..., min_length=8, description="User's password")
+    password: str = Field(..., min_length=10, description="User's password")
     full_name: Optional[str] = Field(None, max_length=255, description="User's full name")
     is_admin: bool = Field(False, description="Grant admin privileges to user")
     is_active: bool = Field(True, description="Whether user account is active")

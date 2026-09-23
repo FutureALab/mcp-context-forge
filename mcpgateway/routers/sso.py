@@ -10,19 +10,20 @@ Handles SSO login flows, provider configuration, and callback handling.
 # Standard
 import secrets
 from typing import Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 # Third-Party
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 import jwt
 from pydantic import BaseModel, model_validator
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 # First-Party
 from mcpgateway.common.query_params import QueryErrorCodeSso
 from mcpgateway.common.validators import SafeIdentifier, SafeName
 from mcpgateway.config import settings
-from mcpgateway.db import get_db
+from mcpgateway.db import EmailUser, get_db, SSOAuthSession
 from mcpgateway.middleware.rbac import get_current_user_with_permissions, require_permission
 from mcpgateway.services.logging_service import LoggingService
 from mcpgateway.services.sso_service import invalidate_trusted_provider_cache, SSOService
@@ -412,6 +413,11 @@ async def handle_sso_callback(
         return RedirectResponse(url=f"{root_path}/admin/login?error=sso_failed", status_code=302)
 
     sso_service = SSOService(db)
+    # The persisted OAuth state determines the key flow, so callback query changes cannot enable account creation.
+    auth_session = db.execute(select(SSOAuthSession).where(SSOAuthSession.state == state, SSOAuthSession.provider_id == provider_id)).scalar_one_or_none()
+    redirect_uri = getattr(auth_session, "redirect_uri", None)
+    member_key_flow = isinstance(redirect_uri, str) and parse_qs(urlparse(redirect_uri).query).get("member_key") == ["1"]
+    failure_url = f"{root_path}/admin/api-key?error=sso_failed" if member_key_flow else f"{root_path}/admin/login?error=sso_failed"
 
     # Handle OAuth callback — returns (user_info, token_data) or None
     user_info: Optional[Dict[str, object]] = None
@@ -419,18 +425,24 @@ async def handle_sso_callback(
 
     browser_session_binding = request.cookies.get("sso_session_id") if request else None
     if not browser_session_binding:
-        return RedirectResponse(url=f"{root_path}/admin/login?error=sso_failed", status_code=302)
+        return RedirectResponse(url=failure_url, status_code=302)
 
     callback_result = await sso_service.handle_oauth_callback_with_tokens(provider_id, code, state, session_binding=browser_session_binding)
     if callback_result:
         user_info, token_data = callback_result
 
     if not user_info:
-        return RedirectResponse(url=f"{root_path}/admin/login?error=sso_failed", status_code=302)
+        return RedirectResponse(url=failure_url, status_code=302)
 
     # Authenticate or create user
-    access_token = await sso_service.authenticate_or_create_user(user_info)
+    access_token = await sso_service.authenticate_or_create_user(user_info, allow_creation=not member_key_flow)
     if not access_token:
+        if member_key_flow and sso_service._is_email_verified_claim(user_info):  # pylint: disable=protected-access
+            email = str(user_info.get("email") or "").strip().lower()
+            if email and db.scalar(select(EmailUser.id).where(func.lower(EmailUser.email) == email)) is None:
+                return RedirectResponse(url=f"{root_path}/admin/api-key?error=unregistered", status_code=302)
+        if member_key_flow:
+            return RedirectResponse(url=failure_url, status_code=302)
         return RedirectResponse(url=f"{root_path}/admin/login?error=user_creation_failed", status_code=302)
 
     # Determine redirect URL based on user's admin status and team membership
@@ -447,9 +459,11 @@ async def handle_sso_callback(
 
     # Determine redirect URL
     redirect_url = f"{root_path}/admin"
+    if member_key_flow:
+        redirect_url = f"{root_path}/admin/api-key?sso=success"
 
     # For non-admin users, try to redirect to their first team's admin view
-    if not is_admin and user_email:
+    if not member_key_flow and not is_admin and user_email:
         try:
             team_service = TeamManagementService(db)
             user_teams = await team_service.get_user_teams(user_email, include_personal=False)

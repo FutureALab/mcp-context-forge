@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-09-23: Member key OAuth
+
+- Added registered-user-only OAuth callback handling for the Key page and session-backed options and issuance.
+- Preserved password authentication as a separate choice. Registration schemas and default user policy now require 10 characters.
+- Focused Python API, cookie authentication, JavaScript, ESLint, and Ruff checks passed.
+- The local Python 3.12 environment lacks pytest. A real external OAuth provider was not used for this check.
+
 ## 2026-09-23: iframe OAuth demo
 
 - Added an isolated parent portal, OIDC fixture, and two-port Nginx configuration.
