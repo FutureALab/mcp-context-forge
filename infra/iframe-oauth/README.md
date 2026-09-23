@@ -14,6 +14,10 @@
 打开 <http://localhost:18080>，点击“登录内网平台”。
 使用 `infra/iframe-oauth/.runtime/account.txt` 中的测试账号。
 登录后，父页面自动加载 MCP，并显示两个应用的实际登录身份。
+点击父页面的“领取 API Key”，在 iframe 中点击“检测账号并查询所属 Team”。
+选择测试账号的 Team 和“AIOps 演示 MCP”，再点击“生成 API Key”。
+页面只展示一次新 Key；请在关闭页面前复制。演示 MCP 没有预置工具。
+点击“MCP 工作区”可返回管理界面。
 刷新父页面无需再次输入密码。“退出演示”清除本浏览器的父平台、身份服务和 MCP 登录 Cookie。
 
 启动脚本默认使用本机 `I:\anaconda\envs\py312\python.exe` 中已有的项目依赖。
@@ -42,6 +46,7 @@ Compose 使用 `pull_policy: never`，不会下载镜像或安装依赖。
 | `http://localhost:18080/oidc/*` | 本地测试 OIDC 服务 |
 | `http://localhost:18081/embed/start.html` | iframe 自动发起 SSO |
 | `http://localhost:18081/admin/` | 真实 ContextForge 管理页面 |
+| `http://localhost:18081/admin/api-key` | 演示账号自助领取 API Key |
 | `http://localhost:18081/embed/session` | 只读会话检查，Nginx 将 HttpOnly Cookie 转为后端 Bearer Header |
 
 两个浏览器端口来自同一个 Nginx 容器。
@@ -61,6 +66,7 @@ Nginx 将 MCP 请求转发到本机隔离网关 `host.docker.internal:4446`。
 
 父页面不传邮箱作为登录凭证，也不接收 MCP Token。
 测试用户只获得 `platform_viewer` 角色，不授予平台管理员权限。
+演示网关启用自助领取，并准备一个公开的虚拟 MCP。测试账号登录后使用自己的 Team 领取该 MCP 的 Key。
 
 ## 浏览器和部署约束
 
@@ -90,8 +96,9 @@ docker compose -f infra/iframe-oauth/compose.yaml logs --tail 30
 ```
 
 `verify_live.py` 需要先启动演示。
-它验证真实网关的两次授权码登录、普通用户权限、Cookie、CORS、iframe 响应头和退出。
-浏览器还需确认 iframe 能显示 MCP 页面，并能进入“虚拟服务器”和“工具”。
+它验证真实网关的两次授权码登录、普通用户权限、Key 领取、Key 的 MCP 初始化、Cookie、CORS、iframe 响应头和退出。
+脚本使用临时虚拟 MCP 和临时 Key，验证后删除，不消耗页面上演示 MCP 的首次领取机会。
+浏览器还需确认 iframe 能显示 MCP 页面、切换到 Key 页面，并能领取演示 MCP 的 Key。
 
 启动失败查看 `.runtime/gateway.stderr.log`。
 网关启动器仅对自身进程设置本地地址的 `NO_PROXY`，防止系统代理截获 Token 兑换请求。

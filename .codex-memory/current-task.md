@@ -1,5 +1,13 @@
 # Current Task
 
+## 2026-09-23: Complete iframe login and API Key claim
+
+- The isolated portal shows MCP workspace and API Key buttons after the iframe session is ready.
+- Demo startup enables self-service keys and seeds one public virtual MCP for the demo user.
+- Live verification covers SSO, session-backed Key options, issuance, MCP initialization, and denial paths.
+- The demo runs on ports 18080, 18081, and 4446 for user inspection.
+- See [[tasks/2026-09-23-iframe-oauth-demo]] for setup and verification details.
+
 ## 2026-09-23: Member key OAuth and registration minimum
 
 - OAuth Key authorization now uses a signed `state` marker. The provider callback URI stays unchanged.

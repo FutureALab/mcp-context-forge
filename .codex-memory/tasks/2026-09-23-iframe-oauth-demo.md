@@ -1,5 +1,11 @@
 # iframe OAuth demo
 
+- Follow-up: portal buttons open the MCP workspace or `/admin/api-key` after iframe SSO.
+- Startup enables self-service keys and seeds `AIOps 演示 MCP` as a public virtual server.
+- The live check issues a temporary server Key, initializes MCP with it, then removes its test data.
+- Six Node tests, one Vitest UI test, Ruff, compilation, ESLint, and live HTTP verification pass.
+- The demo is running on ports 18080, 18081, and 4446 for user inspection.
+- The earlier stopped-service note below describes the first implementation check.
 - Added `infra/iframe-oauth` without changing core authentication or existing deployment files.
 - One local `nginx:stable-alpine` container serves the portal on 18080 and the gateway on 18081.
 - An existing Node image runs a local OIDC fixture and portal backend without downloaded dependencies.

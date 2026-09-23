@@ -18,7 +18,11 @@
           <p class="label">应用中心</p>
           <h1>MCP 管理平台</h1>
         </div>
-        <button id="logout" hidden>退出演示</button>
+        <div class="actions">
+          <button id="open-workspace" type="button" hidden>MCP 工作区</button>
+          <button id="open-key" type="button" hidden>领取 API Key</button>
+          <button id="logout" type="button" hidden>退出演示</button>
+        </div>
       </div>
       <section id="login-panel">
         <h2>登录一次，打开 MCP 工作区</h2>
@@ -27,8 +31,7 @@
           OAuth / OIDC 登录。
         </p>
         <p>
-          这是隔离的演示环境。测试账号保存在启动时生成的 .runtime/account.txt
-          文件中。
+          这是隔离的演示环境。请使用 infra/iframe-oauth/.runtime/account.txt 中的测试账号；网关管理员密码不能在测试身份服务登录。
         </p>
         <a class="button" href="/portal/login">登录内网平台</a>
       </section>

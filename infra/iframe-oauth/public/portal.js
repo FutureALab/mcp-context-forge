@@ -1,6 +1,8 @@
 const frame = document.querySelector("#mcp");
 const status = document.querySelector("#status");
 const gatewayOrigin = `${location.protocol}//${location.hostname}:18081`;
+const workspaceButton = document.querySelector("#open-workspace");
+const keyButton = document.querySelector("#open-key");
 let loginTimer;
 
 function openWorkspace() {
@@ -34,6 +36,8 @@ frame.addEventListener("load", async () => {
     const user = await response.json();
     clearTimeout(loginTimer);
     status.textContent = `MCP 已登录 · ${user.email}`;
+    workspaceButton.hidden = false;
+    keyButton.hidden = false;
     document.querySelector("#retry").hidden = false;
   } catch {
     /* The initial authorization navigation can precede the gateway session. */
@@ -41,6 +45,12 @@ frame.addEventListener("load", async () => {
 });
 
 document.querySelector("#retry").onclick = openWorkspace;
+workspaceButton.onclick = () => {
+  frame.src = `${gatewayOrigin}/admin/`;
+};
+keyButton.onclick = () => {
+  frame.src = `${gatewayOrigin}/admin/api-key`;
+};
 document.querySelector("#logout").onclick = async () => {
   const response = await fetch("/portal/logout", {
     method: "POST",

@@ -10,6 +10,7 @@ import sys
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 RUNTIME = HERE / ".runtime"
+DEMO_SERVER_ID = "711a4d51f8924faca69953081a793905"
 
 
 def prepare() -> dict:
@@ -52,6 +53,7 @@ def gateway() -> None:
             "PASSWORD_CHANGE_ENFORCEMENT_ENABLED": "false",
             "AUTH_REQUIRED": "true",
             "EMAIL_AUTH_ENABLED": "true",
+            "SELF_SERVICE_API_KEYS_ENABLED": "true",
             "TRUST_PROXY_AUTH": "false",
             "MCPGATEWAY_UI_ENABLED": "true",
             "MCPGATEWAY_ADMIN_API_ENABLED": "true",
@@ -101,6 +103,29 @@ def gateway() -> None:
     uvicorn.run("mcpgateway.main:app", host="0.0.0.0", port=4446, log_level="warning", access_log=False)
 
 
+def seed() -> None:
+    """Add one public virtual MCP to the isolated demo database."""
+    config = prepare()
+    os.environ.update(
+        {
+            "DATABASE_URL": "sqlite:///" + (RUNTIME / "gateway.db").as_posix(),
+            "JWT_SECRET_KEY": config["jwtSecret"],
+            "AUTH_ENCRYPTION_SECRET": config["encryptionSecret"],
+            "PLATFORM_ADMIN_PASSWORD": config["adminPassword"],
+            "DEFAULT_USER_PASSWORD": config["adminPassword"],
+            "BASIC_AUTH_PASSWORD": config["adminPassword"],
+        }
+    )
+    os.chdir(RUNTIME)
+    sys.path.insert(0, str(ROOT))
+    from mcpgateway.db import Server, SessionLocal  # pylint: disable=import-outside-toplevel
+
+    with SessionLocal() as db:
+        if db.get(Server, DEMO_SERVER_ID) is None:
+            db.add(Server(id=DEMO_SERVER_ID, name="AIOps 演示 MCP", description="用于演示 OAuth 登录后的 API Key 领取", owner_email="admin@aiops.example", visibility="public", enabled=True))
+            db.commit()
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -108,5 +133,7 @@ if __name__ == "__main__":
         prepare()
     elif sys.argv[1:] == ["gateway"]:
         gateway()
+    elif sys.argv[1:] == ["seed"]:
+        seed()
     else:
-        raise SystemExit("Usage: run_gateway.py prepare|gateway")
+        raise SystemExit("Usage: run_gateway.py prepare|gateway|seed")

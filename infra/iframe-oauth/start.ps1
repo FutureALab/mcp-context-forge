@@ -24,6 +24,8 @@ try {
         Start-Sleep -Seconds 2
     }
     if (-not $ready) { throw 'Gateway startup timed out. Read .runtime/gateway.stderr.log.' }
+    & $Python (Join-Path $demoRoot 'run_gateway.py') seed
+    if ($LASTEXITCODE -ne 0) { throw 'Demo server setup failed.' }
     Write-Output 'Demo ready: http://localhost:18080'
     Write-Output "Test account: $runtime\account.txt"
 } catch {

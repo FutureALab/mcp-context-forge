@@ -34,6 +34,11 @@ main {
   align-items: center;
   justify-content: space-between;
 }
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .label {
   margin: 0 0 8px;
   color: #616975;

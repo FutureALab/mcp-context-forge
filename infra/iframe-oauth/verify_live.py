@@ -5,9 +5,11 @@ import http.cookiejar
 import json
 from pathlib import Path
 import re
+import sqlite3
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -27,7 +29,7 @@ def main() -> None:
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect())
 
     def request(url, data=None, headers=None):
-        body = urllib.parse.urlencode(data).encode() if data is not None else None
+        body = data if isinstance(data, bytes) else urllib.parse.urlencode(data).encode() if data is not None else None
         req = urllib.request.Request(url, data=body, headers={"Accept": "text/html,application/json", **(headers or {})})
         try:
             return opener.open(req, timeout=30)
@@ -35,6 +37,8 @@ def main() -> None:
             return response
 
     assert request(gateway + "/embed/session").status == 401
+    assert request(gateway + "/admin/api-key").status == 200
+    assert request(gateway + "/admin/api-key/sso/options", b"{}", {"Content-Type": "application/json"}).status in (302, 401, 403)
     start = request(portal + "/portal/login")
     assert start.status == 302
     form = request(start.headers["Location"]).read().decode()
@@ -58,6 +62,44 @@ def main() -> None:
     user = json.load(user_response)
     assert user["email"] == "demo@aiops.example"
     assert user["is_admin"] is False
+
+    fixture_server_id = uuid.uuid4().hex
+    database = Path(__file__).parent / ".runtime/gateway.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "INSERT INTO servers (id, name, created_at, updated_at, enabled, tags, version, owner_email, visibility, oauth_enabled) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, '[]', 1, ?, 'public', 0)",
+            (fixture_server_id, "Key verification MCP", "admin@aiops.example"),
+        )
+    try:
+        key_page = request(gateway + "/admin/api-key")
+        assert key_page.status == 200
+        assert b'id="member-key-form"' in key_page.read()
+        csrf = next(cookie.value for cookie in jar if cookie.name == "mcpgateway_csrf_token")
+        key_headers = {"Content-Type": "application/json", "X-CSRF-Token": csrf, "Origin": gateway}
+        options = request(gateway + "/admin/api-key/sso/options", b"{}", key_headers)
+        assert options.status == 200, options.read().decode()
+        available = json.load(options)
+        team_id = available["teams"][0]["id"]
+        assert fixture_server_id in [item["id"] for item in available["servers"]]
+        assert "AIOps 演示 MCP" in [item["name"] for item in available["servers"]]
+        body = json.dumps({"team_id": team_id, "server_id": fixture_server_id, "days": 7}).encode()
+        issued = request(gateway + "/admin/api-key/sso/issue", body, key_headers)
+        assert issued.status == 200, issued.read().decode()
+        api_key = json.load(issued)["api_key"]
+        assert api_key
+        initialize = request(
+            gateway + f"/servers/{fixture_server_id}/mcp/",
+            json.dumps(
+                {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "iframe-demo-check", "version": "1"}}}
+            ).encode(),
+            {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "Accept": "application/json, text/event-stream"},
+        )
+        assert initialize.status == 200, initialize.read().decode()
+    finally:
+        with sqlite3.connect(database) as connection:
+            connection.execute("DELETE FROM email_api_tokens WHERE server_id = ? AND user_email = ?", (fixture_server_id, "demo@aiops.example"))
+            connection.execute("DELETE FROM servers WHERE id = ?", (fixture_server_id,))
+
     admin = request(gateway + "/admin")
     for _ in range(5):
         if admin.status not in (302, 303, 307, 308):
@@ -81,7 +123,7 @@ def main() -> None:
     assert request(portal + "/portal/logout", {}, {"Origin": portal}).status == 200
     assert request(portal + "/portal/me").status == 401
     assert request(gateway + "/embed/session").status == 401
-    print("PASS: live portal OAuth, iframe SSO, non-admin RBAC, framing/CORS, rejection paths, and logout")
+    print("PASS: live portal OAuth, iframe SSO, API Key issuance and MCP use, non-admin RBAC, framing/CORS, rejection paths, and logout")
 
 
 if __name__ == "__main__":
