@@ -1,0 +1,29 @@
+name: contextforge-iframe-oauth
+services:
+  nginx:
+    image: nginx:stable-alpine
+    pull_policy: never
+    ports:
+      - "127.0.0.1:18080:18080"
+      - "127.0.0.1:18081:18081"
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./public:/usr/share/nginx/html:ro
+    environment:
+      DEMO_HOST: localhost
+      GATEWAY_UPSTREAM: host.docker.internal:4446
+      NGINX_ENVSUBST_FILTER: DEMO_HOST|GATEWAY_UPSTREAM
+    depends_on:
+      - identity
+  identity:
+    image: base-node:24-bookworm
+    pull_policy: never
+    working_dir: /demo
+    command: ["node", "server.mjs"]
+    volumes:
+      - ./server.mjs:/demo/server.mjs:ro
+      - ./.runtime/config.json:/demo/config.json:ro
+    environment:
+      DEMO_CONFIG: /demo/config.json
+    expose:
+      - "8080"

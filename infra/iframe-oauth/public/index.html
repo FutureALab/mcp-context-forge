@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AIOps · MCP 接入演示</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/portal.js" type="module"></script>
+  </head>
+  <body>
+    <header>
+      <strong>AIOps</strong><span>内网平台 · 本地演示</span
+      ><span id="identity">正在检查登录状态</span>
+    </header>
+    <main>
+      <div class="heading">
+        <div>
+          <p class="label">应用中心</p>
+          <h1>MCP 管理平台</h1>
+        </div>
+        <button id="logout" hidden>退出演示</button>
+      </div>
+      <section id="login-panel">
+        <h2>登录一次，打开 MCP 工作区</h2>
+        <p>
+          父平台与 MCP 使用同一台 Nginx 的不同端口，通过本地测试身份服务完成
+          OAuth / OIDC 登录。
+        </p>
+        <p>
+          这是隔离的演示环境。测试账号保存在启动时生成的 .runtime/account.txt
+          文件中。
+        </p>
+        <a class="button" href="/portal/login">登录内网平台</a>
+      </section>
+      <div class="status">
+        <span id="status" role="status">等待登录</span
+        ><button id="retry" hidden>重新加载 MCP</button>
+      </div>
+      <iframe id="mcp" title="MCP 管理工作区" hidden></iframe>
+    </main>
+  </body>
+</html>

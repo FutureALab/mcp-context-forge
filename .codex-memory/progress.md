@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-09-23: iframe OAuth demo
+
+- Added an isolated parent portal, OIDC fixture, and two-port Nginx configuration.
+- Passed six Node test groups and real gateway SSO, permission, framing, CORS, list, and logout checks.
+- Browser confirms parent login automatically opens the actual MCP Admin UI inside the iframe.
+- Stopped the demo containers and gateway. Ports 18080, 18081, and 4446 are closed.
+- Ruff, ESLint, compilation, Nginx syntax, and Compose checks pass. Full repository tools remain unavailable.
+- Details: [[tasks/2026-09-23-iframe-oauth-demo]].
+
 ## 2026-09-17 Server key inventory verification
 
 - Added database-backed server key listing, detail retrieval, and complete Excel export.

@@ -1,5 +1,13 @@
 # Current Task
 
+## 2026-09-23: iframe OAuth demo
+
+- Implemented the isolated demo in `infra/iframe-oauth` using existing Nginx and Node images.
+- Browser and live gateway checks confirm automatic iframe SSO and logout with a non-admin account.
+- Test services are stopped. Restart the demo with its `start.ps1` script.
+- Existing core authentication, deployment edits, root `.env`, and business database remain unchanged.
+- See [[tasks/2026-09-23-iframe-oauth-demo]] for commands, constraints, and verification details.
+
 ## 2026-09-17: Supplied brand image and server key inventory
 
 - Brand images now use the user-supplied PNG unchanged on login, password-change, sidebar, collapsed-sidebar, and favicon surfaces.

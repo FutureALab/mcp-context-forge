@@ -1,0 +1,21 @@
+# iframe OAuth demo
+
+- Added `infra/iframe-oauth` without changing core authentication or existing deployment files.
+- One local `nginx:stable-alpine` container serves the portal on 18080 and the gateway on 18081.
+- An existing Node image runs a local OIDC fixture and portal backend without downloaded dependencies.
+- The native Python 3.12 gateway uses port 4446 and an isolated SQLite database under ignored `.runtime/`.
+- Separate portal and gateway clients use authorization codes, PKCE, state, nonce, and signed ID Tokens.
+- The demo account receives `platform_viewer`, not administrator access.
+- Same-host ports are same-site but cross-origin; Cookie scope does not isolate ports.
+- Nginx applies an exact parent `frame-ancestors` policy and credentialed CORS uses exact origins.
+- A read-only Nginx session endpoint translates the HttpOnly gateway cookie to the existing profile API's Bearer header.
+- Browser form POST requires an intact Origin; use `strict-origin` rather than `no-referrer` on the fixture login document.
+- Gateway startup adds localhost addresses to its process-local `NO_PROXY` to avoid system-proxy interception.
+- Six Node test groups pass, including wrong credentials, callback binding, expiry, PKCE, client mismatch, and code replay.
+- Live gateway verification passes for SSO, non-admin RBAC, server/tool partials, CORS/framing, denial paths, and logout.
+- Browser verification confirms one login loads the real gateway iframe, refresh preserves the session, and logout restores the login page.
+- Ruff, Python compilation, JavaScript syntax, ESLint with explicit source inclusion, Nginx syntax, and Compose validation pass.
+- Full repository checks remain unavailable: this environment lacks make, ty, mypy, pyrefly, bandit, interrogate, pylint, and pytest.
+- The fixture is for local testing. Production requires an enterprise IdP, HTTPS, and an explicit deployment configuration.
+- Start with `infra/iframe-oauth/start.ps1`; read the generated account file locally. Never commit runtime credentials.
+- Stopped the two demo containers and native gateway after verification. Ports 18080, 18081, and 4446 have no listeners.
