@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-09-23: HTTP intranet iframe rollout
+
+- Added a deployable HTTP plan and parent-page example beside the iframe demo.
+- Verified JavaScript syntax, gateway setting names, README link, Markdown whitespace, HTTP callback allowlisting, and Cookie flags.
+- No live intranet IdP or parent platform was available for end-to-end deployment verification.
+
 ## 2026-09-23: Complete iframe login and API Key claim
 
 - Added authenticated portal buttons for the MCP workspace and API Key page.

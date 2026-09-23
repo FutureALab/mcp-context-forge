@@ -2,6 +2,7 @@
 
 父平台只登录一次，MCP iframe 自动完成自己的 OAuth2 / OIDC 授权码流程。
 演示复用 ContextForge 的通用 OIDC 登录，不修改核心认证代码，也不使用邮箱请求头免密登录。
+企业内网落地与父页面改造见 [内网部署方案](INTRANET-ROLLOUT.md)。
 
 ## 启动
 

@@ -1,5 +1,12 @@
 # Current Task
 
+## 2026-09-23: HTTP intranet iframe rollout
+
+- Documented HTTP deployment and exact parent-page changes in `infra/iframe-oauth/INTRANET-ROLLOUT.md`.
+- The plan accounts for cookie, origin, iframe, OIDC, and Team permission requirements.
+- Deployment-specific domains and identity-service endpoints still need operator values.
+- See [[tasks/2026-09-23-http-intranet-iframe-rollout]].
+
 ## 2026-09-23: Complete iframe login and API Key claim
 
 - The isolated portal shows MCP workspace and API Key buttons after the iframe session is ready.
