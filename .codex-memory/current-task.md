@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-09-23: Separate OAuth login and Key authorization
+
+- Workspace login can start the configured provider automatically with `/admin/login?auto_sso=corp-oidc`.
+- Its callback creates the gateway session. The Key page starts a separate OAuth flow and receives a five-minute, Key-only proof.
+- A gateway login cookie cannot authorize Key issuance; the Key proof cannot authenticate as a gateway JWT.
+- Existing active OAuth users can claim Keys with current Team and MCP permission checks. The Key flow does not create accounts.
+- Live isolated HTTP integration passed portal login, separate Key authorization, issuance, and MCP initialization.
+- See [[tasks/2026-09-23-member-key-oauth]] for checks and remaining deployment inputs.
+
 ## 2026-09-23: HTTP intranet iframe rollout
 
 - Documented HTTP deployment and exact parent-page changes in `infra/iframe-oauth/INTRANET-ROLLOUT.md`.
@@ -20,7 +29,7 @@
 - OAuth Key authorization now uses a signed `state` marker. The provider callback URI stays unchanged.
 - The final `mk:` marker has no overlap with regular OAuth nonces. Provider denials return to the Key page.
 - The API Key page defaults to OAuth detection and retains a password mode switch.
-- OAuth key requests use a validated browser session. Unknown OAuth users are not created through this flow.
+- Superseded: the Key flow no longer uses the gateway browser session; it uses its own short-lived OAuth proof.
 - New regular user passwords require at least 10 characters by default.
 - The sidebar documentation and GitHub icons are removed.
 - Targeted API and JavaScript tests passed. See [[tasks/2026-09-23-member-key-oauth]] for verification limits.

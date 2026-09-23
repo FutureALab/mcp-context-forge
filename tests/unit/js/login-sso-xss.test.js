@@ -34,14 +34,14 @@ if ([cfgStart, cfgEnd, fnStart, fnEnd].some((i) => i === -1) || cfgEnd <= cfgSta
 }
 const ssoSource = loginHtml.slice(cfgStart, cfgEnd) + "\n" + loginHtml.slice(fnStart, fnEnd);
 
-function renderWith(provider) {
+function renderWith(provider, url = "http://localhost") {
   const dom = new JSDOM(
     `<!DOCTYPE html><html><body>
        <div id="sso-section"></div>
        <div id="divider"></div>
        <div id="sso-providers"></div>
      </body></html>`,
-    { url: "http://localhost", runScripts: "outside-only" },
+    { url, runScripts: "outside-only" },
   );
   const win = dom.window;
   win.ROOT_PATH = "";
@@ -78,5 +78,23 @@ describe("login.html SSO provider button — DOM-sink XSS guard (issue #5856)", 
     const container = win.document.getElementById("sso-providers");
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector(".sso-provider-name").textContent).toBe(payload);
+  });
+
+  test("starts only the enabled provider requested by the automatic login link", async () => {
+    const provider = { id: "corp-oidc", name: "Corporate SSO" };
+    const allowed = renderWith(provider, "http://localhost/admin/login?auto_sso=corp-oidc");
+    allowed.initiateSSO = vi.fn();
+    await allowed.loadSSOProviders();
+    expect(allowed.initiateSSO).toHaveBeenCalledWith("corp-oidc");
+
+    const unknown = renderWith(provider, "http://localhost/admin/login?auto_sso=unknown");
+    unknown.initiateSSO = vi.fn();
+    await unknown.loadSSOProviders();
+    expect(unknown.initiateSSO).not.toHaveBeenCalled();
+
+    const failed = renderWith(provider, "http://localhost/admin/login?auto_sso=corp-oidc&error=sso_failed");
+    failed.initiateSSO = vi.fn();
+    await failed.loadSSOProviders();
+    expect(failed.initiateSSO).not.toHaveBeenCalled();
   });
 });

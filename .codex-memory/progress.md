@@ -1,5 +1,15 @@
 # Progress
 
+## 2026-09-23: Separate OAuth login and Key proof
+
+- Added a Key-only signed proof with a five-minute lifetime and separate signing key.
+- Kept the gateway session for normal OAuth login and added an opt-in automatic provider start on the login page.
+- Updated the HTTP parent-page example for automatic login and independent Key authorization.
+- Isolated live HTTP flow passed portal login, Key OAuth, scoped Key issuance, and MCP initialization.
+- Three focused Python unittest cases, eight JavaScript tests, Ruff, compilation, and diff whitespace checks passed.
+- Pytest callback tests remain unrun because pytest is unavailable in the Python 3.12 environment.
+- Stopped the isolated gateway on port 4450. Existing demo services were not modified.
+
 ## 2026-09-23: HTTP intranet iframe rollout
 
 - Added a deployable HTTP plan and parent-page example beside the iframe demo.

@@ -76,6 +76,16 @@ def main() -> None:
         assert b'id="member-key-form"' in key_page.read()
         csrf = next(cookie.value for cookie in jar if cookie.name == "mcpgateway_csrf_token")
         key_headers = {"Content-Type": "application/json", "X-CSRF-Token": csrf, "Origin": gateway}
+        assert request(gateway + "/admin/api-key/sso/options", b"{}", key_headers).status == 401, "Gateway login must not authorize Key issuance"
+        key_login = request(gateway + "/auth/sso/login/intranet-demo?" + urllib.parse.urlencode({"redirect_uri": callback, "flow": "member_key"}))
+        assert key_login.status == 200
+        key_authorization = request(json.load(key_login)["authorization_url"])
+        assert key_authorization.status == 302
+        key_callback = request(key_authorization.headers["Location"])
+        assert key_callback.status == 302
+        assert key_callback.headers["Location"].endswith("/admin/api-key?sso=success")
+        assert "member_key_proof=" in key_callback.headers.get("Set-Cookie", "")
+        assert "jwt_token=" not in key_callback.headers.get("Set-Cookie", "")
         options = request(gateway + "/admin/api-key/sso/options", b"{}", key_headers)
         assert options.status == 200, options.read().decode()
         available = json.load(options)

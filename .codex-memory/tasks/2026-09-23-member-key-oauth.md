@@ -23,3 +23,15 @@
 - Five JavaScript tests, ESLint, runtime Python Ruff, compilation, direct callback checks, and an in-process HTTP flow passed.
 - The HTTP flow covered authorization start, browser cookie, unregistered rejection, registered return, and provider denial.
 - Pytest is unavailable in the working Python 3.12 environment. The new pytest cases remain unrun locally.
+
+## Separate login and Key authorization follow-up
+
+- The Key callback now verifies an existing active account bound to the provider and creates only a five-minute proof Cookie.
+- Key options and issuance accept that proof, then enforce CSRF, current account state, Team membership, and MCP permissions.
+- The ordinary OAuth callback continues to create the gateway login session. `/admin/login?auto_sso=corp-oidc` starts the configured provider automatically.
+- Gateway session Cookies cannot substitute for a Key proof. The proof uses a separate signing key and cannot serve as a gateway JWT.
+- The HTTP intranet guide now shows both flows and the parent-page automatic login link.
+- An isolated live gateway passed portal OAuth login, separate Key OAuth, scoped Key issuance, and MCP initialization.
+- Three focused Python unittest cases, eight JavaScript tests, Ruff, compilation, and diff whitespace checks passed.
+- Pytest callback tests remain unrun because the Python 3.12 environment has no pytest package.
+- The isolated gateway on port 4450 was stopped; preexisting demo services were left running.

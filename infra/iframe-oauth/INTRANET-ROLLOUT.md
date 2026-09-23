@@ -1,34 +1,36 @@
 # 内网父平台嵌入 ContextForge 与自助领取 API Key
 
-本文提供两条路径：先用已有账号密码在父平台 iframe 中领取 Key；需要父平台与 ContextForge 自动单点登录时，再配置企业 OIDC。`infra/iframe-oauth` 是第二条路径的本机演示。
+本文将 `infra/iframe-oauth` 的 OAuth 演示落地到内网父平台。登录页与 API Key 页使用同一个企业身份服务，但回调后的权限不同：登录页建立网关会话并自动登录；API Key 页只取得短期领取凭据，不建立网关会话。
 
 本方案假定 ContextForge 已部署并使用持久化数据库。现有部署、数据库和密钥保持不变。以下域名和客户端参数均为占位值，实施前必须替换。
 
-## 最短路径：沿用账号密码领取
+## 两个 OAuth 流程
 
-ContextForge 已提供 `/admin/api-key` 页面。它直接验证已注册用户的账号密码，查询可用 Team 与虚拟 MCP，并签发限定到所选虚拟 MCP 的 Key。**这一流程不要求用户先登录网关管理页，也不要求企业 OIDC、演示身份服务、额外的 `/embed/session` 接口或 Redis。**父平台登录只控制谁能看到入口；领取时用户仍需输入自己的 ContextForge 账号密码。
+| 入口 | OAuth 回调后 | 后续权限 |
+| --- | --- | --- |
+| `/admin/login` | 设置网关 `jwt_token` 会话 Cookie，跳转到 `/admin` | 登录网关工作区，按用户角色访问管理页面 |
+| `/admin/api-key` | 设置五分钟有效、仅用于领取页面的 `member_key_proof` Cookie，返回领取页面 | 查询该账号的 Team 和可访问的虚拟 MCP，领取限定到所选 MCP 的 Key |
 
-1. 在现有网关部署中启用 `EMAIL_AUTH_ENABLED=true`、`SELF_SERVICE_API_KEYS_ENABLED=true` 与 `MCPGATEWAY_UI_ENABLED=true`。保持现有数据库和认证密钥。确认用户账号已注册、启用，且属于至少一个有效 Team；个人 Team 可以用于领取公开虚拟 MCP 的 Key。
-2. 父平台先用自己的会话判断用户是否已登录。仅向已登录用户显示“领取 MCP API Key”入口，并把 iframe 指向网关的 `http://mcp.intra.example/admin/api-key`。不向 iframe URL、请求头或父页面脚本传递用户邮箱、密码或 Token。
-3. 允许父平台嵌入该网关页面：设置网关 `X_FRAME_OPTIONS=none`，并在网关 HTML 响应上添加仅允许父平台 Origin 的 `Content-Security-Policy: frame-ancestors http://portal.intra.example`。父页面如有 CSP，加入 `frame-src http://mcp.intra.example`。
-4. HTTP 内网下，父平台与网关使用同站点子域名，或同一 IP 的不同端口。确认浏览器没有阻止网关的 CSRF Cookie。不同 IP 的跨站 iframe 在 HTTP 下无法可靠带上 Cookie。限制入口只供受控内网访问，因为 HTTP 会明文传输账号密码和 Key。
-5. 用普通用户打开 iframe，选择“账号密码登录”，查询 Team 和虚拟 MCP，领取短期测试 Key，再调用一次所选 MCP 验证权限。
+两个页面共用 `/auth/sso/login/{provider}` 与 `/auth/sso/callback/{provider}`。领取页发起授权时带 `flow=member_key`，服务端将流程标记写入已绑定浏览器的 OAuth `state`。回调校验授权码、`state` 和身份信息；领取流程只接受已注册、启用且身份服务绑定一致的用户，不自动创建账号。领取凭据不能当作网关登录 JWT 使用。普通登录流程仍按网关原有规则创建账号或同步权限，然后写入网关会话。
 
-父页面只需如下入口；将地址替换为实际网关地址，并按父平台的登录状态控制其显示：
+父平台先用自己的会话判断用户是否已登录，再显示两个入口。父平台只设置 iframe 地址，不向网关传邮箱、密码或 Token：
 
 ```html
+<button id="mcp-login-button" type="button">MCP 工作区</button>
 <button id="mcp-key-button" type="button">领取 MCP API Key</button>
-<iframe id="mcp-key-frame" title="领取 MCP API Key" hidden></iframe>
+<iframe id="mcp-frame" title="MCP" hidden></iframe>
 <script>
-  document.getElementById("mcp-key-button").addEventListener("click", () => {
-    const frame = document.getElementById("mcp-key-frame");
-    frame.src = "http://mcp.intra.example/admin/api-key";
+  const frame = document.getElementById("mcp-frame");
+  function openMcp(path) {
+    frame.src = `http://mcp.intra.example${path}`;
     frame.hidden = false;
-  });
+  }
+  document.getElementById("mcp-login-button").onclick = () => openMcp("/admin/login?auto_sso=corp-oidc");
+  document.getElementById("mcp-key-button").onclick = () => openMcp("/admin/api-key");
 </script>
 ```
 
-若不需要 iframe，直接把按钮做成打开 `/admin/api-key` 的链接，便可省去嵌入页面的响应头和 Cookie 限制。下面的 OIDC 配置只用于**父平台登录后免输 ContextForge 密码**的场景。
+企业身份服务若禁止在 iframe 中展示授权页，应先在顶层窗口完成相应入口的 OAuth 授权，再返回父平台加载 iframe。网关登录会话与 Key 领取凭据独立；在登录页完成 OAuth，不等于已经在领取页完成授权。HTTP 内网中的 iframe 必须与网关同站点，或使用同一 IP 的不同端口，以便浏览器传送流程 Cookie。
 
 | 角色 | 本文示例 | 要求 |
 | --- | --- | --- |
@@ -65,7 +67,7 @@ http://mcp.intra.example/auth/sso/callback/corp-oidc
 父平台继续使用自己的 OIDC 客户端。父平台与 ContextForge 的两个客户端共享企业身份服务的登录会话，但不共享应用 Cookie。管理员权限应通过明确的角色或群组映射授予；普通用户默认使用 `platform_viewer`。
 网关的本地管理员密码不等于企业身份服务密码；管理员若要走企业登录，需在身份服务中授予对应的管理员群组并配置网关角色映射。
 
-如果内网当前**没有 OIDC 身份服务**，不要部署本机演示 `server.mjs` 代替它。可以先开启 `EMAIL_AUTH_ENABLED=true` 与 `SELF_SERVICE_API_KEYS_ENABLED=true`，让已注册用户在 `/admin/api-key` 选择“账号密码登录”领取；此时父平台登录不会自动登录网关。要实现一次登录两处使用，需要先让父平台和网关接入同一个正式身份服务。
+如果内网当前**没有 OIDC 身份服务**，不要部署本机演示 `server.mjs` 代替它。先准备正式的企业身份服务，再启用这两个 OAuth 入口。
 
 ## 3. 配置 ContextForge
 
@@ -186,10 +188,10 @@ location = /embed/session {
 | “领取 API Key”按钮 | 设置 iframe `src` 为 `${gatewayOrigin}/admin/api-key` |
 | 演示账号和本地 OIDC 提示 | 删除，改成企业登录与授权说明 |
 
-父页面可使用以下最小示例。调用它之前，应先通过**父平台自己的后端会话**确认当前用户已登录。`/embed/session` 按上一节配置；不可用时应显示故障，不能根据父平台邮箱假定网关已登录。
+父页面可使用以下示例。调用它之前，应先通过**父平台自己的后端会话**确认当前用户已登录。`/embed/session` 只用于检查网关工作区登录；Key 页使用自己的 OAuth 领取凭据。
 
 ```html
-<a id="mcp-login" href="http://mcp.intra.example/admin/login"
+<a id="mcp-login" href="http://mcp.intra.example/admin/login?auto_sso=corp-oidc"
    target="_blank" rel="noopener" hidden>连接 MCP 账号</a>
 <button id="mcp-workspace" type="button">MCP 工作区</button>
 <button id="mcp-key" type="button">领取 API Key</button>
@@ -207,6 +209,13 @@ let requestedPath = "/admin/";
 
 async function showMcp(path) {
   requestedPath = path;
+  if (path === "/admin/api-key") {
+    login.hidden = true;
+    frame.src = new URL(path, gatewayOrigin).href;
+    frame.hidden = false;
+    status.textContent = "请在领取页面完成 OAuth 授权";
+    return;
+  }
   try {
     const response = await fetch(`${gatewayOrigin}/embed/session`, {
       credentials: "include",
@@ -239,7 +248,7 @@ void showMcp(requestedPath);
 
 父页面的 CSP 至少允许 `frame-src http://mcp.intra.example` 和 `connect-src 'self' http://mcp.intra.example`，同时保留父平台原有的其他来源。使用非默认端口时，CSP 也必须包含端口。CSS 应给 iframe 预留可用宽高。父页面不能读取 iframe DOM，这是浏览器跨源保护的正常结果。
 
-上例先用顶层新窗口打开网关登录页。用户在网关选择“内网统一认证”；身份服务已有父平台登录会话时，通常无需再次输入密码。用户返回父页面时，页面重新检查网关会话并加载 iframe。这个入口避开了多数企业身份服务禁止在 iframe 内显示授权页的限制。若身份服务经验证允许完整的 iframe 授权流程，才将演示的 `embed/start.js` 改成真实网关 Origin、Provider ID、Issuer/授权地址，并部署到网关域名；不要保留固定的 `localhost` 或 `intranet-demo`。
+工作区登录先在顶层新窗口打开网关登录页。`auto_sso=corp-oidc` 在身份服务已启用时自动发起 OAuth；回调写入网关会话，返回父页面即可加载工作区 iframe。Key 页不依赖该会话；用户点击“检测账号”时由领取页发起独立 OAuth。若企业身份服务禁止在 iframe 内显示授权页，先在顶层窗口打开 Key 页完成授权，再返回父页面加载 Key iframe。若身份服务经验证允许完整的 iframe 授权流程，才将演示的 `embed/start.js` 改成真实网关 Origin、Provider ID、Issuer/授权地址，并部署到网关域名；不要保留固定的 `localhost` 或 `intranet-demo`。
 
 ## 6. 验收步骤
 

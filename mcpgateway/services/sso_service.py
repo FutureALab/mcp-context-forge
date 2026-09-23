@@ -29,13 +29,13 @@ import urllib.parse
 import httpx
 import jwt
 import orjson
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 # First-Party
 from mcpgateway.common.validators import SecurityValidator
 from mcpgateway.config import settings
-from mcpgateway.db import PendingUserApproval, SSOAuthSession, SSOProvider, utc_now
+from mcpgateway.db import EmailUser, PendingUserApproval, SSOAuthSession, SSOProvider, utc_now
 from mcpgateway.services.email_auth_service import EmailAuthService
 from mcpgateway.services.encryption_service import get_encryption_service
 from mcpgateway.utils.create_jwt_token import create_jwt_token
@@ -2063,6 +2063,26 @@ class SSOService:
 
         logger.warning("Unknown SSO pending approval status '%s' for user %s. Denying by default.", pending.status, SecurityValidator.sanitize_log_message(email))
         return False
+
+    def authorize_existing_member_key_user(self, user_info: Dict[str, Any], provider_id: str) -> Optional[EmailUser]:
+        """Verify a registered OAuth user without creating a gateway login session."""
+        raw_email = user_info.get("email")
+        if not raw_email or not self._is_email_verified_claim(user_info):
+            return None
+        email = str(raw_email).strip().lower()
+        if not email or (user_info.get("provider") and str(user_info["provider"]).lower() != provider_id.lower()):
+            return None
+        provider = self.get_provider(provider_id)
+        if not provider or not provider.is_enabled:
+            return None
+        if provider.trusted_domains:
+            domain = email.rsplit("@", 1)[-1]
+            if domain not in {str(value).lower() for value in provider.trusted_domains}:
+                return None
+        user = self.db.execute(select(EmailUser).where(func.lower(EmailUser.email) == email, EmailUser.is_active.is_(True))).scalar_one_or_none()
+        if not user or str(user.auth_provider or "").lower() != provider_id.lower():
+            return None
+        return user
 
     async def authenticate_or_create_user(self, user_info: Dict[str, Any], allow_creation: bool = True) -> Optional[str]:
         """Authenticate existing user or create new user from SSO info.

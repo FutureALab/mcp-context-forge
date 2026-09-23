@@ -29,6 +29,7 @@ from mcpgateway.services.logging_service import LoggingService
 from mcpgateway.services.sso_service import MEMBER_KEY_STATE_PREFIX, SSOService, invalidate_trusted_provider_cache
 from mcpgateway.services.team_management_service import TeamManagementService
 from mcpgateway.utils.log_sanitizer import sanitize_for_log
+from mcpgateway.utils.member_key_proof import create_member_key_proof, MEMBER_KEY_PROOF_COOKIE, MEMBER_KEY_PROOF_TTL_SECONDS
 from mcpgateway.utils.paths import resolve_root_path
 from mcpgateway.utils.verify_credentials import invalidate_external_identity_cache
 
@@ -436,15 +437,30 @@ async def handle_sso_callback(
     if not user_info:
         return RedirectResponse(url=failure_url, status_code=302)
 
-    # Authenticate or create user
-    access_token = await sso_service.authenticate_or_create_user(user_info, allow_creation=not member_key_flow)
-    if not access_token:
-        if member_key_flow and sso_service._is_email_verified_claim(user_info):  # pylint: disable=protected-access
-            email = str(user_info.get("email") or "").strip().lower()
-            if email and db.scalar(select(EmailUser.id).where(func.lower(EmailUser.email) == email)) is None:
-                return RedirectResponse(url=f"{root_path}/admin/api-key?error=unregistered", status_code=302)
-        if member_key_flow:
+    if member_key_flow:
+        member = sso_service.authorize_existing_member_key_user(user_info, provider_id)
+        if not member:
+            if sso_service._is_email_verified_claim(user_info):  # pylint: disable=protected-access
+                email = str(user_info.get("email") or "").strip().lower()
+                if email and db.scalar(select(EmailUser.id).where(func.lower(EmailUser.email) == email)) is None:
+                    return RedirectResponse(url=f"{root_path}/admin/api-key?error=unregistered", status_code=302)
             return RedirectResponse(url=failure_url, status_code=302)
+        use_secure = (settings.environment == "production") or settings.secure_cookies
+        key_response = RedirectResponse(url=f"{root_path}/admin/api-key?sso=success", status_code=302)
+        key_response.set_cookie(
+            key=MEMBER_KEY_PROOF_COOKIE,
+            value=create_member_key_proof(member.email, provider_id),
+            max_age=MEMBER_KEY_PROOF_TTL_SECONDS,
+            httponly=True,
+            secure=use_secure,
+            samesite=settings.cookie_samesite,
+            path=f"{root_path}/admin/api-key",
+        )
+        return key_response
+
+    # Authenticate or create user
+    access_token = await sso_service.authenticate_or_create_user(user_info)
+    if not access_token:
         return RedirectResponse(url=f"{root_path}/admin/login?error=user_creation_failed", status_code=302)
 
     # Determine redirect URL based on user's admin status and team membership
@@ -461,11 +477,8 @@ async def handle_sso_callback(
 
     # Determine redirect URL
     redirect_url = f"{root_path}/admin"
-    if member_key_flow:
-        redirect_url = f"{root_path}/admin/api-key?sso=success"
-
     # For non-admin users, try to redirect to their first team's admin view
-    if not member_key_flow and not is_admin and user_email:
+    if not is_admin and user_email:
         try:
             team_service = TeamManagementService(db)
             user_teams = await team_service.get_user_teams(user_email, include_personal=False)

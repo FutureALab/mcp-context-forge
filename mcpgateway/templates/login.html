@@ -535,6 +535,11 @@
             button.classList.add("group");
             ssoContainer.appendChild(button);
           });
+          const params = new URLSearchParams(window.location.search);
+          const autoProvider = params.get("auto_sso");
+          if (autoProvider && !params.has("error") && providers.some((provider) => provider.id === autoProvider)) {
+            await initiateSSO(autoProvider);
+          }
         } catch (error) {
           console.error("Failed to load SSO providers:", error);
           // Hide SSO section on error

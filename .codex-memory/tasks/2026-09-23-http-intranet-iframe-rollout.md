@@ -10,3 +10,9 @@
 - Verified the example JavaScript parses and every listed gateway setting exists in `config.py`.
 - An in-process check confirms exact HTTP callback allowlisting and staging-versus-production Cookie flags.
 - Actual intranet hostnames, IdP compatibility, and live end-to-end validation remain deployment inputs.
+
+## OAuth-only correction
+
+- The revised plan uses OAuth for both pages. Workspace login establishes a gateway session; Key authorization issues a separate short-lived proof.
+- The parent-page workspace link can start its configured provider automatically with `auto_sso`.
+- The Key page starts its own authorization and does not rely on the workspace session check.

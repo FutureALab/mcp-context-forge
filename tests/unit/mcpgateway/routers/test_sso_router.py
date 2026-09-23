@@ -19,6 +19,7 @@ from pydantic import HttpUrl
 
 # First-Party
 from mcpgateway.routers import sso as sso_router
+from mcpgateway.utils.member_key_proof import create_member_key_proof, read_member_key_proof
 
 
 @pytest.mark.asyncio
@@ -321,7 +322,7 @@ async def test_handle_sso_callback_user_creation_failed(monkeypatch: pytest.Monk
 async def test_member_key_sso_rejects_unregistered_account(monkeypatch: pytest.MonkeyPatch):
     """Keep the OAuth key flow from creating an account or issuing a session."""
     monkeypatch.setattr(sso_router.settings, "sso_enabled", True)
-    creation_flags = []
+    verified_providers = []
 
     class DummyService:
         def __init__(self, _db):
@@ -330,8 +331,11 @@ async def test_member_key_sso_rejects_unregistered_account(monkeypatch: pytest.M
         async def handle_oauth_callback_with_tokens(self, *_args, **_kwargs):
             return {"email": "unknown@example.com", "email_verified": True}, {}
 
-        async def authenticate_or_create_user(self, _user_info, allow_creation=True):
-            creation_flags.append(allow_creation)
+        def authorize_existing_member_key_user(self, _user_info, provider_id):
+            verified_providers.append(provider_id)
+
+        async def authenticate_or_create_user(self, _user_info):
+            pytest.fail("Key authorization must not create a gateway session")
 
         @staticmethod
         def _is_email_verified_claim(_user_info):
@@ -346,17 +350,14 @@ async def test_member_key_sso_rejects_unregistered_account(monkeypatch: pytest.M
     request.cookies = {"sso_session_id": "session-1"}
     response = await sso_router.handle_sso_callback("example", "code", "mk:fixture.state", request=request, response=MagicMock(), db=db)
     assert response.headers["location"] == "/admin/api-key?error=unregistered"
-    assert creation_flags == [False]
+    assert verified_providers == ["example"]
 
 
 @pytest.mark.asyncio
 async def test_member_key_sso_returns_to_key_page(monkeypatch: pytest.MonkeyPatch):
-    """Return a registered OAuth user to the key page with a browser session."""
-    import jwt
-
+    """Return a registered OAuth user with a Key-only proof and no login session."""
     monkeypatch.setattr(sso_router.settings, "sso_enabled", True)
-    token = jwt.encode({"user": {"email": "member@example.com", "is_admin": False}}, "secret", algorithm="HS256")
-    creation_flags = []
+    verified_providers = []
 
     class DummyService:
         def __init__(self, _db):
@@ -365,9 +366,12 @@ async def test_member_key_sso_returns_to_key_page(monkeypatch: pytest.MonkeyPatc
         async def handle_oauth_callback_with_tokens(self, *_args, **_kwargs):
             return {"email": "member@example.com", "email_verified": True}, {}
 
-        async def authenticate_or_create_user(self, _user_info, allow_creation=True):
-            creation_flags.append(allow_creation)
-            return token
+        def authorize_existing_member_key_user(self, _user_info, provider_id):
+            verified_providers.append(provider_id)
+            return SimpleNamespace(email="member@example.com")
+
+        async def authenticate_or_create_user(self, _user_info):
+            pytest.fail("Key authorization must not create a gateway session")
 
     monkeypatch.setattr(sso_router, "SSOService", DummyService)
     import mcpgateway.utils.security_cookies as cookie_module
@@ -381,8 +385,32 @@ async def test_member_key_sso_returns_to_key_page(monkeypatch: pytest.MonkeyPatc
     request.cookies = {"sso_session_id": "session-1"}
     response = await sso_router.handle_sso_callback("example", "code", "mk:fixture.state", request=request, response=MagicMock(), db=db)
     assert response.headers["location"] == "/admin/api-key?sso=success"
-    assert creation_flags == [False]
-    assert set_cookie.called
+    assert verified_providers == ["example"]
+    assert not set_cookie.called
+    assert "member_key_proof=" in response.headers["set-cookie"]
+    assert "jwt_token=" not in response.headers["set-cookie"]
+    assert "Path=/admin/api-key" in response.headers["set-cookie"]
+
+
+def test_member_key_proof_cannot_be_reused_as_gateway_login(monkeypatch: pytest.MonkeyPatch):
+    """Reject gateway JWTs, expired proofs, and proof signatures as login JWTs."""
+    import jwt
+
+    proof = create_member_key_proof("member@example.com", "google")
+    assert read_member_key_proof(proof) == ("member@example.com", "google")
+    with pytest.raises(jwt.InvalidSignatureError):
+        jwt.decode(proof, sso_router.settings.jwt_secret_key.get_secret_value(), algorithms=["HS256"], audience="member-key")
+    with pytest.raises(HTTPException) as missing:
+        read_member_key_proof(None)
+    assert missing.value.status_code == 401
+    gateway_token = jwt.encode({"sub": "member@example.com"}, sso_router.settings.jwt_secret_key.get_secret_value(), algorithm="HS256")
+    with pytest.raises(HTTPException) as wrong_type:
+        read_member_key_proof(gateway_token)
+    assert wrong_type.value.status_code == 401
+    monkeypatch.setattr("mcpgateway.utils.member_key_proof.MEMBER_KEY_PROOF_TTL_SECONDS", -1)
+    with pytest.raises(HTTPException) as expired:
+        read_member_key_proof(create_member_key_proof("member@example.com", "google"))
+    assert expired.value.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -526,6 +554,7 @@ async def test_handle_sso_callback_keycloak_oversized_id_token_skips_hint_cookie
     assert "sso_id_token_hint=" not in response.headers.get("set-cookie", "")
     assert "id_token too large for cookie storage" in caplog.text
     assert set_cookie.called
+
 
 @pytest.mark.asyncio
 async def test_handle_sso_callback_non_admin_with_team_redirects_to_team(monkeypatch: pytest.MonkeyPatch):
@@ -689,6 +718,7 @@ async def test_handle_sso_callback_team_service_error_falls_back_to_admin(monkey
     assert response.headers.get("location", "") == "/admin"
     assert set_cookie.called
 
+
 @pytest.mark.asyncio
 async def test_handle_sso_callback_invalid_jwt_falls_back_to_user_info(monkeypatch: pytest.MonkeyPatch):
     """Test that invalid JWT token falls back to using user_info for redirect determination.
@@ -739,8 +769,6 @@ async def test_handle_sso_callback_invalid_jwt_falls_back_to_user_info(monkeypat
     # Should redirect to admin gateways view since user has no teams and is not admin
     assert response.headers.get("location", "") == "/admin/#gateways"
     assert set_cookie.called
-
-
 
 
 @pytest.mark.asyncio

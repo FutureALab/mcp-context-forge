@@ -41,6 +41,7 @@ from mcpgateway.services.server_key_inventory import inventory_query, inventory_
 from mcpgateway.services.server_member_service import issue_member_key, registered_user
 from mcpgateway.services.server_service import ServerService
 from mcpgateway.services.team_management_service import MemberAlreadyExistsError, TeamManagementError, TeamManagementService
+from mcpgateway.utils.member_key_proof import MEMBER_KEY_PROOF_COOKIE, read_member_key_proof
 
 router = APIRouter()
 
@@ -125,15 +126,14 @@ async def authenticate_member(request: Request, body: AccountRequest, db: Sessio
     return user
 
 
-def authenticate_sso_member(request: Request, principal: dict, db: Session) -> EmailUser:
-    """Use only the OAuth browser session and resolve its current account."""
-    if request.headers.get("authorization") or not (request.cookies.get("jwt_token") or request.cookies.get("access_token")):
-        raise HTTPException(403, "请先使用 OAuth 登录")
-    if principal.get("auth_method") != "jwt" or principal.get("token_use") != "session":
-        raise HTTPException(403, "请先使用 OAuth 登录")
-    user = registered_user(db, get_user_email(principal))
-    if not user.auth_provider or user.auth_provider == "local":
-        raise HTTPException(403, "请先使用 OAuth 登录")
+def authenticate_sso_member(request: Request, db: Session) -> EmailUser:
+    """Accept only the Key page's OAuth proof for an active local account."""
+    if request.headers.get("authorization"):
+        raise HTTPException(403, "请使用领取页面完成 OAuth 授权")
+    email, provider = read_member_key_proof(request.cookies.get(MEMBER_KEY_PROOF_COOKIE))
+    user = registered_user(db, email)
+    if not user.auth_provider or user.auth_provider.lower() != provider.lower():
+        raise HTTPException(403, "OAuth 账号不匹配或不可用")
     return user
 
 
@@ -224,21 +224,21 @@ async def member_key_issue(request: Request, body: MemberKeyRequest, db: Session
 
 @router.post("/api-key/sso/options")
 @rate_limit(requests_per_minute=20)
-async def member_key_sso_options(request: Request, principal=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
+async def member_key_sso_options(request: Request, db: Session = Depends(get_db)):
     """Check the registered SSO account and list its available resources."""
     require_self_service("sso")
     require_public_csrf(request)
-    user = authenticate_sso_member(request, principal, db)
+    user = authenticate_sso_member(request, db)
     return await member_options_for_user(db, user)
 
 
 @router.post("/api-key/sso/issue")
 @rate_limit(requests_per_minute=10)
-async def member_key_sso_issue(request: Request, body: SsoMemberKeyRequest, principal=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
+async def member_key_sso_issue(request: Request, body: SsoMemberKeyRequest, db: Session = Depends(get_db)):
     """Issue a key for the SSO session's account after access checks."""
     require_self_service("sso")
     require_public_csrf(request)
-    user = authenticate_sso_member(request, principal, db)
+    user = authenticate_sso_member(request, db)
     return await issue_for_user(db, user, body)
 
 

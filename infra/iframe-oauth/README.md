@@ -1,7 +1,7 @@
 # 同站不同端口的 iframe OAuth 演示
 
 父平台只登录一次，MCP iframe 自动完成自己的 OAuth2 / OIDC 授权码流程。
-演示复用 ContextForge 的通用 OIDC 登录，不修改核心认证代码，也不使用邮箱请求头免密登录。
+演示复用 ContextForge 的 OIDC 授权入口。工作区回调建立登录会话；API Key 回调只签发短期领取凭据。父平台不使用邮箱请求头免密登录。
 企业内网落地与父页面改造见 [内网部署方案](INTRANET-ROLLOUT.md)。
 
 ## 启动
@@ -15,7 +15,7 @@
 打开 <http://localhost:18080>，点击“登录内网平台”。
 使用 `infra/iframe-oauth/.runtime/account.txt` 中的测试账号。
 登录后，父页面自动加载 MCP，并显示两个应用的实际登录身份。
-点击父页面的“领取 API Key”，在 iframe 中点击“检测账号并查询所属 Team”。
+点击父页面的“领取 API Key”，在 iframe 中点击“检测账号并查询所属 Team”。领取页将再次通过已有身份服务会话完成 OAuth 鉴权，不要求再次输入密码，也不创建网关登录会话。
 选择测试账号的 Team 和“AIOps 演示 MCP”，再点击“生成 API Key”。
 页面只展示一次新 Key；请在关闭页面前复制。演示 MCP 没有预置工具。
 点击“MCP 工作区”可返回管理界面。

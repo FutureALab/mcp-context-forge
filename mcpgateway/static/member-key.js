@@ -201,7 +201,15 @@
       result.classList.remove("hidden");
       message.textContent = `已生成；到期时间：${new Date(data.expires_at).toLocaleString()}`;
     } catch (error) {
-      message.textContent = error.message;
+      if (mode === "sso" && error.message === "AUTH_REQUIRED") {
+        try {
+          await startSso();
+        } catch (ssoError) {
+          message.textContent = ssoError.message;
+        }
+      } else {
+        message.textContent = error.message;
+      }
     } finally {
       controls.forEach((control) => {
         control.disabled = false;
