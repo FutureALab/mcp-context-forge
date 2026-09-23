@@ -277,6 +277,19 @@ class TestAuthFlow:
         assert sso_service._is_session_bound_state(state_value) is True
         assert sso_service._verify_session_bound_state("github", state_value, "browser-session-1") is True
 
+    def test_member_key_state_uses_standard_callback(self, sso_service):
+        """Bind the member key marker to state without changing redirect_uri."""
+        provider = _make_provider()
+        sso_service.get_provider = lambda _id: provider
+
+        url = sso_service.get_authorization_url("github", "https://app/callback", session_binding="browser-session-1", purpose="member_key")
+        params = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+        state_value = params["state"][0]
+        assert params["redirect_uri"] == ["https://app/callback"]
+        assert state_value.startswith("mk:")
+        assert sso_service._verify_session_bound_state("github", state_value, "browser-session-1") is True
+        assert sso_service._verify_session_bound_state("github", state_value, "other-session") is False
+
     def test_get_authorization_url_not_found(self, sso_service):
         sso_service.get_provider = lambda _id: None
         url = sso_service.get_authorization_url("missing", "https://app/callback")

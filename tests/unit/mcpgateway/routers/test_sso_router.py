@@ -188,6 +188,26 @@ async def test_initiate_sso_login_success(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.mark.asyncio
+async def test_initiate_member_key_sso_marks_state(monkeypatch: pytest.MonkeyPatch):
+    """Pass the Key flow through state while retaining the configured callback URI."""
+    monkeypatch.setattr(sso_router.settings, "sso_enabled", True)
+    monkeypatch.setattr(sso_router, "_validate_redirect_uri", lambda *_args, **_kwargs: True)
+    received = []
+
+    class DummyService:
+        def __init__(self, _db):
+            pass
+
+        def get_authorization_url(self, _provider, redirect_uri, _scopes, **kwargs):
+            received.append((redirect_uri, kwargs.get("purpose")))
+            return "https://auth.example.com?state=mk%3Afixture"
+
+    monkeypatch.setattr(sso_router, "SSOService", DummyService)
+    await sso_router.initiate_sso_login("provider", MagicMock(), MagicMock(), redirect_uri="https://gateway.example/auth/sso/callback/provider", flow="member_key", db=MagicMock())
+    assert received == [("https://gateway.example/auth/sso/callback/provider", "member_key")]
+
+
+@pytest.mark.asyncio
 async def test_initiate_sso_login_state_missing(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(sso_router.settings, "sso_enabled", True)
     monkeypatch.setattr(sso_router, "_validate_redirect_uri", lambda *_args, **_kwargs: True)
@@ -228,6 +248,20 @@ async def test_handle_sso_callback_failure_redirect(monkeypatch: pytest.MonkeyPa
     assert isinstance(response, RedirectResponse)
     assert response.status_code == 302
     assert "/admin/login?error=sso_failed" in response.headers.get("location", "")
+
+
+@pytest.mark.asyncio
+async def test_member_key_sso_provider_error_returns_to_key_page(monkeypatch: pytest.MonkeyPatch):
+    """Return provider authorization errors to the Key page for a stored Key flow."""
+    monkeypatch.setattr(sso_router.settings, "sso_enabled", True)
+    db = MagicMock()
+    db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(state="mk:fixture.state")
+    request = MagicMock()
+    request.scope = {"root_path": ""}
+
+    response = await sso_router.handle_sso_callback("example", state="mk:fixture.state", error="access_denied", error_description=None, request=request, db=db)
+
+    assert response.headers["location"] == "/admin/api-key?error=sso_cancelled"
 
 
 @pytest.mark.asyncio
@@ -305,12 +339,12 @@ async def test_member_key_sso_rejects_unregistered_account(monkeypatch: pytest.M
 
     monkeypatch.setattr(sso_router, "SSOService", DummyService)
     db = MagicMock()
-    db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(redirect_uri="https://gateway.example/auth/sso/callback/example?member_key=1")
+    db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(state="mk:fixture.state", redirect_uri="https://gateway.example/auth/sso/callback/example")
     db.scalar.return_value = None
     request = MagicMock()
     request.scope = {"root_path": ""}
     request.cookies = {"sso_session_id": "session-1"}
-    response = await sso_router.handle_sso_callback("example", "code", "state", request=request, response=MagicMock(), db=db)
+    response = await sso_router.handle_sso_callback("example", "code", "mk:fixture.state", request=request, response=MagicMock(), db=db)
     assert response.headers["location"] == "/admin/api-key?error=unregistered"
     assert creation_flags == [False]
 
@@ -341,11 +375,11 @@ async def test_member_key_sso_returns_to_key_page(monkeypatch: pytest.MonkeyPatc
     set_cookie = MagicMock()
     monkeypatch.setattr(cookie_module, "set_auth_cookie", set_cookie)
     db = MagicMock()
-    db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(redirect_uri="https://gateway.example/auth/sso/callback/example?member_key=1")
+    db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(state="mk:fixture.state", redirect_uri="https://gateway.example/auth/sso/callback/example")
     request = MagicMock()
     request.scope = {"root_path": ""}
     request.cookies = {"sso_session_id": "session-1"}
-    response = await sso_router.handle_sso_callback("example", "code", "state", request=request, response=MagicMock(), db=db)
+    response = await sso_router.handle_sso_callback("example", "code", "mk:fixture.state", request=request, response=MagicMock(), db=db)
     assert response.headers["location"] == "/admin/api-key?sso=success"
     assert creation_flags == [False]
     assert set_cookie.called
@@ -363,6 +397,8 @@ async def test_handle_sso_callback_success_sets_cookie(monkeypatch: pytest.Monke
         algorithm="HS256"
     )
 
+    creation_flags = []
+
     class DummyService:
         def __init__(self, _db):
             pass
@@ -370,7 +406,8 @@ async def test_handle_sso_callback_success_sets_cookie(monkeypatch: pytest.Monke
         async def handle_oauth_callback_with_tokens(self, *_args, **_kwargs):
             return {"email": "admin@example.com"}, {}
 
-        async def authenticate_or_create_user(self, *_args, **_kwargs):
+        async def authenticate_or_create_user(self, *_args, **kwargs):
+            creation_flags.append(kwargs.get("allow_creation"))
             return admin_token
 
     monkeypatch.setattr(sso_router, "SSOService", DummyService)
@@ -384,11 +421,14 @@ async def test_handle_sso_callback_success_sets_cookie(monkeypatch: pytest.Monke
     request.scope = {"root_path": ""}
     request.cookies = {"sso_session_id": "session-1"}
 
-    response = await sso_router.handle_sso_callback("provider", "code", "state", error=None, error_description=None, request=request, response=MagicMock(), db=MagicMock())
+    db = MagicMock()
+    db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(state="mk_fixture.state")
+    response = await sso_router.handle_sso_callback("provider", "code", "mk_fixture.state", error=None, error_description=None, request=request, response=MagicMock(), db=db)
 
     assert isinstance(response, RedirectResponse)
     assert response.status_code == 302
     assert response.headers.get("location", "").endswith("/admin")
+    assert creation_flags == [True]
     assert set_cookie.called
 
 

@@ -10,7 +10,7 @@ Handles SSO login flows, provider configuration, and callback handling.
 # Standard
 import secrets
 from typing import Dict, List, Optional
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 # Third-Party
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
@@ -26,7 +26,7 @@ from mcpgateway.config import settings
 from mcpgateway.db import EmailUser, get_db, SSOAuthSession
 from mcpgateway.middleware.rbac import get_current_user_with_permissions, require_permission
 from mcpgateway.services.logging_service import LoggingService
-from mcpgateway.services.sso_service import invalidate_trusted_provider_cache, SSOService
+from mcpgateway.services.sso_service import MEMBER_KEY_STATE_PREFIX, SSOService, invalidate_trusted_provider_cache
 from mcpgateway.services.team_management_service import TeamManagementService
 from mcpgateway.utils.log_sanitizer import sanitize_for_log
 from mcpgateway.utils.paths import resolve_root_path
@@ -262,6 +262,7 @@ async def initiate_sso_login(
     # chars). Server-side resolution in _resolve_login_scopes enforces the provider
     # allowlist; the Query layer only bounds length.
     scopes: Optional[str] = Query(None, max_length=500, description="Space-separated OAuth scopes"),
+    flow: Optional[str] = Query(None, pattern="^member_key$", description="Optional member key login flow"),
     db: Session = Depends(get_db),
 ) -> SSOLoginResponse:
     """Initiate SSO authentication flow.
@@ -276,6 +277,7 @@ async def initiate_sso_login(
         response: FastAPI response object used to set session-binding cookie
         redirect_uri: Callback URI after successful authentication
         scopes: Optional custom OAuth scopes (space-separated)
+        flow: Optional member key login flow
         db: Database session
 
     Returns:
@@ -307,7 +309,7 @@ async def initiate_sso_login(
     browser_session_binding = secrets.token_urlsafe(32)
 
     try:
-        auth_url = sso_service.get_authorization_url(provider_id, redirect_uri, scope_list, session_binding=browser_session_binding)
+        auth_url = sso_service.get_authorization_url(provider_id, redirect_uri, scope_list, session_binding=browser_session_binding, purpose="member_key" if flow == "member_key" else None)
     except ValueError as exc:
         logger.warning(f"OAuth authorization request error: {exc}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth authorization request") from exc
@@ -385,6 +387,11 @@ async def handle_sso_callback(
 
     # Get root path for URL construction
     root_path = resolve_root_path(request) if request else ""
+    auth_session = db.execute(select(SSOAuthSession).where(SSOAuthSession.state == state, SSOAuthSession.provider_id == provider_id)).scalar_one_or_none() if state else None
+    persisted_state = getattr(auth_session, "state", None)
+    member_key_flow = isinstance(persisted_state, str) and persisted_state.startswith(MEMBER_KEY_STATE_PREFIX)
+    login_url = f"{root_path}/admin/api-key" if member_key_flow else f"{root_path}/admin/login"
+    failure_url = f"{login_url}?error=sso_failed"
 
     # Handle OAuth error responses from provider (RFC 6749 Section 4.1.2.1)
     if error:
@@ -401,23 +408,18 @@ async def handle_sso_callback(
             "temporarily_unavailable": "sso_unavailable",
         }
         error_code = error_mappings.get(error, "sso_failed")
-        return RedirectResponse(url=f"{root_path}/admin/login?error={error_code}", status_code=302)
+        return RedirectResponse(url=f"{login_url}?error={error_code}", status_code=302)
 
     # Code and state are required if no error was returned
     if not code:
         logger.warning("SSO callback for provider '%s' missing both code and error parameters", provider_id)
-        return RedirectResponse(url=f"{root_path}/admin/login?error=sso_failed", status_code=302)
+        return RedirectResponse(url=failure_url, status_code=302)
 
     if not state:
         logger.warning("SSO callback for provider '%s' missing required state parameter", provider_id)
-        return RedirectResponse(url=f"{root_path}/admin/login?error=sso_failed", status_code=302)
+        return RedirectResponse(url=failure_url, status_code=302)
 
     sso_service = SSOService(db)
-    # The persisted OAuth state determines the key flow, so callback query changes cannot enable account creation.
-    auth_session = db.execute(select(SSOAuthSession).where(SSOAuthSession.state == state, SSOAuthSession.provider_id == provider_id)).scalar_one_or_none()
-    redirect_uri = getattr(auth_session, "redirect_uri", None)
-    member_key_flow = isinstance(redirect_uri, str) and parse_qs(urlparse(redirect_uri).query).get("member_key") == ["1"]
-    failure_url = f"{root_path}/admin/api-key?error=sso_failed" if member_key_flow else f"{root_path}/admin/login?error=sso_failed"
 
     # Handle OAuth callback — returns (user_info, token_data) or None
     user_info: Optional[Dict[str, object]] = None

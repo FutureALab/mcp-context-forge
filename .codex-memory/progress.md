@@ -2,6 +2,10 @@
 
 ## 2026-09-23: Member key OAuth
 
+- Completed the signed `mk:` state flow with the provider's unchanged callback URI.
+- In-process HTTP checks passed for start, unregistered and registered callbacks, and provider denial.
+- Five focused JavaScript tests, ESLint, runtime Ruff, and Python compilation passed. Pytest remains unavailable locally.
+- Replaced the callback query marker with a signed OAuth `state` marker after the user requested the standard callback flow.
 - Added registered-user-only OAuth callback handling for the Key page and session-backed options and issuance.
 - Preserved password authentication as a separate choice. Registration schemas and default user policy now require 10 characters.
 - Focused Python API, cookie authentication, JavaScript, ESLint, and Ruff checks passed.

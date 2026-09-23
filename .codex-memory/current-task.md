@@ -2,6 +2,8 @@
 
 ## 2026-09-23: Member key OAuth and registration minimum
 
+- OAuth Key authorization now uses a signed `state` marker. The provider callback URI stays unchanged.
+- The final `mk:` marker has no overlap with regular OAuth nonces. Provider denials return to the Key page.
 - The API Key page defaults to OAuth detection and retains a password mode switch.
 - OAuth key requests use a validated browser session. Unknown OAuth users are not created through this flow.
 - New regular user passwords require at least 10 characters by default.

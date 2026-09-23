@@ -18,4 +18,8 @@
 
 ## Follow-up
 
-- Run the new callback tests with pytest and verify the configured provider accepts the callback URI query parameter.
+- The callback query marker was superseded. The Key flow now uses a signed `mk:` state prefix and the existing callback URI.
+- The reserved prefix cannot occur in a regular URL-safe state nonce. Provider errors return to the Key page.
+- Five JavaScript tests, ESLint, runtime Python Ruff, compilation, direct callback checks, and an in-process HTTP flow passed.
+- The HTTP flow covered authorization start, browser cookie, unregistered rejection, registered return, and provider denial.
+- Pytest is unavailable in the working Python 3.12 environment. The new pytest cases remain unrun locally.

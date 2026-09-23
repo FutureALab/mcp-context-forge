@@ -95,6 +95,9 @@ class SSOProviderContext:
     provider_metadata: Dict[str, Any]
 
 
+MEMBER_KEY_STATE_PREFIX = "mk:"
+
+
 class SSOService:
     """Service for managing SSO authentication flows and providers.
 
@@ -978,17 +981,20 @@ class SSOService:
             return secret_source.get_secret_value().encode("utf-8")
         return str(secret_source).encode("utf-8")
 
-    def _generate_session_bound_state(self, provider_id: str, session_binding: str) -> str:
+    def _generate_session_bound_state(self, provider_id: str, session_binding: str, purpose: Optional[str] = None) -> str:
         """Generate state value bound to browser session context.
 
         Args:
             provider_id: SSO provider identifier.
             session_binding: Browser-session marker.
+            purpose: Optional member key flow marker.
 
         Returns:
             Signed state token including nonce and HMAC signature.
         """
         state_nonce = secrets.token_urlsafe(24)
+        if purpose == "member_key":
+            state_nonce = f"{MEMBER_KEY_STATE_PREFIX}{state_nonce}"
         message = f"{provider_id}:{session_binding}:{state_nonce}".encode("utf-8")
         signature = hmac.new(self._get_state_binding_secret(), message, hashlib.sha256).hexdigest()
         return f"{state_nonce}{self._STATE_BINDING_SEPARATOR}{signature}"
@@ -1101,6 +1107,7 @@ class SSOService:
         redirect_uri: str,
         scopes: Optional[List[str]] = None,
         session_binding: Optional[str] = None,
+        purpose: Optional[str] = None,
     ) -> Optional[str]:
         """Generate OAuth authorization URL for provider.
 
@@ -1109,6 +1116,7 @@ class SSOService:
             redirect_uri: Callback URI after authorization
             scopes: Optional custom scopes (uses provider default if None)
             session_binding: Optional browser-session marker for state binding.
+            purpose: Optional member key flow marker.
 
         Returns:
             Authorization URL or None if provider not found
@@ -1133,6 +1141,8 @@ class SSOService:
         provider = self.get_provider(provider_id)
         if not provider or not provider.is_enabled:
             return None
+        if purpose not in (None, "member_key") or (purpose and not session_binding):
+            raise ValueError("Invalid SSO login purpose")
 
         # Generate PKCE parameters
         code_verifier, code_challenge = self.generate_pkce_challenge()
@@ -1140,7 +1150,7 @@ class SSOService:
         resolved_scopes = self._resolve_login_scopes(provider, scopes)
 
         # Generate CSRF state (session-bound when browser context is available).
-        state = self._generate_session_bound_state(provider_id, session_binding) if session_binding else secrets.token_urlsafe(32)
+        state = self._generate_session_bound_state(provider_id, session_binding, purpose) if session_binding else secrets.token_urlsafe(32)
 
         # Generate OIDC nonce if applicable
         nonce = secrets.token_urlsafe(16) if provider.provider_type == "oidc" else None

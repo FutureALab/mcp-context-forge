@@ -116,6 +116,24 @@ test("self-service shows the administrator notice for an unregistered OAuth user
   vi.unstubAllGlobals();
 });
 
+test("self-service OAuth keeps the provider callback address unchanged", async () => {
+  document.body.innerHTML = template("member_key");
+  const fetchMock = vi.fn(async (url) => {
+    if (url.endsWith("/auth/sso/providers")) return response([{ id: "example", display_name: "Example" }]);
+    if (url.endsWith("sso/options")) return { redirected: true, status: 302 };
+    throw new Error("authorization request captured");
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  await import("../../../mcpgateway/static/member-key.js?standard-callback");
+  await vi.waitFor(() => expect(el("member-sso-provider").value).toBe("example"));
+  el("load-memberships").click();
+  await vi.waitFor(() => expect(fetchMock.mock.calls.length).toBe(3));
+  const initiation = new URL(fetchMock.mock.calls[2][0], "https://gateway.example");
+  expect(initiation.searchParams.get("flow")).toBe("member_key");
+  expect(initiation.searchParams.get("redirect_uri")).toBe(`${window.location.origin}/auth/sso/callback/example`);
+  vi.unstubAllGlobals();
+});
+
 test("monitoring renders charts, methods and formatted times; member actions target the selected MCP", async () => {
   document.body.innerHTML =
     template("member_usage") +

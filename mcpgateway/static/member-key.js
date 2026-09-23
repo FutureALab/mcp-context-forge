@@ -106,8 +106,8 @@
       message.textContent = "请选择 OAuth 服务。";
       return;
     }
-    const callback = `${window.location.origin}${form.dataset.root}/auth/sso/callback/${encodeURIComponent(provider.value)}?member_key=1`;
-    const response = await fetch(`${form.dataset.root}/auth/sso/login/${encodeURIComponent(provider.value)}?redirect_uri=${encodeURIComponent(callback)}`, { credentials: "same-origin" });
+    const callback = `${window.location.origin}${form.dataset.root}/auth/sso/callback/${encodeURIComponent(provider.value)}`;
+    const response = await fetch(`${form.dataset.root}/auth/sso/login/${encodeURIComponent(provider.value)}?redirect_uri=${encodeURIComponent(callback)}&flow=member_key`, { credentials: "same-origin" });
     if (!response.ok) throw new Error("OAuth 授权启动失败，请稍后重试。");
     const data = await response.json();
     window.location.assign(data.authorization_url);
