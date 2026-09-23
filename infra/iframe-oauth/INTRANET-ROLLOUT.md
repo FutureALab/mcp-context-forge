@@ -1,8 +1,34 @@
 # 内网父平台嵌入 ContextForge 与自助领取 API Key
 
-本文将 `infra/iframe-oauth` 的本机演示流程落地到已有内网父平台。部署目标是：用户先登录父平台，再用同一企业身份服务登录 ContextForge，最后在 iframe 中查看 MCP 工作区并领取自己的 Key。
+本文提供两条路径：先用已有账号密码在父平台 iframe 中领取 Key；需要父平台与 ContextForge 自动单点登录时，再配置企业 OIDC。`infra/iframe-oauth` 是第二条路径的本机演示。
 
 本方案假定 ContextForge 已部署并使用持久化数据库。现有部署、数据库和密钥保持不变。以下域名和客户端参数均为占位值，实施前必须替换。
+
+## 最短路径：沿用账号密码领取
+
+ContextForge 已提供 `/admin/api-key` 页面。它直接验证已注册用户的账号密码，查询可用 Team 与虚拟 MCP，并签发限定到所选虚拟 MCP 的 Key。**这一流程不要求用户先登录网关管理页，也不要求企业 OIDC、演示身份服务、额外的 `/embed/session` 接口或 Redis。**父平台登录只控制谁能看到入口；领取时用户仍需输入自己的 ContextForge 账号密码。
+
+1. 在现有网关部署中启用 `EMAIL_AUTH_ENABLED=true`、`SELF_SERVICE_API_KEYS_ENABLED=true` 与 `MCPGATEWAY_UI_ENABLED=true`。保持现有数据库和认证密钥。确认用户账号已注册、启用，且属于至少一个有效 Team；个人 Team 可以用于领取公开虚拟 MCP 的 Key。
+2. 父平台先用自己的会话判断用户是否已登录。仅向已登录用户显示“领取 MCP API Key”入口，并把 iframe 指向网关的 `http://mcp.intra.example/admin/api-key`。不向 iframe URL、请求头或父页面脚本传递用户邮箱、密码或 Token。
+3. 允许父平台嵌入该网关页面：设置网关 `X_FRAME_OPTIONS=none`，并在网关 HTML 响应上添加仅允许父平台 Origin 的 `Content-Security-Policy: frame-ancestors http://portal.intra.example`。父页面如有 CSP，加入 `frame-src http://mcp.intra.example`。
+4. HTTP 内网下，父平台与网关使用同站点子域名，或同一 IP 的不同端口。确认浏览器没有阻止网关的 CSRF Cookie。不同 IP 的跨站 iframe 在 HTTP 下无法可靠带上 Cookie。限制入口只供受控内网访问，因为 HTTP 会明文传输账号密码和 Key。
+5. 用普通用户打开 iframe，选择“账号密码登录”，查询 Team 和虚拟 MCP，领取短期测试 Key，再调用一次所选 MCP 验证权限。
+
+父页面只需如下入口；将地址替换为实际网关地址，并按父平台的登录状态控制其显示：
+
+```html
+<button id="mcp-key-button" type="button">领取 MCP API Key</button>
+<iframe id="mcp-key-frame" title="领取 MCP API Key" hidden></iframe>
+<script>
+  document.getElementById("mcp-key-button").addEventListener("click", () => {
+    const frame = document.getElementById("mcp-key-frame");
+    frame.src = "http://mcp.intra.example/admin/api-key";
+    frame.hidden = false;
+  });
+</script>
+```
+
+若不需要 iframe，直接把按钮做成打开 `/admin/api-key` 的链接，便可省去嵌入页面的响应头和 Cookie 限制。下面的 OIDC 配置只用于**父平台登录后免输 ContextForge 密码**的场景。
 
 | 角色 | 本文示例 | 要求 |
 | --- | --- | --- |
