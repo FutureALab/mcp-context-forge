@@ -50,3 +50,10 @@
 - The Vue example uses `sessionStorage` and clears the token on logout. The two iframe Cookies retain their existing lifetimes.
 - Six Python route tests and four JavaScript helper tests passed. Ruff and ESLint passed.
 - Live browser checks passed workspace login, token reuse for the Key page, and Team lookup. Test services and SQLite files were removed.
+
+## Twelve-hour token and demo page
+
+- The parent authorization token now defaults to 720 minutes. The iframe login and Key proofs keep their shorter lifetimes.
+- `local-test.html` shows the Cookie, token, and iframe steps, token status, expiry, and both page entries.
+- Browser verification confirmed first authorization, token reuse, workspace loading, Key page Team lookup, and clearing parent credentials.
+- Six Python route tests and Ruff passed. Both temporary services stopped, and test database files were removed.

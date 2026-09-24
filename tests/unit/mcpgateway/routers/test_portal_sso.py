@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 # First-Party
 from mcpgateway.admin import rate_limit_storage
-from mcpgateway.config import settings
+from mcpgateway.config import Settings, settings
 from mcpgateway.db import Base, EmailUser, get_db
 from mcpgateway.routers.portal_sso import router
 from mcpgateway.utils.member_key_proof import read_member_key_proof
@@ -56,15 +56,17 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
 
     async def test_login_and_key_receive_different_cookies(self):
         """Keep gateway sessions separate from Key-only proofs."""
+        self.assertEqual(Settings.model_fields["portal_sso_token_ttl_minutes"].default, 720)
         with patch("mcpgateway.routers.portal_sso.settings.portal_sso_enabled", True), patch("mcpgateway.routers.portal_sso.settings.self_service_api_keys_enabled", True), patch(
             "mcpgateway.routers.portal_sso.settings.portal_sso_parent_origin", "http://portal.test"
-        ):
+        ), patch("mcpgateway.routers.portal_sso.settings.portal_sso_token_ttl_minutes", 720):
             login = await self.exchange("login")
             self.assertEqual(login.status_code, 200, login.text)
             self.assertIn("jwt_token=", login.headers["set-cookie"])
             self.assertNotIn("member_key_proof=", login.headers["set-cookie"])
             self.assertTrue(login.json()["token"])
             self.assertGreater(login.json()["expires_at"], int(time.time()))
+            self.assertAlmostEqual(login.json()["expires_at"] - time.time(), 720 * 60, delta=2)
             key = await self.exchange("key")
             self.assertEqual(key.status_code, 200, key.text)
             self.assertIn("member_key_proof=", key.headers["set-cookie"])

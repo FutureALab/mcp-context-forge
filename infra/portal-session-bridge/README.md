@@ -6,7 +6,7 @@
 
 1. 父页面确认用户已经登录，然后写入 `mcp_username`、`mcp_email`。退出登录时删除这两个 Cookie。
 2. 父页面调用 `POST /auth/portal/exchange`，请求体为 `{"purpose":"login"}` 或 `{"purpose":"key"}`。网关检查来源、身份 Cookie 和 MCP 已注册账号，返回 `token`、`expires_at`、`next`。
-3. 父页面保存 `token`。下次请求传 `{"purpose":"login","token":"..."}` 或 `{"purpose":"key","token":"..."}`。有效 token 可直接复用；失效时网关重新检查身份 Cookie 并返回新 token。两者都无效时提示刷新页面。
+3. 父页面保存 `token`。默认有效期为 12 小时。下次请求传 `{"purpose":"login","token":"..."}` 或 `{"purpose":"key","token":"..."}`。有效 token 可直接复用；失效时网关重新检查身份 Cookie 并返回新 token。两者都无效时提示刷新页面。
 4. 网关还会为 iframe 设置凭据。`login` 获取一小时的 HttpOnly `jwt_token`；`key` 获取五分钟的 HttpOnly `member_key_proof`。父页面将 `next` 加载到 iframe。
 
 两个入口均只接受已经注册、启用的普通账号，未注册邮箱不会自动创建账号。账号以邮箱为唯一标识；`mcp_username` 必须存在，但不与显示名匹配。平台管理员仍使用原有管理员登录入口。Team、虚拟 MCP 的可见性和领取权限仍由网关检查。
@@ -19,7 +19,7 @@
 EMAIL_AUTH_ENABLED=true
 PORTAL_SSO_ENABLED=true
 PORTAL_SSO_PARENT_ORIGIN=http://portal.intra.example
-PORTAL_SSO_TOKEN_TTL_MINUTES=60
+PORTAL_SSO_TOKEN_TTL_MINUTES=720
 SELF_SERVICE_API_KEYS_ENABLED=true
 MCPGATEWAY_UI_ENABLED=true
 MCPGATEWAY_ADMIN_API_ENABLED=true
@@ -88,7 +88,7 @@ onBeforeUnmount(() => stopListening?.())
 
 ## 本机按钮验证
 
-启动网关后，在仓库根目录运行 `python -m http.server 5173 --bind localhost`，打开 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。页面默认使用 `http://localhost:8000`；如果网关使用其他端口，在“网关地址”输入实际地址。将 `PORTAL_SSO_PARENT_ORIGIN` 设为 `http://localhost:5173`，把该 Origin 加入 `ALLOWED_ORIGINS`，并设置 `X_FRAME_OPTIONS=none`、`SECURE_COOKIES=false`。输入 MCP 已注册普通用户的邮箱，先点“验证工作区登录”，再点“验证 API Key 领取页”。测试页会写入父页面 Cookie，并显示网关 iframe，无需在浏览器控制台粘贴代码。
+启动网关后，在仓库根目录运行 `python -m http.server 5173 --bind localhost`，打开演示页 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。页面默认使用 `http://localhost:8000`；如果网关使用其他端口，在“网关地址”输入实际地址。将 `PORTAL_SSO_PARENT_ORIGIN` 设为 `http://localhost:5173`，把该 Origin 加入 `ALLOWED_ORIGINS`，并设置 `X_FRAME_OPTIONS=none`、`SECURE_COOKIES=false`。输入 MCP 已注册普通用户的用户名和邮箱，依次点击“打开工作区”和“打开 API Key 领取页”。页面展示首次授权、token 复用和到期时间，并在 iframe 中加载网关。
 
 ## 验收
 

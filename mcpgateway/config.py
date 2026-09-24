@@ -489,7 +489,7 @@ class Settings(BaseSettings):
     # SSO Configuration
     portal_sso_enabled: bool = Field(default=False, description="Accept parent-page account cookies for embedded login and API Key access")
     portal_sso_parent_origin: str = Field(default="", description="Exact browser Origin allowed to exchange parent-page account cookies")
-    portal_sso_token_ttl_minutes: int = Field(default=60, ge=1, le=43200, description="Lifetime of the parent-page authorization token in minutes")
+    portal_sso_token_ttl_minutes: int = Field(default=720, ge=1, le=43200, description="Lifetime of the parent-page authorization token in minutes")
     sso_enabled: bool = Field(default=False, description="Enable Single Sign-On authentication")
     sso_github_enabled: bool = Field(default=False, description="Enable GitHub OAuth authentication")
     sso_github_client_id: Optional[str] = Field(default=None, description="GitHub OAuth client ID")

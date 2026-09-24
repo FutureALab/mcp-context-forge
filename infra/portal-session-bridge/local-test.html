@@ -1,78 +1,215 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="data:,">
-    <title>MCP 本机 Cookie 验证</title>
-    <style>
-      body { font: 16px/1.5 system-ui, sans-serif; margin: 24px; }
-      label { display: block; margin: 12px 0; }
-      input { width: min(28rem, 100%); padding: 8px; }
-      button { margin-right: 8px; padding: 8px 12px; }
-      iframe { display: block; width: 100%; height: 720px; margin-top: 20px; border: 1px solid #ccc; }
-      #status { min-height: 1.5em; }
-    </style>
-  </head>
-  <body>
-    <h1>MCP 本机 Cookie 验证</h1>
-    <p>请从 <code>http://localhost:5173</code> 打开此页，并先启动本机网关。</p>
-    <label>网关地址 <input id="gateway-url" type="url" value="http://localhost:8000" required></label>
-    <label>用户名 <input id="username" value="本机测试用户" required></label>
-    <label>邮箱 <input id="email" type="email" placeholder="使用 MCP 已注册的普通用户邮箱" required></label>
-    <button id="login" type="button">验证工作区登录</button>
-    <button id="key" type="button">验证 API Key 领取页</button>
-    <button id="clear" type="button">清除身份 Cookie</button>
-    <p id="status" role="status"></p>
-    <iframe id="gateway" title="MCP 网关"></iframe>
-    <script>
-      const frame = document.querySelector("#gateway");
-      const status = document.querySelector("#status");
-      const gatewayUrl = document.querySelector("#gateway-url");
-      const username = document.querySelector("#username");
-      const email = document.querySelector("#email");
-      window.addEventListener("message", (event) => {
-        if (event.origin !== new URL(gatewayUrl.value.trim()).origin || event.source !== frame.contentWindow) return;
-        if (event.data?.type === "contextforge-portal-cookie-required") status.textContent = "MCP 凭据已过期，请刷新父页面。";
-      });
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>MCP 父页面登录演示</title>
+  <style>
+    :root { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #171717; background: #f7f7f8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: wait; opacity: .55; }
+    [hidden] { display: none !important; }
+    .page { max-width: 1600px; min-height: 100vh; margin: auto; padding: 0 40px 48px; background: #fff; }
+    .masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 76px; border-bottom: 1px solid #d9d9dc; }
+    .brand { font-size: 18px; font-weight: 800; letter-spacing: -.035em; }
+    .edition { color: #60636b; font-size: 13px; }
+    .intro { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 40px; padding: 48px 0 42px; }
+    .eyebrow { margin: 0 0 18px; color: #002fa7; font-size: 13px; font-weight: 700; }
+    h1 { margin: 0; font-size: clamp(38px, 5vw, 72px); line-height: 1.08; letter-spacing: -.055em; }
+    .intro-copy { max-width: 660px; margin: 22px 0 0; color: #555963; font-size: 16px; line-height: 1.7; }
+    .ttl { display: flex; flex-direction: column; justify-content: space-between; padding: 22px 0 4px 24px; border-left: 1px solid #002fa7; }
+    .ttl span, .ttl p { color: #555963; font-size: 13px; }
+    .ttl strong { display: block; color: #002fa7; font-size: 108px; line-height: 1; letter-spacing: -.08em; font-weight: 500; }
+    .ttl small { font-size: 28px; letter-spacing: 0; }
+    .ttl p { margin: 0; line-height: 1.5; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); list-style: none; padding: 0; margin: 0 0 34px; border-top: 1px solid #d9d9dc; border-bottom: 1px solid #d9d9dc; }
+    .steps li { display: flex; align-items: baseline; gap: 16px; padding: 17px 16px 18px 0; font-size: 14px; }
+    .steps li + li { padding-left: 18px; border-left: 1px solid #d9d9dc; }
+    .steps b { color: #002fa7; font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .workspace { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 28px; align-items: start; }
+    .panel { border: 1px solid #d9d9dc; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 55px; padding: 0 20px; border-bottom: 1px solid #d9d9dc; }
+    h2 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
+    .panel-head span { color: #6b6e76; font-size: 12px; }
+    .controls { padding: 24px 20px 22px; }
+    .field { display: block; margin-bottom: 19px; font-size: 13px; font-weight: 700; }
+    .field input { display: block; width: 100%; height: 44px; padding: 0 12px; margin-top: 8px; border: 1px solid #c9cbd1; border-radius: 0; outline: none; background: #fff; font-size: 15px; font-weight: 400; }
+    .field input:focus { border-color: #002fa7; box-shadow: inset 0 0 0 1px #002fa7; }
+    .help { margin: -6px 0 22px; color: #696d76; font-size: 12px; line-height: 1.6; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .actions button { min-height: 44px; padding: 8px; border: 1px solid #002fa7; background: #002fa7; color: #fff; font-size: 14px; font-weight: 700; }
+    .actions button + button { background: #fff; color: #002fa7; }
+    .clear { width: 100%; margin-top: 9px; padding: 12px; border: 1px solid #d9d9dc; background: #fff; color: #454953; font-size: 13px; }
+    .status { min-height: 48px; margin: 24px 0 0; padding: 12px; border-left: 3px solid #002fa7; background: #f7f7f8; font-size: 13px; line-height: 1.5; }
+    .status[data-kind="error"] { border-color: #b42318; color: #9a271d; }
+    .authorization { margin: 0; padding: 0 20px 18px; border-top: 1px solid #d9d9dc; }
+    .authorization div { display: flex; justify-content: space-between; gap: 12px; padding-top: 16px; font-size: 13px; }
+    .authorization dt { color: #696d76; }
+    .authorization dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+    .preview-url { overflow: hidden; max-width: 55%; white-space: nowrap; text-overflow: ellipsis; }
+    .frame-shell { min-height: 670px; background: #f7f7f8; }
+    .empty { display: flex; min-height: 670px; align-items: center; justify-content: center; padding: 40px; text-align: center; }
+    .empty p { max-width: 340px; margin: 0; color: #6b6e76; font-size: 15px; line-height: 1.7; }
+    iframe { display: block; width: 100%; height: 760px; border: 0; background: #fff; }
+    footer { margin-top: 28px; padding-top: 18px; border-top: 1px solid #d9d9dc; color: #6b6e76; font-size: 12px; line-height: 1.6; }
+    @media (max-width: 980px) { .page { padding: 0 22px 32px; } .workspace { grid-template-columns: 1fr; } .frame-shell, .empty { min-height: 540px; } }
+    @media (max-width: 620px) {
+      .page { padding: 0 16px 28px; }
+      .intro { grid-template-columns: 1fr; gap: 24px; padding: 36px 0 30px; }
+      .ttl { min-height: 140px; flex-direction: row; align-items: center; padding: 16px; border: 1px solid #002fa7; }
+      .ttl strong { font-size: 72px; } .ttl p { max-width: 100px; }
+      .steps { grid-template-columns: 1fr; }
+      .steps li + li { padding-left: 0; border-left: 0; border-top: 1px solid #d9d9dc; }
+      .actions { grid-template-columns: 1fr; } .actions button { min-height: 48px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <div class="brand">MCP Gateway</div>
+      <div class="edition">父页面 Cookie 对接 · 本机演示</div>
+    </header>
+    <section class="intro" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">登录与 API Key 领取</p>
+        <h1 id="page-title">从父页面进入<br>MCP 平台</h1>
+        <p class="intro-copy">输入已在 MCP 注册的普通用户，演示父页面写入身份 Cookie、领取授权 token，以及在 iframe 中打开工作区或 API Key 领取页。</p>
+      </div>
+      <aside class="ttl" aria-label="授权 token 默认有效期 12 小时">
+        <span>父页面授权 token 默认有效期</span>
+        <strong>12 <small>小时</small></strong>
+        <p>过期后凭身份 Cookie 重新授权</p>
+      </aside>
+    </section>
+    <ol class="steps" aria-label="登录流程">
+      <li><b>01</b><span>写入用户名和邮箱 Cookie</span></li>
+      <li><b>02</b><span>获取或复用授权 token</span></li>
+      <li><b>03</b><span>在 iframe 中打开 MCP 页面</span></li>
+    </ol>
+    <div class="workspace">
+      <section class="panel" aria-labelledby="settings-heading">
+        <div class="panel-head"><h2 id="settings-heading">父页面输入</h2><span>仅用于本机演示</span></div>
+        <div class="controls">
+          <form id="identity-form">
+            <label class="field" for="gateway-url">网关地址<input id="gateway-url" type="url" value="http://localhost:8000" required></label>
+            <label class="field" for="username">用户名<input id="username" autocomplete="username" placeholder="父平台当前用户名" required></label>
+            <label class="field" for="email">邮箱<input id="email" type="email" autocomplete="email" placeholder="MCP 已注册的普通用户邮箱" required></label>
+          </form>
+          <p class="help">页面会把用户名和邮箱写入当前站点 Cookie。父页面保存授权 token，网关为 iframe 设置单独的登录凭据。</p>
+          <div class="actions">
+            <button id="login" type="button">打开工作区</button>
+            <button id="key" type="button">打开 API Key 领取页</button>
+          </div>
+          <button class="clear" id="clear" type="button">清除父页面 Cookie 和 token</button>
+          <p class="status" id="status" role="status" aria-live="polite">填写账号后选择一个入口。</p>
+        </div>
+        <dl class="authorization">
+          <div><dt>授权状态</dt><dd id="token-state">未授权</dd></div>
+          <div><dt>到期时间</dt><dd id="token-expiry">—</dd></div>
+        </dl>
+      </section>
+      <section class="panel" aria-labelledby="preview-heading">
+        <div class="panel-head"><h2 id="preview-heading">MCP 页面预览</h2><span class="preview-url" id="preview-url">尚未打开</span></div>
+        <div class="frame-shell">
+          <div class="empty" id="empty"><p>完成左侧鉴权后，工作区或 API Key 领取页会显示在这里。</p></div>
+          <iframe id="gateway" title="MCP 网关" hidden></iframe>
+        </div>
+      </section>
+    </div>
+    <footer>请从 http://localhost:5173 打开本页，并将网关的 PORTAL_SSO_PARENT_ORIGIN 设为 http://localhost:5173。</footer>
+  </main>
+  <script>
+    const frame = document.querySelector("#gateway");
+    const form = document.querySelector("#identity-form");
+    const status = document.querySelector("#status");
+    const gatewayUrl = document.querySelector("#gateway-url");
+    const username = document.querySelector("#username");
+    const email = document.querySelector("#email");
+    const loginButton = document.querySelector("#login");
+    const keyButton = document.querySelector("#key");
+    const tokenState = document.querySelector("#token-state");
+    const tokenExpiry = document.querySelector("#token-expiry");
 
-      async function open(purpose) {
-        if (!gatewayUrl.reportValidity() || !username.reportValidity() || !email.reportValidity()) return;
-        document.cookie = `mcp_username=${encodeURIComponent(username.value.trim())}; Path=/; SameSite=Lax`;
-        document.cookie = `mcp_email=${encodeURIComponent(email.value.trim())}; Path=/; SameSite=Lax`;
-        status.textContent = "正在验证…";
-        try {
-          const gatewayOrigin = gatewayUrl.value.trim().replace(/\/$/, "");
-          const tokenKey = `mcp-portal-token:${gatewayOrigin}`;
-          const token = sessionStorage.getItem(tokenKey);
-          const response = await fetch(`${gatewayOrigin}/auth/portal/exchange`, {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ purpose, ...(token ? { token } : {}) }),
-          });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.detail || `鉴权失败 (${response.status})`);
-          const destination = new URL(result.next, gatewayOrigin);
-          if (destination.origin !== new URL(gatewayOrigin).origin) throw new Error("网关返回了无效地址");
-          sessionStorage.setItem(tokenKey, result.token);
-          if (purpose === "key") destination.searchParams.set("portal", "success");
-          frame.src = destination.href;
-          status.textContent = `${purpose === "login" ? "工作区登录成功" : "领取页鉴权成功"}；授权到期时间：${new Date(result.expires_at * 1000).toLocaleString()}。`;
-        } catch (error) {
-          status.textContent = error.message;
-        }
+    function origin() { return gatewayUrl.value.trim().replace(/\/$/, ""); }
+    function storageKey() { return "mcp-portal-token:" + origin(); }
+    function expiryKey() { return "mcp-portal-expires:" + origin(); }
+    function updateAuthorization() {
+      const token = sessionStorage.getItem(storageKey());
+      const expiresAt = Number(sessionStorage.getItem(expiryKey()));
+      if (!token || !expiresAt) {
+        tokenState.textContent = "未授权";
+        tokenExpiry.textContent = "—";
+        return;
       }
-
-      document.querySelector("#login").addEventListener("click", () => open("login"));
-      document.querySelector("#key").addEventListener("click", () => open("key"));
-      document.querySelector("#clear").addEventListener("click", () => {
-        document.cookie = "mcp_username=; Path=/; Max-Age=0; SameSite=Lax";
-        document.cookie = "mcp_email=; Path=/; Max-Age=0; SameSite=Lax";
-        sessionStorage.removeItem(`mcp-portal-token:${gatewayUrl.value.trim().replace(/\/$/, "")}`);
-        frame.removeAttribute("src");
-        status.textContent = "身份 Cookie 和授权 token 已清除。";
-      });
-    </script>
-  </body>
+      const seconds = Math.max(0, Math.ceil(expiresAt - Date.now() / 1000));
+      tokenState.textContent = seconds ? "有效，剩余 " + Math.floor(seconds / 3600) + " 小时 " + Math.floor(seconds % 3600 / 60) + " 分" : "已过期，需重新授权";
+      tokenExpiry.textContent = new Date(expiresAt * 1000).toLocaleString();
+    }
+    function setStatus(message, kind) {
+      status.textContent = message;
+      status.dataset.kind = kind;
+    }
+    window.addEventListener("message", (event) => {
+      if (event.origin !== new URL(origin()).origin || event.source !== frame.contentWindow) return;
+      if (event.data?.type === "contextforge-portal-cookie-required") setStatus("MCP 页面凭据已过期，请刷新父页面后重新打开。", "error");
+    });
+    async function open(purpose) {
+      if (!form.reportValidity()) return;
+      document.cookie = "mcp_username=" + encodeURIComponent(username.value.trim()) + "; Path=/; SameSite=Lax";
+      document.cookie = "mcp_email=" + encodeURIComponent(email.value.trim()) + "; Path=/; SameSite=Lax";
+      setStatus("正在验证 MCP 账号…", "pending");
+      loginButton.disabled = keyButton.disabled = true;
+      try {
+        const gatewayOrigin = origin();
+        const oldToken = sessionStorage.getItem(storageKey());
+        const response = await fetch(gatewayOrigin + "/auth/portal/exchange", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ purpose, ...(oldToken ? { token: oldToken } : {}) }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "鉴权失败 (" + response.status + ")");
+        const destination = new URL(result.next, gatewayOrigin);
+        if (destination.origin !== new URL(gatewayOrigin).origin) throw new Error("网关返回了无效地址");
+        sessionStorage.setItem(storageKey(), result.token);
+        sessionStorage.setItem(expiryKey(), String(result.expires_at));
+        if (purpose === "key") destination.searchParams.set("portal", "success");
+        document.querySelector("#preview-url").textContent = destination.pathname;
+        document.querySelector("#empty").hidden = true;
+        frame.hidden = false;
+        frame.src = destination.href;
+        updateAuthorization();
+        const grant = oldToken ? oldToken === result.token ? "已复用授权" : "已重新授权" : "首次授权成功";
+        setStatus(grant + "，正在打开" + (purpose === "login" ? "工作区。" : " API Key 领取页。"), "success");
+      } catch (error) {
+        setStatus(error.message, "error");
+      } finally {
+        loginButton.disabled = keyButton.disabled = false;
+      }
+    }
+    loginButton.addEventListener("click", () => open("login"));
+    keyButton.addEventListener("click", () => open("key"));
+    gatewayUrl.addEventListener("change", updateAuthorization);
+    document.querySelector("#clear").addEventListener("click", () => {
+      document.cookie = "mcp_username=; Path=/; Max-Age=0; SameSite=Lax";
+      document.cookie = "mcp_email=; Path=/; Max-Age=0; SameSite=Lax";
+      sessionStorage.removeItem(storageKey());
+      sessionStorage.removeItem(expiryKey());
+      frame.removeAttribute("src");
+      frame.hidden = true;
+      document.querySelector("#empty").hidden = false;
+      document.querySelector("#preview-url").textContent = "尚未打开";
+      updateAuthorization();
+      setStatus("父页面 Cookie 和 token 已清除。", "success");
+    });
+    updateAuthorization();
+    setInterval(updateAuthorization, 30000);
+  </script>
+</body>
 </html>
