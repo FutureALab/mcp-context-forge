@@ -101,7 +101,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 "burst": settings.rate_limit_critical_burst,
             },
             "CRITICAL_SSO": {
-                "pattern": r"^/auth/sso(/|$)",
+                "pattern": r"^/auth/(?:sso|portal)(/|$)",
                 "limit": settings.rate_limit_critical_rpm,
                 "burst": settings.rate_limit_critical_burst,
             },

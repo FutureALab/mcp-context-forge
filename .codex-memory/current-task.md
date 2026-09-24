@@ -1,5 +1,15 @@
 # Current Task
 
+## 2026-09-24: Spring Boot Session bridge without OIDC
+
+- The parent Vue page obtains purpose-bound tickets from its existing Spring Boot Session backend.
+- The gateway verifies HS256 tickets, exact Origin, 60-second lifetime, and one-time IDs in the database.
+- Login tickets create ordinary gateway sessions. Key tickets create only five-minute Key-page proofs.
+- A new user is created only for login, without administrator privileges. Existing accounts require `auth_provider=portal`.
+- Isolated live gateway testing passed login, Key-only authorization, scoped issuance, and MCP initialization.
+- The actual parent Spring Boot repository is unavailable; its Session lookup and CSRF integration remain deployment work.
+- See [[tasks/2026-09-24-portal-session-bridge]].
+
 ## 2026-09-23: Separate OAuth login and Key authorization
 
 - Workspace login can start the configured provider automatically with `/admin/login?auto_sso=corp-oidc`.

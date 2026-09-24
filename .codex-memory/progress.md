@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-09-24: Parent Session ticket bridge
+
+- Added a disabled-by-default parent ticket exchange route, replay table, migration, Key-page UI path, Vue helper, and Spring Boot integration guide.
+- Denial tests cover missing feature, bad Origin, invalid/expired/replayed ticket, wrong purpose, unregistered Key user, local account collision, and disabled account.
+- Live isolated gateway passed CORS preflight, browser login, session-only Key denial, separate Key proof, scoped Key issuance, and MCP initialization.
+- Five Python tests, eight JavaScript tests, Ruff, and migration idempotency passed.
+- Stopped the isolated gateway on port 4451 and removed its temporary database and secrets.
+- The actual parent Spring Boot code is not in this repository; the guide documents its required Session and CSRF integration points.
+
 ## 2026-09-23: Separate OAuth login and Key proof
 
 - Added a Key-only signed proof with a five-minute lifetime and separate signing key.

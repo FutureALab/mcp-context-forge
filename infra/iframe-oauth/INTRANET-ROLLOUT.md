@@ -1,5 +1,7 @@
 # 内网父平台嵌入 ContextForge 与自助领取 API Key
 
+如果父平台使用 Spring Boot Session Cookie，且不部署 OIDC，请使用 [父平台 Session 票据方案](../portal-session-bridge/README.md)。下文保留给已经有企业 OIDC 的环境。
+
 本文将 `infra/iframe-oauth` 的 OAuth 演示落地到内网父平台。登录页与 API Key 页使用同一个企业身份服务，但回调后的权限不同：登录页建立网关会话并自动登录；API Key 页只取得短期领取凭据，不建立网关会话。
 
 本方案假定 ContextForge 已部署并使用持久化数据库。现有部署、数据库和密钥保持不变。以下域名和客户端参数均为占位值，实施前必须替换。

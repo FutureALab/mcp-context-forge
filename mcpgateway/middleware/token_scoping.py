@@ -1306,6 +1306,7 @@ class TokenScopingMiddleware:
                 "/redoc",
                 "/auth/email/login",
                 "/auth/email/register",
+                "/auth/portal/exchange",  # Signed ticket and Origin are checked at this public exchange endpoint.
                 "/.well-known/",
             ]
 

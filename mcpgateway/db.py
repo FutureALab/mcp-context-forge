@@ -5795,6 +5795,15 @@ class SSOProvider(Base):
         return f"<SSOProvider(id='{self.id}', name='{self.name}', enabled={self.is_enabled})>"
 
 
+class PortalTicketUse(Base):
+    """Record consumed parent-application tickets across gateway workers."""
+
+    __tablename__ = "portal_ticket_uses"
+
+    jti: Mapped[str] = mapped_column(String(36), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+
 class SSOAuthSession(Base):
     """Tracks SSO authentication sessions and state.
 

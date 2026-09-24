@@ -15,6 +15,8 @@
   const provider = document.getElementById("member-sso-provider");
   const ssoMode = document.getElementById("member-mode-sso");
   const passwordMode = document.getElementById("member-mode-password");
+  const portalSso = form.dataset.portalSso === "true";
+  const portalParentOrigin = form.dataset.parentOrigin;
   let servers = [];
   let account = "";
   let mode = "sso";
@@ -88,6 +90,7 @@
     invalidateAccount();
   }
   async function loadProviders() {
+    if (portalSso) return;
     try {
       const response = await fetch(`${form.dataset.root}/auth/sso/providers`, { credentials: "same-origin" });
       if (!response.ok) throw new Error("OAuth 未启用");
@@ -102,6 +105,12 @@
     }
   }
   async function startSso() {
+    if (portalSso) {
+      if (window.parent === window || !portalParentOrigin) throw new Error("请从内网父平台打开领取页面。");
+      window.parent.postMessage({ type: "contextforge-portal-ticket-required", purpose: "key" }, portalParentOrigin);
+      message.textContent = "正在等待内网平台重新鉴权…";
+      return;
+    }
     if (!provider.value) {
       message.textContent = "请选择 OAuth 服务。";
       return;
@@ -234,8 +243,8 @@
     if (params.get("error") === "unregistered") {
       message.textContent = "该用户未在系统中注册，请联系管理员处理。";
     } else if (params.has("error")) {
-      message.textContent = "OAuth 授权失败，请重试。";
-    } else if (params.get("sso") === "success" && mode === "sso") {
+      message.textContent = "授权失败，请重试。";
+    } else if ((params.get("sso") === "success" || params.get("portal") === "success") && mode === "sso") {
       load.click();
     }
   });

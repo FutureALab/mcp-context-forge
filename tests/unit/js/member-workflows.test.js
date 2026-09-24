@@ -134,6 +134,25 @@ test("self-service OAuth keeps the provider callback address unchanged", async (
   vi.unstubAllGlobals();
 });
 
+test("self-service parent ticket proof loads teams without an OIDC provider", async () => {
+  window.history.replaceState({}, "", "?portal=success");
+  document.body.innerHTML = template("member_key")
+    .replace("{{ 'true' if portal_sso_enabled else 'false' }}", "true")
+    .replace("{{ portal_sso_parent_origin }}", "http://portal.test");
+  const fetchMock = vi.fn(async () => response({
+    email: "member@example.com",
+    teams: [{ id: "my-team", name: "My Team" }],
+    servers: [{ id: "server-a", name: "MCP", eligible_team_ids: ["my-team"] }],
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+  await import("../../../mcpgateway/static/member-key.js?portal-ticket");
+  await vi.waitFor(() => expect(el("member-team").disabled).toBe(false));
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock.mock.calls[0][0]).toContain("sso/options");
+  window.history.replaceState({}, "", "/");
+  vi.unstubAllGlobals();
+});
+
 test("monitoring renders charts, methods and formatted times; member actions target the selected MCP", async () => {
   document.body.innerHTML =
     template("member_usage") +

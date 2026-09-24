@@ -95,7 +95,7 @@ def management_team(db: Session, server: Server, team_id: str | None) -> EmailTe
 
 def require_self_service(auth_mode: str | None = None) -> None:
     """Reject self-service when the operator disables the feature."""
-    mode_enabled = {None: settings.email_auth_enabled or settings.sso_enabled, "password": settings.email_auth_enabled, "sso": settings.sso_enabled}
+    mode_enabled = {None: settings.email_auth_enabled or settings.sso_enabled or settings.portal_sso_enabled, "password": settings.email_auth_enabled, "sso": settings.sso_enabled or settings.portal_sso_enabled}
     if not settings.self_service_api_keys_enabled or not mode_enabled.get(auth_mode, False):
         raise HTTPException(404, "自助领取未启用")
 
@@ -127,9 +127,9 @@ async def authenticate_member(request: Request, body: AccountRequest, db: Sessio
 
 
 def authenticate_sso_member(request: Request, db: Session) -> EmailUser:
-    """Accept only the Key page's OAuth proof for an active local account."""
+    """Accept only the Key page's dedicated proof for an active local account."""
     if request.headers.get("authorization"):
-        raise HTTPException(403, "请使用领取页面完成 OAuth 授权")
+        raise HTTPException(403, "请使用领取页面完成鉴权")
     email, provider = read_member_key_proof(request.cookies.get(MEMBER_KEY_PROOF_COOKIE))
     user = registered_user(db, email)
     if not user.auth_provider or user.auth_provider.lower() != provider.lower():
@@ -195,6 +195,8 @@ async def member_key_page(request: Request):
         {
             "root_path": request.scope.get("root_path", ""),
             "bundle_css": get_bundle_css_files(),
+            "portal_sso_enabled": settings.portal_sso_enabled,
+            "portal_sso_parent_origin": settings.portal_sso_parent_origin.rstrip("/"),
         },
     )
     _set_admin_csrf_cookie(request, response)

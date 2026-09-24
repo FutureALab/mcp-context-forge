@@ -200,6 +200,13 @@ def _assemble_routers(  # noqa: C901 — deliberate single-function assembly, co
             target_router.include_router(auth_router, tags=["Main Authentication"])
             logger.info("Authentication routers included - Auth enabled")
 
+            if settings.portal_sso_enabled:
+                # First-Party
+                from mcpgateway.routers.portal_sso import router as portal_sso_router  # pylint: disable=import-outside-toplevel
+
+                target_router.include_router(portal_sso_router)
+                logger.info("Parent application ticket exchange included")
+
             if settings.sso_enabled:
                 try:
                     # First-Party
