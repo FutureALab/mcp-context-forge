@@ -64,3 +64,9 @@
 - The demo now instructs users to serve it from `http://localhost:5173` and reports gateway connection failures clearly.
 - The account's email-verification checkbox does not cause the browser's `Failed to fetch` error.
 - The served HTTP page now shows a specific gateway connection error. The in-app browser blocked direct `file://` verification.
+
+## Two-service local setup
+
+- A later screenshot showed the 5173 static server serving the page while port 8000 had no gateway listener.
+- The local guide now starts the gateway and static page in separate PowerShell windows, then points the form at the gateway's actual port.
+- The demo explains that port 5173 only serves the page. No running gateway or user database was changed during this diagnosis.

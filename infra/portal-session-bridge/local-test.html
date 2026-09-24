@@ -121,7 +121,7 @@
         </div>
       </section>
     </div>
-    <footer>请从 http://localhost:5173 打开本页，并将网关的 PORTAL_SSO_PARENT_ORIGIN 设为 http://localhost:5173。</footer>
+    <footer>此页需要两个服务：5173 提供演示页，MCP 网关需另行启动。请从 http://localhost:5173 打开本页，并填写网关实际监听的端口。</footer>
   </main>
   <script>
     const frame = document.querySelector("#gateway");
@@ -180,7 +180,7 @@
             body: JSON.stringify({ purpose, ...(oldToken ? { token: oldToken } : {}) }),
           });
         } catch (error) {
-          if (error instanceof TypeError) throw new Error("无法连接网关 " + gatewayOrigin + "。请确认网关已启动，并允许当前页面来源。");
+          if (error instanceof TypeError) throw new Error("无法连接网关 " + gatewayOrigin + "。5173 只提供演示页；请另行启动 MCP 网关，并填写实际端口。");
           throw error;
         }
         const result = await response.json().catch(() => ({}));

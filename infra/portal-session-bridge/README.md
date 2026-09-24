@@ -88,7 +88,23 @@ onBeforeUnmount(() => stopListening?.())
 
 ## 本机按钮验证
 
-启动网关后，在仓库根目录运行 `python -m http.server 5173 --bind localhost`，打开演示页 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。不要双击 HTML 文件或使用 `file://`。确认网关正在监听“网关地址”中的端口；页面默认填写 `http://localhost:8000`，而 `python -m mcpgateway` 默认使用 `4444`。将 `PORTAL_SSO_PARENT_ORIGIN` 设为 `http://localhost:5173`，把该 Origin 加入 `ALLOWED_ORIGINS`，并设置 `X_FRAME_OPTIONS=none`、`SECURE_COOKIES=false`。输入 MCP 已注册普通用户的用户名和邮箱，依次点击“打开工作区”和“打开 API Key 领取页”。页面展示首次授权、token 复用和到期时间，并在 iframe 中加载网关。
+需要同时运行网关和静态页面服务。`python -m http.server` 只提供演示页，不会启动 MCP 网关。在仓库根目录打开两个 PowerShell 窗口：
+
+1. 在第一个窗口启动网关。下面的变量只对当前窗口有效；`python -m mcpgateway` 默认监听 4444 端口。
+
+   ```powershell
+   $env:PORTAL_SSO_ENABLED = 'true'
+   $env:PORTAL_SSO_PARENT_ORIGIN = 'http://localhost:5173'
+   $env:ALLOWED_ORIGINS = '["http://localhost:5173","http://localhost:4444"]'
+   $env:X_FRAME_OPTIONS = 'none'
+   $env:SECURE_COOKIES = 'false'
+   python -m mcpgateway
+   ```
+
+2. 在第二个窗口运行 `python -m http.server 5173 --bind localhost`。
+3. 打开 `http://localhost:5173/infra/portal-session-bridge/local-test.html`，把“网关地址”改成 `http://localhost:4444`。不要双击 HTML 文件或使用 `file://`。
+
+如果使用 `make dev`，网关端口为 8000，页面中的网关地址保持 `http://localhost:8000`。输入 MCP 已注册普通用户的用户名和邮箱，依次点击“打开工作区”和“打开 API Key 领取页”。页面展示首次授权、token 复用和到期时间，并在 iframe 中加载网关。
 
 ## 验收
 
