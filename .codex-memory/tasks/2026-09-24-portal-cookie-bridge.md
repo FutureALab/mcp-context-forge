@@ -23,3 +23,11 @@
 - Isolated live HTTP checks passed Cookie login, `/auth/validate`, workspace iframe loading, Key options, scoped Key issuance, and missing-Cookie denial.
 - Test gateways stopped and temporary databases were removed.
 - The real parent Vue project was not available. Browser-writable identity Cookies do not prove the parent login state.
+
+## Local browser verification
+
+- Added `infra/portal-session-bridge/local-test.html` to test the parent Cookie flow with buttons instead of DevTools Console paste.
+- Windows Python serves `.js` as `text/plain`, so the standalone test page uses an inline script.
+- Browser verification passed against an isolated gateway on port 4445: the login iframe loaded the workspace, and the Key iframe loaded the account's Team.
+- Port 8000 was unavailable on this host. The test page accepts a different gateway address.
+- The isolated gateway and static server stopped. The temporary SQLite database and log were removed.

@@ -80,6 +80,10 @@ onBeforeUnmount(() => stopListening?.())
 
 在父页面取得已登录用户资料后调用 `setIdentity(user)`，然后再显示入口。父页面退出登录时，用相同的 `Path` 和 `Domain` 将两个 Cookie 的 `Max-Age` 设为 `0`。领取凭据过期后刷新父页面，再调用 `open('key')`。
 
+## 本机按钮验证
+
+启动网关后，在仓库根目录运行 `python -m http.server 5173 --bind localhost`，打开 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。页面默认使用 `http://localhost:8000`；如果网关使用其他端口，在“网关地址”输入实际地址。将 `PORTAL_SSO_PARENT_ORIGIN` 设为 `http://localhost:5173`，把该 Origin 加入 `ALLOWED_ORIGINS`，并设置 `X_FRAME_OPTIONS=none`、`SECURE_COOKIES=false`。输入未注册过的测试邮箱，先点“验证工作区登录”，再点“验证 API Key 领取页”。测试页会写入父页面 Cookie，并显示网关 iframe，无需在浏览器控制台粘贴代码。
+
 ## 验收
 
 - 缺少任一身份 Cookie、错误 Origin、关闭桥接开关或停用账号时，交换必须失败。

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <title>MCP 本机 Cookie 验证</title>
+    <style>
+      body { font: 16px/1.5 system-ui, sans-serif; margin: 24px; }
+      label { display: block; margin: 12px 0; }
+      input { width: min(28rem, 100%); padding: 8px; }
+      button { margin-right: 8px; padding: 8px 12px; }
+      iframe { display: block; width: 100%; height: 720px; margin-top: 20px; border: 1px solid #ccc; }
+      #status { min-height: 1.5em; }
+    </style>
+  </head>
+  <body>
+    <h1>MCP 本机 Cookie 验证</h1>
+    <p>请从 <code>http://localhost:5173</code> 打开此页，并先启动本机网关。</p>
+    <label>网关地址 <input id="gateway-url" type="url" value="http://localhost:8000" required></label>
+    <label>用户名 <input id="username" value="本机测试用户" required></label>
+    <label>邮箱 <input id="email" type="email" placeholder="使用尚未注册的测试邮箱" required></label>
+    <button id="login" type="button">验证工作区登录</button>
+    <button id="key" type="button">验证 API Key 领取页</button>
+    <button id="clear" type="button">清除身份 Cookie</button>
+    <p id="status" role="status"></p>
+    <iframe id="gateway" title="MCP 网关"></iframe>
+    <script>
+      const frame = document.querySelector("#gateway");
+      const status = document.querySelector("#status");
+      const gatewayUrl = document.querySelector("#gateway-url");
+      const username = document.querySelector("#username");
+      const email = document.querySelector("#email");
+      window.addEventListener("message", (event) => {
+        if (event.origin !== new URL(gatewayUrl.value.trim()).origin || event.source !== frame.contentWindow) return;
+        if (event.data?.type === "contextforge-portal-cookie-required") status.textContent = "MCP 凭据已过期，请刷新父页面。";
+      });
+
+      async function open(purpose) {
+        if (!gatewayUrl.reportValidity() || !username.reportValidity() || !email.reportValidity()) return;
+        document.cookie = `mcp_username=${encodeURIComponent(username.value.trim())}; Path=/; SameSite=Lax`;
+        document.cookie = `mcp_email=${encodeURIComponent(email.value.trim())}; Path=/; SameSite=Lax`;
+        status.textContent = "正在验证…";
+        try {
+          const gatewayOrigin = gatewayUrl.value.trim().replace(/\/$/, "");
+          const response = await fetch(`${gatewayOrigin}/auth/portal/exchange`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ purpose }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || `鉴权失败 (${response.status})`);
+          const destination = new URL(result.next, gatewayOrigin);
+          if (destination.origin !== new URL(gatewayOrigin).origin) throw new Error("网关返回了无效地址");
+          if (purpose === "key") destination.searchParams.set("portal", "success");
+          frame.src = destination.href;
+          status.textContent = purpose === "login" ? "工作区登录成功。" : "领取页鉴权成功。";
+        } catch (error) {
+          status.textContent = error.message;
+        }
+      }
+
+      document.querySelector("#login").addEventListener("click", () => open("login"));
+      document.querySelector("#key").addEventListener("click", () => open("key"));
+      document.querySelector("#clear").addEventListener("click", () => {
+        document.cookie = "mcp_username=; Path=/; Max-Age=0; SameSite=Lax";
+        document.cookie = "mcp_email=; Path=/; Max-Age=0; SameSite=Lax";
+        frame.removeAttribute("src");
+        status.textContent = "身份 Cookie 已清除。";
+      });
+    </script>
+  </body>
+</html>
