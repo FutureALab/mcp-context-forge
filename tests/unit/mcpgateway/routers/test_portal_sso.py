@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 # First-Party
 from mcpgateway.db import Base, EmailUser, get_db
 from mcpgateway.routers.portal_sso import router
+from mcpgateway.utils.member_key_proof import read_member_key_proof
 
 
 class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
@@ -24,6 +25,7 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
         Base.metadata.create_all(self.engine)
         self.db = Session(self.engine)
         self.db.add(EmailUser(email="member@example.com", auth_provider="portal", is_active=True, is_admin=False))
+        self.db.add(EmailUser(email="local-member@example.com", auth_provider="local", is_active=True, is_admin=False))
         self.db.add(EmailUser(email="local@example.com", auth_provider="local", is_active=True, is_admin=True))
         self.db.add(EmailUser(email="admin@example.com", auth_provider="portal", is_active=True, is_admin=True))
         self.db.add(EmailUser(email="disabled@example.com", auth_provider="portal", is_active=False, is_admin=False))
@@ -74,6 +76,7 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((await self.exchange(email="local@example.com")).status_code, 403)
             self.assertEqual((await self.exchange(email="admin@example.com")).status_code, 403)
             self.assertEqual((await self.exchange(email="disabled@example.com")).status_code, 403)
+            self.assertEqual((await self.exchange(email="unknown@example.com")).status_code, 403)
             self.assertEqual((await self.exchange("key", email="unknown@example.com")).status_code, 403)
             self.assertEqual((await self.exchange("invalid")).status_code, 422)
             with patch("mcpgateway.routers.portal_sso.settings.self_service_api_keys_enabled", False):
@@ -81,20 +84,21 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
             with patch("mcpgateway.routers.portal_sso.settings.portal_sso_enabled", False):
                 self.assertEqual((await self.exchange()).status_code, 404)
 
-    async def test_only_login_provisions_an_unprivileged_user(self):
-        """Create an ordinary account at login, then allow Key authorization."""
+    async def test_only_registered_users_can_exchange_cookies(self):
+        """Reject unknown accounts without creating them, and accept a registered local user."""
         with patch("mcpgateway.routers.portal_sso.settings.portal_sso_enabled", True), patch("mcpgateway.routers.portal_sso.settings.self_service_api_keys_enabled", True), patch(
             "mcpgateway.routers.portal_sso.settings.portal_sso_parent_origin", "http://portal.test"
         ):
             email = "newmember@example.com"
             self.assertEqual((await self.exchange("key", email=email)).status_code, 403)
             login = await self.exchange("login", email=email, username="New Member")
-            self.assertEqual(login.status_code, 200, login.text)
-            user = self.db.query(EmailUser).filter_by(email=email).one()
-            self.assertEqual(user.auth_provider, "portal")
-            self.assertEqual(user.full_name, "New Member")
-            self.assertFalse(user.is_admin)
-            self.assertEqual((await self.exchange("key", email=email)).status_code, 200)
+            self.assertEqual(login.status_code, 403, login.text)
+            self.assertIsNone(self.db.query(EmailUser).filter_by(email=email).one_or_none())
+            local_login = await self.exchange("login", email="local-member@example.com")
+            self.assertEqual(local_login.status_code, 200, local_login.text)
+            local_key = await self.exchange("key", email="local-member@example.com")
+            self.assertEqual(local_key.status_code, 200, local_key.text)
+            self.assertEqual(read_member_key_proof(local_key.cookies.get("member_key_proof")), ("local-member@example.com", "local"))
 
     async def test_proxy_prefix_scopes_both_cookies(self):
         """Return iframe URLs and cookies beneath the configured proxy prefix."""

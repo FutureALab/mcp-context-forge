@@ -1,7 +1,6 @@
 """Exchange parent-page identity cookies for gateway browser credentials."""
 
 # Standard
-import secrets
 from typing import Literal
 from urllib.parse import unquote
 
@@ -9,13 +8,12 @@ from urllib.parse import unquote
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 # First-Party
 from mcpgateway.admin import rate_limit
 from mcpgateway.config import settings
-from mcpgateway.db import EmailUser, get_db
+from mcpgateway.db import get_db
 from mcpgateway.services.email_auth_service import EmailAuthService, EmailValidationError
 from mcpgateway.services.server_member_service import registered_user
 from mcpgateway.utils.create_jwt_token import create_jwt_token
@@ -53,7 +51,7 @@ def _cookie_identity(request: Request) -> tuple[str, str]:
 @rate_limit(requests_per_minute=20)
 async def exchange_portal_cookies(request: Request, body: PortalExchangeRequest, db: Session = Depends(get_db)) -> JSONResponse:
     """Issue a login session or Key-only proof for a parent-cookie account."""
-    email, username = _cookie_identity(request)
+    email, _username = _cookie_identity(request)
     if body.purpose == "key" and not settings.self_service_api_keys_enabled:
         raise HTTPException(404, "自助领取未启用")
     auth_service = EmailAuthService(db)
@@ -61,13 +59,9 @@ async def exchange_portal_cookies(request: Request, body: PortalExchangeRequest,
         auth_service.validate_email(email)
     except EmailValidationError as exc:
         raise HTTPException(401, "父平台账号邮箱无效") from exc
-    user = db.execute(select(EmailUser).where(func.lower(EmailUser.email) == email)).scalar_one_or_none()
-    if body.purpose == "key":
-        user = registered_user(db, email)
-    elif user is None:
-        user = await auth_service.create_user(email=email, password=secrets.token_urlsafe(32), full_name=username, is_admin=False, auth_provider=_PROVIDER)
-    if not user or not user.is_active or str(user.auth_provider or "").lower() != _PROVIDER or user.is_admin:
-        raise HTTPException(403, "账号未绑定父平台、已停用或需管理员登录")
+    user = registered_user(db, email)
+    if user.is_admin:
+        raise HTTPException(403, "请使用管理员登录入口")
 
     root_path = resolve_root_path(request)
     destination = f"{root_path}/admin" if body.purpose == "login" else f"{root_path}/admin/api-key"
@@ -89,7 +83,7 @@ async def exchange_portal_cookies(request: Request, body: PortalExchangeRequest,
     else:
         response.set_cookie(
             key=MEMBER_KEY_PROOF_COOKIE,
-            value=create_member_key_proof(user.email, _PROVIDER),
+            value=create_member_key_proof(user.email, user.auth_provider),
             max_age=MEMBER_KEY_PROOF_TTL_SECONDS,
             httponly=True,
             secure=(settings.environment == "production") or settings.secure_cookies,

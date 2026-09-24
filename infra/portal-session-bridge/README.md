@@ -1,15 +1,15 @@
 # 父页面 Cookie 对接 ContextForge
 
-此方案不需要 OIDC，也不调用 Spring Boot Session 接口。父页面写入 `mcp_username` 和 `mcp_email` Cookie。ContextForge 在启用 `PORTAL_SSO_ENABLED` 后，按这些 Cookie 查找或创建普通用户，并设置自己的浏览器凭据。这个流程是自定义 Cookie 登录桥接，并非 OAuth 协议。
+此方案不需要 OIDC，也不调用 Spring Boot Session 接口。父页面写入 `mcp_username` 和 `mcp_email` Cookie。ContextForge 在启用 `PORTAL_SSO_ENABLED` 后，只允许 MCP 已注册且启用的普通用户登录，并设置自己的浏览器凭据。这个流程是自定义 Cookie 登录桥接，并非 OAuth 协议。
 
 ## 页面流程
 
 1. 父页面确认用户已经登录，然后写入 `mcp_username`、`mcp_email`。退出登录时删除这两个 Cookie。
-2. 打开工作区前，父页面调用 `POST /auth/portal/exchange`，请求体为 `{"purpose":"login"}`。网关设置一小时的 HttpOnly `jwt_token` Cookie，并返回 `{"next":"/admin"}`。
+2. 打开工作区前，父页面调用 `POST /auth/portal/exchange`，请求体为 `{"purpose":"login"}`。网关设置一小时的 HttpOnly `jwt_token` Cookie，并返回 `{"next":"/admin"}`，不回传长期登录 token。
 3. 打开 API Key 领取页前，用同一个接口传 `{"purpose":"key"}`。网关设置五分钟的 HttpOnly `member_key_proof` Cookie，并返回 `{"next":"/admin/api-key"}`。此 Cookie 不能登录工作区。
 4. 父页面将返回的 `next` 加载到 iframe。工作区或领取凭据过期时，iframe 通知父页面显示“请刷新页面”。刷新后重新交换 Cookie。
 
-领取页仅接受已经注册、启用且绑定 `portal` 的账号。工作区首次登录可创建普通账号。已有其他登录方式的账号不会按邮箱自动绑定。平台管理员仍使用原有管理员登录入口。Team、虚拟 MCP 的可见性和领取权限仍由网关检查。
+两个入口均只接受已经注册、启用的普通账号，未注册邮箱不会自动创建账号。账号以邮箱为唯一标识；`mcp_username` 必须存在，但不与显示名匹配。平台管理员仍使用原有管理员登录入口。Team、虚拟 MCP 的可见性和领取权限仍由网关检查。
 
 ## Cookie 与网关配置
 
@@ -82,13 +82,13 @@ onBeforeUnmount(() => stopListening?.())
 
 ## 本机按钮验证
 
-启动网关后，在仓库根目录运行 `python -m http.server 5173 --bind localhost`，打开 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。页面默认使用 `http://localhost:8000`；如果网关使用其他端口，在“网关地址”输入实际地址。将 `PORTAL_SSO_PARENT_ORIGIN` 设为 `http://localhost:5173`，把该 Origin 加入 `ALLOWED_ORIGINS`，并设置 `X_FRAME_OPTIONS=none`、`SECURE_COOKIES=false`。输入未注册过的测试邮箱，先点“验证工作区登录”，再点“验证 API Key 领取页”。测试页会写入父页面 Cookie，并显示网关 iframe，无需在浏览器控制台粘贴代码。
+启动网关后，在仓库根目录运行 `python -m http.server 5173 --bind localhost`，打开 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。页面默认使用 `http://localhost:8000`；如果网关使用其他端口，在“网关地址”输入实际地址。将 `PORTAL_SSO_PARENT_ORIGIN` 设为 `http://localhost:5173`，把该 Origin 加入 `ALLOWED_ORIGINS`，并设置 `X_FRAME_OPTIONS=none`、`SECURE_COOKIES=false`。输入 MCP 已注册普通用户的邮箱，先点“验证工作区登录”，再点“验证 API Key 领取页”。测试页会写入父页面 Cookie，并显示网关 iframe，无需在浏览器控制台粘贴代码。
 
 ## 验收
 
 - 缺少任一身份 Cookie、错误 Origin、关闭桥接开关或停用账号时，交换必须失败。
 - 工作区交换只设置 `jwt_token`；领取交换只设置 `member_key_proof`。只有工作区 Cookie 时，领取接口返回 401。
-- 新用户首次登录不是管理员。领取前检查有效 Team、所选虚拟 MCP 和 `servers.use` 权限。
+- 未注册用户不能通过登录或领取入口，管理员不能通过 Cookie 桥接。领取前检查有效 Team、所选虚拟 MCP 和 `servers.use` 权限。
 - 从父页面打开两个 iframe 入口，并使用领取的 API Key 调用所选 MCP。
 
 前端可以改写 `mcp_username` 和 `mcp_email`。此模式不验证父平台登录状态，适用于用户已经接受该信任边界的受控内网部署。网关不会把 Cookie 中的管理员标记当作权限来源。

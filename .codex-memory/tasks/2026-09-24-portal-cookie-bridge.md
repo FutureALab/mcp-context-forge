@@ -11,8 +11,8 @@
 ## Changed behavior
 
 - `POST /auth/portal/exchange` accepts `purpose: login` or `purpose: key` and checks the exact parent Origin.
-- Login creates an ordinary portal user when necessary and sets a one-hour HttpOnly gateway session.
-- Key authorization requires an existing active portal user and sets a five-minute, Key-only proof.
+- Login requires an existing active, non-admin MCP account and sets a one-hour HttpOnly gateway session.
+- Key authorization requires the same registered account and sets a five-minute, Key-only proof.
 - The iframe reports expired workspace or Key credentials to the parent page, which shows a refresh prompt.
 - Cached auth context now preserves the user ID for UUID-subject session validation.
 - `infra/portal-session-bridge/README.md` contains the Vue and HTTP deployment contract.
@@ -31,3 +31,12 @@
 - Browser verification passed against an isolated gateway on port 4445: the login iframe loaded the workspace, and the Key iframe loaded the account's Team.
 - Port 8000 was unavailable on this host. The test page accepts a different gateway address.
 - The isolated gateway and static server stopped. The temporary SQLite database and log were removed.
+
+## Registered-account restriction
+
+- Removed Cookie-login account creation. Both exchange purposes reject unknown or disabled email accounts with 403.
+- Existing local and portal ordinary accounts can use the Cookie bridge; administrators still use the administrator login.
+- MCP identifies users by email. `mcp_username` must be present but is not matched to the display name.
+- The exchange response contains only `next`; it does not return a long-lived token to the parent page.
+- Four route tests and Ruff passed. Browser checks confirmed unknown-account denial, normal registered-user workspace login, and Key-page Team lookup.
+- Test services stopped, and the disposable database and log were removed.
