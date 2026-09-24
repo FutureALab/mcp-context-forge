@@ -70,3 +70,8 @@
 - A later screenshot showed the 5173 static server serving the page while port 8000 had no gateway listener.
 - The local guide now starts the gateway and static page in separate PowerShell windows, then points the form at the gateway's actual port.
 - The demo explains that port 5173 only serves the page. No running gateway or user database was changed during this diagnosis.
+
+## Windows Python environment
+
+- The base `I:\anaconda\python.exe` lacks `uvicorn`; `I:\anaconda\envs\py312\python.exe` has it.
+- The local guide now starts the gateway with the `py312` interpreter and UTF-8 console output.

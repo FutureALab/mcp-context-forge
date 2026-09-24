@@ -90,7 +90,7 @@ onBeforeUnmount(() => stopListening?.())
 
 需要同时运行网关和静态页面服务。`python -m http.server` 只提供演示页，不会启动 MCP 网关。在仓库根目录打开两个 PowerShell 窗口：
 
-1. 在第一个窗口启动网关。下面的变量只对当前窗口有效；`python -m mcpgateway` 默认监听 4444 端口。
+1. 在第一个窗口启动网关。下面的变量只对当前窗口有效；本机基础环境的 `python` 缺少 `uvicorn`，因此使用已安装项目依赖的 `py312` 环境。网关默认监听 4444 端口。
 
    ```powershell
    $env:PORTAL_SSO_ENABLED = 'true'
@@ -98,7 +98,8 @@ onBeforeUnmount(() => stopListening?.())
    $env:ALLOWED_ORIGINS = '["http://localhost:5173","http://localhost:4444"]'
    $env:X_FRAME_OPTIONS = 'none'
    $env:SECURE_COOKIES = 'false'
-   python -m mcpgateway
+   $env:PYTHONIOENCODING = 'utf-8'
+   & 'I:\anaconda\envs\py312\python.exe' -m mcpgateway
    ```
 
 2. 在第二个窗口运行 `python -m http.server 5173 --bind localhost`。
