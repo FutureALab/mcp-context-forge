@@ -57,3 +57,10 @@
 - `local-test.html` shows the Cookie, token, and iframe steps, token status, expiry, and both page entries.
 - Browser verification confirmed first authorization, token reuse, workspace loading, Key page Team lookup, and clearing parent credentials.
 - Six Python route tests and Ruff passed. Both temporary services stopped, and test database files were removed.
+
+## Demo connection diagnosis
+
+- A screenshot showed the demo opened through `file://` while no gateway listened on port 8000.
+- The demo now instructs users to serve it from `http://localhost:5173` and reports gateway connection failures clearly.
+- The account's email-verification checkbox does not cause the browser's `Failed to fetch` error.
+- The served HTTP page now shows a specific gateway connection error. The in-app browser blocked direct `file://` verification.

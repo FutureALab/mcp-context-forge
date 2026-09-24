@@ -88,7 +88,7 @@ onBeforeUnmount(() => stopListening?.())
 
 ## 本机按钮验证
 
-启动网关后，在仓库根目录运行 `python -m http.server 5173 --bind localhost`，打开演示页 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。页面默认使用 `http://localhost:8000`；如果网关使用其他端口，在“网关地址”输入实际地址。将 `PORTAL_SSO_PARENT_ORIGIN` 设为 `http://localhost:5173`，把该 Origin 加入 `ALLOWED_ORIGINS`，并设置 `X_FRAME_OPTIONS=none`、`SECURE_COOKIES=false`。输入 MCP 已注册普通用户的用户名和邮箱，依次点击“打开工作区”和“打开 API Key 领取页”。页面展示首次授权、token 复用和到期时间，并在 iframe 中加载网关。
+启动网关后，在仓库根目录运行 `python -m http.server 5173 --bind localhost`，打开演示页 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。不要双击 HTML 文件或使用 `file://`。确认网关正在监听“网关地址”中的端口；页面默认填写 `http://localhost:8000`，而 `python -m mcpgateway` 默认使用 `4444`。将 `PORTAL_SSO_PARENT_ORIGIN` 设为 `http://localhost:5173`，把该 Origin 加入 `ALLOWED_ORIGINS`，并设置 `X_FRAME_OPTIONS=none`、`SECURE_COOKIES=false`。输入 MCP 已注册普通用户的用户名和邮箱，依次点击“打开工作区”和“打开 API Key 领取页”。页面展示首次授权、token 复用和到期时间，并在 iframe 中加载网关。
 
 ## 验收
 

@@ -159,6 +159,10 @@
       if (event.data?.type === "contextforge-portal-cookie-required") setStatus("MCP 页面凭据已过期，请刷新父页面后重新打开。", "error");
     });
     async function open(purpose) {
+      if (location.protocol === "file:") {
+        setStatus("请先运行 python -m http.server 5173 --bind localhost，再从 http://localhost:5173/infra/portal-session-bridge/local-test.html 打开本页。", "error");
+        return;
+      }
       if (!form.reportValidity()) return;
       document.cookie = "mcp_username=" + encodeURIComponent(username.value.trim()) + "; Path=/; SameSite=Lax";
       document.cookie = "mcp_email=" + encodeURIComponent(email.value.trim()) + "; Path=/; SameSite=Lax";
@@ -167,12 +171,18 @@
       try {
         const gatewayOrigin = origin();
         const oldToken = sessionStorage.getItem(storageKey());
-        const response = await fetch(gatewayOrigin + "/auth/portal/exchange", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ purpose, ...(oldToken ? { token: oldToken } : {}) }),
-        });
+        let response;
+        try {
+          response = await fetch(gatewayOrigin + "/auth/portal/exchange", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ purpose, ...(oldToken ? { token: oldToken } : {}) }),
+          });
+        } catch (error) {
+          if (error instanceof TypeError) throw new Error("无法连接网关 " + gatewayOrigin + "。请确认网关已启动，并允许当前页面来源。");
+          throw error;
+        }
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.detail || "鉴权失败 (" + response.status + ")");
         const destination = new URL(result.next, gatewayOrigin);
@@ -209,6 +219,7 @@
       setStatus("父页面 Cookie 和 token 已清除。", "success");
     });
     updateAuthorization();
+    if (location.protocol === "file:") setStatus("当前通过 file:// 打开。请先运行 python -m http.server 5173 --bind localhost，再从 http://localhost:5173/infra/portal-session-bridge/local-test.html 打开本页。", "error");
     setInterval(updateAuthorization, 30000);
   </script>
 </body>
