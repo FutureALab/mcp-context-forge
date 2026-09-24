@@ -106,6 +106,57 @@ test("self-service OAuth checks the session and issues without password fields",
   vi.unstubAllGlobals();
 });
 
+test("self-service offers a personal workspace and public MCPs without a team", async () => {
+  document.body.innerHTML = template("member_key");
+  const fetchMock = vi.fn(async (url) => {
+    if (url.endsWith("/auth/sso/providers")) {
+      return response([{ id: "example", display_name: "Example" }]);
+    }
+    if (url.endsWith("sso/options")) {
+      return response({
+        email: "member@example.com",
+        teams: [{ id: "personal-team", name: "Member's Team", is_personal: true }],
+        servers: [
+          { id: "private-server", name: "Private", eligible_team_ids: ["personal-team"], public_access: false },
+          { id: "public-server", name: "Public", visibility: "public", eligible_team_ids: ["personal-team"], public_access: true },
+        ],
+      });
+    }
+    return response({ api_key: "public-key", expires_at: "2026-10-17T12:00:00Z" });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  await import("../../../mcpgateway/static/member-key.js?public-choice");
+  await vi.waitFor(() => expect(el("member-sso-provider").value).toBe("example"));
+  el("load-memberships").click();
+  await vi.waitFor(() => expect(el("member-team").disabled).toBe(false));
+  expect(el("member-team").options[1].textContent).toContain("个人空间");
+  el("member-team").value = "personal-team";
+  el("member-team").dispatchEvent(new Event("change"));
+  expect([...el("member-server").options].map((option) => option.value)).toEqual(["", "private-server", "public-server"]);
+  el("member-team").value = "__public__";
+  el("member-team").dispatchEvent(new Event("change"));
+  expect([...el("member-server").options].map((option) => option.value)).toEqual(["", "public-server"]);
+  el("member-server").value = "public-server";
+  el("member-server").dispatchEvent(new Event("change"));
+  el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
+  await vi.waitFor(() => expect(el("member-key-value").value).toBe("public-key"));
+  expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({ team_id: null, server_id: "public-server" });
+  vi.unstubAllGlobals();
+});
+
+test("self-service lists public MCPs for an account without memberships", async () => {
+  document.body.innerHTML = template("member_key");
+  vi.stubGlobal("fetch", vi.fn(async (url) => url.endsWith("/auth/sso/providers")
+    ? response([{ id: "example", display_name: "Example" }])
+    : response({ email: "member@example.com", teams: [], servers: [{ id: "public-server", name: "Public", visibility: "public", eligible_team_ids: [], public_access: true }] })));
+  await import("../../../mcpgateway/static/member-key.js?no-team-public");
+  await vi.waitFor(() => expect(el("member-sso-provider").value).toBe("example"));
+  el("load-memberships").click();
+  await vi.waitFor(() => expect(el("member-team").disabled).toBe(false));
+  expect(el("member-team").options[1].value).toBe("__public__");
+  vi.unstubAllGlobals();
+});
+
 test("self-service shows the administrator notice for an unregistered OAuth user", async () => {
   window.history.replaceState({}, "", "?error=unregistered");
   document.body.innerHTML = template("member_key");

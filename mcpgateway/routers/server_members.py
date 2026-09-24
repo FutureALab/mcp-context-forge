@@ -57,7 +57,7 @@ class AccountRequest(BaseModel):
 class MemberKeyRequest(AccountRequest):
     """A server-scoped key request with a bounded lifetime."""
 
-    team_id: str = Field(min_length=1, max_length=36)
+    team_id: str | None = Field(default=None, min_length=1, max_length=36)
     server_id: str = Field(min_length=1, max_length=36)
     days: int = Field(default=30, ge=1, le=365)
 
@@ -65,7 +65,7 @@ class MemberKeyRequest(AccountRequest):
 class SsoMemberKeyRequest(BaseModel):
     """A server-scoped key request authorized by an SSO browser session."""
 
-    team_id: str = Field(min_length=1, max_length=36)
+    team_id: str | None = Field(default=None, min_length=1, max_length=36)
     server_id: str = Field(min_length=1, max_length=36)
     days: int = Field(default=30, ge=1, le=365)
 
@@ -165,9 +165,10 @@ async def member_options_for_user(db: Session, user: EmailUser) -> JSONResponse:
     service = ServerService()
     for server in servers:
         eligible = [team.id for team in teams if await service._check_server_access(db, server, user.email, [team.id])]
-        if eligible:
-            visible.append({"id": server.id, "name": server.name, "team_id": server.team_id, "visibility": server.visibility, "eligible_team_ids": eligible})
-    return JSONResponse({"email": user.email, "full_name": user.full_name, "teams": [{"id": t.id, "name": t.name} for t in teams], "servers": visible}, headers={"Cache-Control": "no-store"})
+        public_access = not user.is_admin and await service._check_server_access(db, server, user.email, [])
+        if eligible or public_access:
+            visible.append({"id": server.id, "name": server.name, "team_id": server.team_id, "visibility": server.visibility, "eligible_team_ids": eligible, "public_access": public_access})
+    return JSONResponse({"email": user.email, "full_name": user.full_name, "teams": [{"id": t.id, "name": t.name, "is_personal": t.is_personal} for t in teams], "servers": visible}, headers={"Cache-Control": "no-store"})
 
 
 async def issue_for_user(db: Session, user: EmailUser, body: MemberKeyRequest | SsoMemberKeyRequest) -> JSONResponse:

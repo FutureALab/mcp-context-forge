@@ -1,5 +1,13 @@
 # Progress
 
+## 2026-09-24: Personal workspace and public MCP Key choices
+
+- Python member workflow suite passed: 23 tests, including HTTP options/issuance and deny paths.
+- JavaScript member workflow suite passed: 9 tests. Ruff and ESLint passed on changed files.
+- Local gateway served the updated Key page and JavaScript from port 4445.
+- The test gateway was stopped; port 4445 has no listener.
+- The Python 3.12 environment lacks pytest. Ruff format check reports existing CRLF formatting across the touched Python files.
+
 ## 2026-09-24: Parent-page Cookie bridge
 
 - Replaced the ticket exchange with a parent-cookie exchange and simplified the Vue iframe helper.

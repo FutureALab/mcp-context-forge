@@ -64,6 +64,74 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(claims["scopes"]["server_id"], "server-a")
         self.assertNotIn("tokens.create", claims["scopes"]["permissions"])
 
+    async def test_public_key_without_team_and_private_resource_denials(self):
+        """Allow a registered viewer to use public MCPs without a team."""
+        from mcpgateway.routers.server_members import member_options_for_user
+
+        self.db.add(EmailUser(email="public@example.com"))
+        self.db.add(Role(id="role-public", name="public-viewer-test", scope="global", created_by="member@example.com", permissions=["servers.use", "tools.read"]))
+        self.db.flush()
+        self.db.add(UserRole(user_email="public@example.com", role_id="role-public", scope="global", granted_by="member@example.com"))
+        self.db.add(Server(id="server-public", name="Public", team_id="team-a", visibility="public", owner_email="member@example.com"))
+        self.db.add(Server(id="server-private", name="Private", team_id="team-a", visibility="private", owner_email="member@example.com"))
+        self.db.commit()
+
+        user = self.db.query(EmailUser).filter_by(email="public@example.com").one()
+        options = json.loads((await member_options_for_user(self.db, user)).body)
+        self.assertEqual(options["teams"], [])
+        self.assertEqual([server["id"] for server in options["servers"]], ["server-public"])
+        self.assertTrue(options["servers"][0]["public_access"])
+        self.assertEqual(options["servers"][0]["eligible_team_ids"], [])
+
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            issued = await issue_member_key(self.db, user.email, None, "server-public", 7, "self-service")
+        claims = jwt.decode(issued["api_key"], options={"verify_signature": False})
+        self.assertIsNone(issued["team_id"])
+        self.assertIsNone(claims["teams"])
+        self.assertFalse(claims["user"]["is_admin"])
+        self.assertEqual(claims["scopes"]["server_id"], "server-public")
+        self.assertEqual(claims["scopes"]["permissions"], ["servers.use", "tools.read"])
+
+        for server_id in ("server-a", "server-private"):
+            with self.subTest(server_id=server_id), self.assertRaises(HTTPException) as error:
+                await issue_member_key(self.db, user.email, None, server_id, 7, "self-service")
+            self.assertEqual(error.exception.status_code, 403)
+        with self.assertRaises(HTTPException):
+            await issue_member_key(self.db, "missing@example.com", None, "server-public", 7, "self-service")
+
+        self.db.add(EmailUser(email="unprivileged@example.com"))
+        self.db.commit()
+        with self.assertRaises(HTTPException):
+            await issue_member_key(self.db, "unprivileged@example.com", None, "server-public", 7, "self-service")
+
+        public_server = self.db.get(Server, "server-public")
+        public_server.enabled = False
+        self.db.commit()
+        with self.assertRaises(HTTPException):
+            await issue_member_key(self.db, user.email, None, "server-public", 7, "self-service")
+        public_server.enabled = True
+        self.db.commit()
+
+        user.is_admin = True
+        self.db.commit()
+        with self.assertRaises(HTTPException):
+            await issue_member_key(self.db, user.email, None, "server-public", 7, "self-service")
+
+    async def test_personal_team_remains_available_without_shared_team(self):
+        """List and issue keys for a member's personal workspace."""
+        from mcpgateway.routers.server_members import member_options_for_user
+
+        team = self.db.get(EmailTeam, "team-a")
+        team.is_personal = True
+        self.db.commit()
+        user = self.db.query(EmailUser).filter_by(email="member@example.com").one()
+        options = json.loads((await member_options_for_user(self.db, user)).body)
+        self.assertEqual(options["teams"], [{"id": "team-a", "name": "A", "is_personal": True}])
+        self.assertEqual(options["servers"][0]["eligible_team_ids"], ["team-a"])
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            issued = await issue_member_key(self.db, user.email, "team-a", "server-a", 7, "self-service")
+        self.assertEqual(issued["team_id"], "team-a")
+
     async def test_server_key_inventory_includes_all_owners_and_exports_existing_keys(self):
         """Keep historical and cross-team records while exporting exact stored material."""
         from mcpgateway.db import EmailApiToken
@@ -472,6 +540,41 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
                 user.is_active = False
                 self.db.commit()
                 self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 403)
+
+    async def test_sso_public_key_without_team(self):
+        """Complete the SSO options and issue flow for a public MCP."""
+        from fastapi import FastAPI
+        import httpx
+
+        from mcpgateway.routers.server_members import get_db, router
+        from mcpgateway.utils.member_key_proof import create_member_key_proof
+
+        user = EmailUser(email="public@example.com", auth_provider="google")
+        self.db.add(user)
+        self.db.add(Role(id="role-public", name="public-viewer-test", scope="global", created_by="member@example.com", permissions=["servers.use", "tools.read"]))
+        self.db.flush()
+        self.db.add(UserRole(user_email=user.email, role_id="role-public", scope="global", granted_by="member@example.com"))
+        self.db.add(Server(id="server-public", name="Public", team_id="team-a", visibility="public", owner_email="member@example.com"))
+        self.db.commit()
+
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_db] = lambda: self.db
+        csrf = "test-csrf-value-" * 3
+        with patch("mcpgateway.routers.server_members.settings.self_service_api_keys_enabled", True), patch("mcpgateway.routers.server_members.settings.sso_enabled", True):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Origin": "http://test", "X-CSRF-Token": csrf}, cookies={"mcpgateway_csrf_token": csrf}) as client:
+                self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 401)
+                client.cookies.set("member_key_proof", create_member_key_proof(user.email, "google"))
+                options = await client.post("/api-key/sso/options", json={})
+                self.assertEqual(options.status_code, 200, options.text)
+                self.assertEqual(options.json()["teams"], [])
+                self.assertEqual(options.json()["servers"][0]["id"], "server-public")
+                self.assertTrue(options.json()["servers"][0]["public_access"])
+                self.assertEqual((await client.post("/api-key/sso/issue", json={"team_id": None, "server_id": "server-a"})).status_code, 403)
+                with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+                    issued = await client.post("/api-key/sso/issue", json={"team_id": None, "server_id": "server-public", "days": 7})
+                self.assertEqual(issued.status_code, 200, issued.text)
+                self.assertIsNone(issued.json()["team_id"])
 
     async def test_sso_key_flow_does_not_register_unknown_user(self):
         """Verify existing OAuth accounts without creating or relinking users."""

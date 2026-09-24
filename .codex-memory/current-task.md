@@ -1,5 +1,12 @@
 # Current Task
 
+## 2026-09-24: Personal workspace and public MCP Key choices
+
+- Self-service options label personal teams and expose public MCPs without a Team membership.
+- Registered non-admin users with `servers.use` can issue server-scoped public-only Keys with `team_id=null`.
+- Private and team MCPs still require active Team membership and server access. Public-only issuance rejects administrators.
+- See [[tasks/2026-09-24-public-member-keys]] for verification.
+
 ## 2026-09-24: Parent-page Cookie bridge
 
 - The user replaced the Spring Boot ticket flow with `mcp_username` and `mcp_email` browser Cookies. No `X-Token` check is part of this version.

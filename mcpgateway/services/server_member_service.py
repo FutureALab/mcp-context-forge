@@ -31,31 +31,37 @@ def registered_user(db: Session, email: str) -> EmailUser:
     return user
 
 
-async def member_server(db: Session, email: str, team_id: str, server_id: str) -> tuple[EmailUser, Server]:
-    """Validate the user, active team membership, and server visibility."""
+async def member_server(db: Session, email: str, team_id: str | None, server_id: str) -> tuple[EmailUser, Server]:
+    """Validate the user, team membership when selected, and server visibility."""
     user = registered_user(db, email)
-    membership = db.execute(
-        select(EmailTeamMember)
-        .join(EmailTeam)
-        .where(
-            EmailTeamMember.user_email == user.email,
-            EmailTeamMember.team_id == team_id,
-            EmailTeamMember.is_active.is_(True),
-            EmailTeam.is_active.is_(True),
-        )
-    ).scalar_one_or_none()
     server = db.get(Server, server_id)
-    if membership is None or server is None or not server.enabled:
+    if server is None or not server.enabled:
         raise HTTPException(403, "账号不存在、已停用或不具备所选资源的访问权限")
-    if not await ServerService()._check_server_access(db, server, user.email, [team_id]):
+    if team_id:
+        membership = db.execute(
+            select(EmailTeamMember)
+            .join(EmailTeam)
+            .where(
+                EmailTeamMember.user_email == user.email,
+                EmailTeamMember.team_id == team_id,
+                EmailTeamMember.is_active.is_(True),
+                EmailTeam.is_active.is_(True),
+            )
+        ).scalar_one_or_none()
+        if membership is None:
+            raise HTTPException(403, "账号不存在、已停用或不具备所选资源的访问权限")
+    elif user.is_admin:
+        raise HTTPException(403, "管理员不能通过公开空间领取 Key")
+    if not await ServerService()._check_server_access(db, server, user.email, [team_id] if team_id else []):
         raise HTTPException(403, "账号不存在、已停用或不具备所选资源的访问权限")
     return user, server
 
 
-async def issue_member_key(db: Session, email: str, team_id: str, server_id: str, days: int, actor: str) -> dict:
+async def issue_member_key(db: Session, email: str, team_id: str | None, server_id: str, days: int, actor: str) -> dict:
     """Issue or renew a key with only the recipient's MCP permissions."""
     user, server = await member_server(db, email, team_id, server_id)
-    permissions = await PermissionService(db).get_user_permissions(user.email, team_id=team_id, token_teams=[team_id])
+    token_teams = [team_id] if team_id else []
+    permissions = await PermissionService(db).get_user_permissions(user.email, team_id=team_id, token_teams=token_teams)
     allowed = [p for p in MCP_PERMISSIONS if p in permissions or "*" in permissions or p.split(".")[0] + ".*" in permissions]
     if "servers.use" not in allowed:
         raise HTTPException(403, "该账号没有 MCP 使用权限")
@@ -67,7 +73,7 @@ async def issue_member_key(db: Session, email: str, team_id: str, server_id: str
         expires_in_days=days,
         team_id=team_id,
         caller_permissions=list(permissions),
-        caller_token_teams=[team_id],
+        caller_token_teams=token_teams,
         caller_token_teams_provided=True,
         caller_email=user.email,
     )

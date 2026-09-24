@@ -17,6 +17,7 @@
   const passwordMode = document.getElementById("member-mode-password");
   const portalSso = form.dataset.portalSso === "true";
   const portalParentOrigin = form.dataset.parentOrigin;
+  const publicChoice = "__public__";
   let servers = [];
   let account = "";
   let mode = "sso";
@@ -57,7 +58,7 @@
   function updateServers() {
     server.replaceChildren(new Option("请选择虚拟 MCP", ""));
     servers
-      .filter((s) => s.eligible_team_ids.includes(team.value))
+      .filter((s) => team.value === publicChoice ? s.public_access : s.eligible_team_ids.includes(team.value))
       .forEach((s) =>
         server.add(
           new Option(
@@ -147,13 +148,14 @@
       if (current !== version) return;
       account = data.email || requested;
       servers = data.servers;
-      team.replaceChildren(new Option("请选择 Team", ""));
-      data.teams.forEach((t) => team.add(new Option(t.name, t.id)));
-      team.disabled = !data.teams.length;
+      team.replaceChildren(new Option("请选择空间", ""));
+      data.teams.forEach((t) => team.add(new Option(t.name + (t.is_personal ? " · 个人空间" : ""), t.id)));
+      if (servers.some((s) => s.public_access)) team.add(new Option("公开 MCP（不绑定 Team）", publicChoice));
+      team.disabled = team.options.length === 1;
       updateServers();
-      message.textContent = data.teams.length
-        ? `已检测 ${data.full_name || account}，请选择 Team 和虚拟 MCP。`
-        : "该账号没有有效 Team 成员关系。";
+      message.textContent = team.disabled
+        ? "该账号没有可领取的虚拟 MCP。"
+        : `已检测 ${data.full_name || account}，请选择空间和虚拟 MCP。`;
     } catch (error) {
       if (current === version && mode === "sso" && error.message === "AUTH_REQUIRED") {
         try {
@@ -191,7 +193,7 @@
     try {
       const data = await post(mode === "sso" ? "sso/issue" : "issue", {
         ...(mode === "password" ? { email: account, password: password.value } : {}),
-        team_id: team.value,
+        team_id: team.value === publicChoice ? null : team.value,
         server_id: server.value,
         days: Number(document.getElementById("member-days").value),
       });
