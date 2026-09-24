@@ -85,3 +85,9 @@
 - The iframe now reports workspace denial separately from expired credentials. No Team or role was added to the account.
 - Live browser verification opened the Key page on 4445 and showed the precise workspace denial. The Key options page reported no effective Team.
 - Ruff, ESLint, and four focused Vitest cases passed. The script started a healthy 4445 gateway and reused the existing 5173 page server.
+
+## API Key portal mode display
+
+- Clicking the already-selected intranet authorization tab revealed the OAuth provider field because `switchMode()` ignored `portalSso`.
+- The provider field now stays hidden in portal mode, including after switching from password mode.
+- Seven JavaScript workflow tests and ESLint passed. A live browser click on the running Key page kept the OAuth field hidden.

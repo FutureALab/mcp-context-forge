@@ -138,6 +138,7 @@ test("self-service parent cookie proof loads teams without an OIDC provider", as
   window.history.replaceState({}, "", "?portal=success");
   document.body.innerHTML = template("member_key")
     .replace("{{ 'true' if portal_sso_enabled else 'false' }}", "true")
+    .replace("{{ 'hidden' if portal_sso_enabled else '' }}", "hidden")
     .replace("{{ portal_sso_parent_origin }}", "http://portal.test");
   const fetchMock = vi.fn(async () => response({
     email: "member@example.com",
@@ -147,6 +148,10 @@ test("self-service parent cookie proof loads teams without an OIDC provider", as
   vi.stubGlobal("fetch", fetchMock);
   await import("../../../mcpgateway/static/member-key.js?portal-cookie");
   await vi.waitFor(() => expect(el("member-team").disabled).toBe(false));
+  expect(el("member-sso-fields").classList.contains("hidden")).toBe(true);
+  el("member-mode-password").click();
+  el("member-mode-sso").click();
+  expect(el("member-sso-fields").classList.contains("hidden")).toBe(true);
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(fetchMock.mock.calls[0][0]).toContain("sso/options");
   window.history.replaceState({}, "", "/");
@@ -156,6 +161,7 @@ test("self-service parent cookie proof loads teams without an OIDC provider", as
 test("expired parent cookie proof asks the parent page to refresh", async () => {
   document.body.innerHTML = template("member_key")
     .replace("{{ 'true' if portal_sso_enabled else 'false' }}", "true")
+    .replace("{{ 'hidden' if portal_sso_enabled else '' }}", "hidden")
     .replace("{{ portal_sso_parent_origin }}", "http://portal.test");
   const parent = { postMessage: vi.fn() };
   vi.stubGlobal("parent", parent);
@@ -166,7 +172,7 @@ test("expired parent cookie proof asks the parent page to refresh", async () => 
     { type: "contextforge-portal-cookie-required", purpose: "key" },
     "http://portal.test"
   ));
-  expect(el("member-key-message").textContent).toContain("请刷新父页面");
+  await vi.waitFor(() => expect(el("member-key-message").textContent).toContain("请刷新父页面"));
   vi.unstubAllGlobals();
 });
 

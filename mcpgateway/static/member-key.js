@@ -81,7 +81,7 @@
   }
   function switchMode(nextMode) {
     mode = nextMode;
-    ssoFields.classList.toggle("hidden", mode !== "sso");
+    ssoFields.classList.toggle("hidden", mode !== "sso" || portalSso);
     passwordFields.classList.toggle("hidden", mode !== "password");
     email.required = mode === "password";
     password.required = mode === "password";
