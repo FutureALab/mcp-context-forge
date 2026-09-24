@@ -10,16 +10,29 @@ describe("parent identity cookie bridge", () => {
   test("exchanges account cookies before opening the gateway iframe", async () => {
     const frame = document.createElement("iframe");
     document.body.appendChild(frame);
-    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ next: "/admin" }) });
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ next: "/admin", token: "parent-token", expires_at: 123 }) });
     vi.stubGlobal("fetch", fetchMock);
 
-    await openContextForge(frame, "login", { gatewayOrigin: "http://mcp.test" });
+    const result = await openContextForge(frame, "login", { gatewayOrigin: "http://mcp.test" });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe("http://mcp.test/auth/portal/exchange");
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", credentials: "include" });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ purpose: "login" });
     expect(frame.src).toBe("http://mcp.test/admin");
+    expect(result).toEqual({ token: "parent-token", expiresAt: 123 });
+  });
+
+  test("reuses a parent token for the Key page", async () => {
+    const frame = document.createElement("iframe");
+    document.body.appendChild(frame);
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ next: "/admin/api-key", token: "parent-token", expires_at: 123 }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await openContextForge(frame, "key", { gatewayOrigin: "http://mcp.test", token: "parent-token" });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ purpose: "key", token: "parent-token" });
+    expect(frame.src).toBe("http://mcp.test/admin/api-key?portal=success");
   });
 
   test("uses the configured proxy prefix for the exchange", async () => {

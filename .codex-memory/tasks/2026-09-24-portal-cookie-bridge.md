@@ -40,3 +40,13 @@
 - The exchange response contains only `next`; it does not return a long-lived token to the parent page.
 - Four route tests and Ruff passed. Browser checks confirmed unknown-account denial, normal registered-user workspace login, and Key-page Team lookup.
 - Test services stopped, and the disposable database and log were removed.
+
+## Reusable parent authorization token
+
+- The exchange now returns `token` and `expires_at` with `next`. The earlier `next`-only response is superseded.
+- The parent sends this token in later exchange request bodies. A valid token works without identity Cookies.
+- An expired token falls back to identity Cookies. A changed `mcp_email` Cookie selects the new account.
+- The token has a separate signing key and audience, is checked against current account status, and defaults to a 60-minute lifetime.
+- The Vue example uses `sessionStorage` and clears the token on logout. The two iframe Cookies retain their existing lifetimes.
+- Six Python route tests and four JavaScript helper tests passed. Ruff and ESLint passed.
+- Live browser checks passed workspace login, token reuse for the Key page, and Team lookup. Test services and SQLite files were removed.

@@ -5,9 +5,9 @@
 ## 页面流程
 
 1. 父页面确认用户已经登录，然后写入 `mcp_username`、`mcp_email`。退出登录时删除这两个 Cookie。
-2. 打开工作区前，父页面调用 `POST /auth/portal/exchange`，请求体为 `{"purpose":"login"}`。网关设置一小时的 HttpOnly `jwt_token` Cookie，并返回 `{"next":"/admin"}`，不回传长期登录 token。
-3. 打开 API Key 领取页前，用同一个接口传 `{"purpose":"key"}`。网关设置五分钟的 HttpOnly `member_key_proof` Cookie，并返回 `{"next":"/admin/api-key"}`。此 Cookie 不能登录工作区。
-4. 父页面将返回的 `next` 加载到 iframe。工作区或领取凭据过期时，iframe 通知父页面显示“请刷新页面”。刷新后重新交换 Cookie。
+2. 父页面调用 `POST /auth/portal/exchange`，请求体为 `{"purpose":"login"}` 或 `{"purpose":"key"}`。网关检查来源、身份 Cookie 和 MCP 已注册账号，返回 `token`、`expires_at`、`next`。
+3. 父页面保存 `token`。下次请求传 `{"purpose":"login","token":"..."}` 或 `{"purpose":"key","token":"..."}`。有效 token 可直接复用；失效时网关重新检查身份 Cookie 并返回新 token。两者都无效时提示刷新页面。
+4. 网关还会为 iframe 设置凭据。`login` 获取一小时的 HttpOnly `jwt_token`；`key` 获取五分钟的 HttpOnly `member_key_proof`。父页面将 `next` 加载到 iframe。
 
 两个入口均只接受已经注册、启用的普通账号，未注册邮箱不会自动创建账号。账号以邮箱为唯一标识；`mcp_username` 必须存在，但不与显示名匹配。平台管理员仍使用原有管理员登录入口。Team、虚拟 MCP 的可见性和领取权限仍由网关检查。
 
@@ -19,6 +19,7 @@
 EMAIL_AUTH_ENABLED=true
 PORTAL_SSO_ENABLED=true
 PORTAL_SSO_PARENT_ORIGIN=http://portal.intra.example
+PORTAL_SSO_TOKEN_TTL_MINUTES=60
 SELF_SERVICE_API_KEYS_ENABLED=true
 MCPGATEWAY_UI_ENABLED=true
 MCPGATEWAY_ADMIN_API_ENABLED=true
@@ -49,6 +50,7 @@ const error = ref('')
 const gatewayOrigin = 'http://mcp.intra.example'
 const cookieDomain = '; Domain=intra.example'
 let stopListening
+const tokenKey = 'mcp-portal-token'
 
 function setIdentity(user) {
   document.cookie = `mcp_username=${encodeURIComponent(user.username)}; Path=/; SameSite=Lax${cookieDomain}`
@@ -58,7 +60,11 @@ function setIdentity(user) {
 async function open(purpose) {
   try {
     error.value = ''
-    await openContextForge(frame.value, purpose, { gatewayOrigin })
+    const result = await openContextForge(frame.value, purpose, {
+      gatewayOrigin,
+      token: sessionStorage.getItem(tokenKey),
+    })
+    sessionStorage.setItem(tokenKey, result.token)
   } catch (cause) {
     error.value = cause.message
   }
@@ -78,7 +84,7 @@ onBeforeUnmount(() => stopListening?.())
 </template>
 ```
 
-在父页面取得已登录用户资料后调用 `setIdentity(user)`，然后再显示入口。父页面退出登录时，用相同的 `Path` 和 `Domain` 将两个 Cookie 的 `Max-Age` 设为 `0`。领取凭据过期后刷新父页面，再调用 `open('key')`。
+在父页面取得已登录用户资料后调用 `setIdentity(user)`，然后显示入口。退出登录时，删除两个身份 Cookie，调用 `sessionStorage.removeItem(tokenKey)`，并卸载 iframe。用户切换时先清除旧 token，再写入新 Cookie。token 有效时可复用；过期时 `open()` 自动从 Cookie 重新取得授权。iframe 提示凭据过期时，刷新父页面并重新打开入口。
 
 ## 本机按钮验证
 
@@ -86,7 +92,8 @@ onBeforeUnmount(() => stopListening?.())
 
 ## 验收
 
-- 缺少任一身份 Cookie、错误 Origin、关闭桥接开关或停用账号时，交换必须失败。
+- 首次授权缺少任一身份 Cookie、错误 Origin、关闭桥接开关或停用账号时，交换必须失败。
+- 有效 token 可在没有身份 Cookie 时复用；过期 token 须由身份 Cookie 重新授权。
 - 工作区交换只设置 `jwt_token`；领取交换只设置 `member_key_proof`。只有工作区 Cookie 时，领取接口返回 401。
 - 未注册用户不能通过登录或领取入口，管理员不能通过 Cookie 桥接。领取前检查有效 Team、所选虚拟 MCP 和 `servers.use` 权限。
 - 从父页面打开两个 iframe 入口，并使用领取的 API Key 调用所选 MCP。

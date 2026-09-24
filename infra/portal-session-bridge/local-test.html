@@ -43,19 +43,22 @@
         status.textContent = "正在验证…";
         try {
           const gatewayOrigin = gatewayUrl.value.trim().replace(/\/$/, "");
+          const tokenKey = `mcp-portal-token:${gatewayOrigin}`;
+          const token = sessionStorage.getItem(tokenKey);
           const response = await fetch(`${gatewayOrigin}/auth/portal/exchange`, {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ purpose }),
+            body: JSON.stringify({ purpose, ...(token ? { token } : {}) }),
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.detail || `鉴权失败 (${response.status})`);
           const destination = new URL(result.next, gatewayOrigin);
           if (destination.origin !== new URL(gatewayOrigin).origin) throw new Error("网关返回了无效地址");
+          sessionStorage.setItem(tokenKey, result.token);
           if (purpose === "key") destination.searchParams.set("portal", "success");
           frame.src = destination.href;
-          status.textContent = purpose === "login" ? "工作区登录成功。" : "领取页鉴权成功。";
+          status.textContent = `${purpose === "login" ? "工作区登录成功" : "领取页鉴权成功"}；授权到期时间：${new Date(result.expires_at * 1000).toLocaleString()}。`;
         } catch (error) {
           status.textContent = error.message;
         }
@@ -66,8 +69,9 @@
       document.querySelector("#clear").addEventListener("click", () => {
         document.cookie = "mcp_username=; Path=/; Max-Age=0; SameSite=Lax";
         document.cookie = "mcp_email=; Path=/; Max-Age=0; SameSite=Lax";
+        sessionStorage.removeItem(`mcp-portal-token:${gatewayUrl.value.trim().replace(/\/$/, "")}`);
         frame.removeAttribute("src");
-        status.textContent = "身份 Cookie 已清除。";
+        status.textContent = "身份 Cookie 和授权 token 已清除。";
       });
     </script>
   </body>
