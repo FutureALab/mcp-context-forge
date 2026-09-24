@@ -25,12 +25,15 @@ MCPGATEWAY_ADMIN_API_ENABLED=true
 ENVIRONMENT=staging
 SECURE_COOKIES=false
 COOKIE_SAMESITE=lax
+X_FRAME_OPTIONS=none
 CORS_ENABLED=true
 CORS_ALLOW_CREDENTIALS=true
 ALLOWED_ORIGINS=["http://portal.intra.example","http://mcp.intra.example"]
 ```
 
 如果通过 `/mcp` 反向代理网关，还需设置 `APP_ROOT_PATH=/mcp`，并将 Vue 示例的 `gatewayOrigin` 改为 `http://portal.intra.example/mcp`。父页面的 Cookie 使用 `Path=/`。同站点子域名部署时，父页面还需给 Cookie 设置共同的 `Domain`。
+
+网关默认发送禁止 iframe 嵌入的响应头。`X_FRAME_OPTIONS=none` 会关闭这项限制；只在受控内网入口使用此配置。
 
 ## Vue 父页面
 
