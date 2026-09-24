@@ -1,5 +1,13 @@
 # Current Task
 
+## 2026-09-24: Parent-page Cookie bridge
+
+- The user replaced the Spring Boot ticket flow with `mcp_username` and `mcp_email` browser Cookies. No `X-Token` check is part of this version.
+- The gateway exchanges these Cookies for a one-hour workspace session or a five-minute Key-only proof. The feature remains disabled by default.
+- Portal administrators and accounts bound to other providers cannot use this exchange. Team and virtual MCP permissions remain server-side.
+- Isolated live HTTP tests passed workspace loading, session validation, Key options, scoped issuance, expiry messaging, and missing-Cookie denial.
+- The parent Vue project is outside this repository. Follow [[tasks/2026-09-24-portal-cookie-bridge]] and its integration guide when deploying.
+
 ## 2026-09-24: Spring Boot Session bridge without OIDC
 
 - The parent Vue page obtains purpose-bound tickets from its existing Spring Boot Session backend.

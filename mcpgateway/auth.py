@@ -1202,6 +1202,7 @@ def _get_auth_context_batched_sync(email: str, jti: Optional[str] = None) -> Dic
         if user:
             # Detach user data as dict (session will close)
             result["user"] = {
+                "id": user.id,
                 "email": user.email,
                 "password_hash": user.password_hash,
                 "full_name": user.full_name,
@@ -1290,6 +1291,7 @@ def _user_from_cached_dict(user_dict: Dict[str, Any]) -> EmailUser:
         EmailUser instance (detached from any session)
     """
     return EmailUser(
+        id=user_dict.get("id"),
         email=user_dict["email"],
         password_hash=user_dict.get("password_hash", ""),
         full_name=user_dict.get("full_name"),

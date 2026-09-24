@@ -134,7 +134,7 @@ test("self-service OAuth keeps the provider callback address unchanged", async (
   vi.unstubAllGlobals();
 });
 
-test("self-service parent ticket proof loads teams without an OIDC provider", async () => {
+test("self-service parent cookie proof loads teams without an OIDC provider", async () => {
   window.history.replaceState({}, "", "?portal=success");
   document.body.innerHTML = template("member_key")
     .replace("{{ 'true' if portal_sso_enabled else 'false' }}", "true")
@@ -145,11 +145,28 @@ test("self-service parent ticket proof loads teams without an OIDC provider", as
     servers: [{ id: "server-a", name: "MCP", eligible_team_ids: ["my-team"] }],
   }));
   vi.stubGlobal("fetch", fetchMock);
-  await import("../../../mcpgateway/static/member-key.js?portal-ticket");
+  await import("../../../mcpgateway/static/member-key.js?portal-cookie");
   await vi.waitFor(() => expect(el("member-team").disabled).toBe(false));
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(fetchMock.mock.calls[0][0]).toContain("sso/options");
   window.history.replaceState({}, "", "/");
+  vi.unstubAllGlobals();
+});
+
+test("expired parent cookie proof asks the parent page to refresh", async () => {
+  document.body.innerHTML = template("member_key")
+    .replace("{{ 'true' if portal_sso_enabled else 'false' }}", "true")
+    .replace("{{ portal_sso_parent_origin }}", "http://portal.test");
+  const parent = { postMessage: vi.fn() };
+  vi.stubGlobal("parent", parent);
+  vi.stubGlobal("fetch", vi.fn(async () => ({ status: 401, redirected: false })));
+  await import("../../../mcpgateway/static/member-key.js?portal-expired");
+  el("load-memberships").click();
+  await vi.waitFor(() => expect(parent.postMessage).toHaveBeenCalledWith(
+    { type: "contextforge-portal-cookie-required", purpose: "key" },
+    "http://portal.test"
+  ));
+  expect(el("member-key-message").textContent).toContain("请刷新父页面");
   vi.unstubAllGlobals();
 });
 

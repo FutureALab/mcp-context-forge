@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-09-24: Parent-page Cookie bridge
+
+- Replaced the ticket exchange with a parent-cookie exchange and simplified the Vue iframe helper.
+- Login and Key authorization remain separate. Expired iframe credentials prompt a parent-page refresh.
+- Fixed cached session users losing their ID, which caused `/auth/validate` to reject valid UUID-subject sessions.
+- Four Python route tests, ten JavaScript tests, Ruff, and ESLint passed.
+- Isolated live HTTP checks passed workspace loading, session validation, Key options, scoped Key issuance, and missing-Cookie denial. Test services were stopped and test databases removed.
+- The real parent Vue page remains unavailable for deployment validation.
+
 ## 2026-09-24: Parent Session ticket bridge
 
 - Added a disabled-by-default parent ticket exchange route, replay table, migration, Key-page UI path, Vue helper, and Spring Boot integration guide.

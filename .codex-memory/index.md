@@ -1,5 +1,7 @@
 # Project Memory
 
+- [[tasks/2026-09-24-portal-cookie-bridge]]: Parent-page account cookies for embedded login and Key issuance.
+
 - [[tasks/2026-09-24-portal-session-bridge]]: Spring Boot Session ticket bridge without OIDC.
 
 - [[tasks/2026-09-23-http-intranet-iframe-rollout]]: HTTP intranet iframe and API Key rollout plan.

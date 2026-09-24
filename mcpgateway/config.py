@@ -445,7 +445,7 @@ class Settings(BaseSettings):
             "/auth/email/register",
             "/auth/email/forgot-password",
             "/auth/email/reset-password",
-            "/auth/portal/exchange",  # Signed, single-use ticket and exact Origin are checked by the route.
+            "/auth/portal/exchange",  # The opt-in parent-cookie exchange checks the exact Origin.
             # Exempt: admin routes carry the per-route enforce_admin_csrf dependency
             # instead. Enforced by tests/unit/mcpgateway/middleware/
             # test_admin_csrf_binding.py::test_all_admin_write_routes_enforce_admin_csrf
@@ -487,10 +487,8 @@ class Settings(BaseSettings):
     json_schema_validation_strict: bool = Field(default=True, description="Strict schema validation mode - reject invalid JSON schemas")
 
     # SSO Configuration
-    portal_sso_enabled: bool = Field(default=False, description="Accept signed, single-use tickets from an existing parent application")
-    portal_sso_shared_secret: SecretStr = Field(default=SecretStr(""), description="Shared HS256 ticket signing secret, at least 32 characters")
-    portal_sso_issuer: str = Field(default="parent-portal", description="Expected issuer in parent application tickets")
-    portal_sso_parent_origin: str = Field(default="", description="Exact browser Origin allowed to exchange parent application tickets")
+    portal_sso_enabled: bool = Field(default=False, description="Accept parent-page account cookies for embedded login and API Key access")
+    portal_sso_parent_origin: str = Field(default="", description="Exact browser Origin allowed to exchange parent-page account cookies")
     sso_enabled: bool = Field(default=False, description="Enable Single Sign-On authentication")
     sso_github_enabled: bool = Field(default=False, description="Enable GitHub OAuth authentication")
     sso_github_client_id: Optional[str] = Field(default=None, description="GitHub OAuth client ID")

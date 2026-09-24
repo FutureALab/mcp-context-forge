@@ -1,5 +1,7 @@
 # Parent Session ticket bridge without OIDC
 
+Superseded on 2026-09-24 by [[tasks/2026-09-24-portal-cookie-bridge]]. The historical ticket migration remains for databases that applied it.
+
 ## Decision
 
 - The user does not want to deploy OIDC. The existing parent uses Vue, Node, Spring Boot, and a browser Session Cookie.

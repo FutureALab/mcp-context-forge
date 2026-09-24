@@ -465,6 +465,13 @@
       // Initialize page
       document.addEventListener("DOMContentLoaded", async function () {
         attachCsrfToPostForms();
+        if ({{ 'true' if portal_sso_enabled else 'false' }} && window.parent !== window) {
+          showError("请刷新父页面重新获取登录凭据。");
+          window.parent.postMessage(
+            { type: "contextforge-portal-cookie-required", purpose: "login" },
+            {{ portal_sso_parent_origin | tojson }}
+          );
+        }
         await loadSSOProviders();
         handleErrorMessages();
         setupAnimations();

@@ -1,73 +1,23 @@
-# 使用现有 Spring Boot Session 登录 ContextForge
+# 父页面 Cookie 对接 ContextForge
 
-此方案不部署 OIDC。Vue 页面从现有 Spring Boot 会话取得一次性票据，然后向 ContextForge 兑换浏览器 Cookie。工作区票据建立网关登录会话；API Key 票据只允许领取，不建立网关会话。两个用途不能互换。
+此方案不需要 OIDC，也不调用 Spring Boot Session 接口。父页面写入 `mcp_username` 和 `mcp_email` Cookie。ContextForge 在启用 `PORTAL_SSO_ENABLED` 后，按这些 Cookie 查找或创建普通用户，并设置自己的浏览器凭据。这个流程是自定义 Cookie 登录桥接，并非 OAuth 协议。
 
-Spring Boot 项目不在此仓库中。下面的签发代码是需要接入实际登录会话的示例；不要在 Vue、Node 静态服务或浏览器中保存共享密钥。
+## 页面流程
 
-## 1. 浏览器流程
+1. 父页面确认用户已经登录，然后写入 `mcp_username`、`mcp_email`。退出登录时删除这两个 Cookie。
+2. 打开工作区前，父页面调用 `POST /auth/portal/exchange`，请求体为 `{"purpose":"login"}`。网关设置一小时的 HttpOnly `jwt_token` Cookie，并返回 `{"next":"/admin"}`。
+3. 打开 API Key 领取页前，用同一个接口传 `{"purpose":"key"}`。网关设置五分钟的 HttpOnly `member_key_proof` Cookie，并返回 `{"next":"/admin/api-key"}`。此 Cookie 不能登录工作区。
+4. 父页面将返回的 `next` 加载到 iframe。工作区或领取凭据过期时，iframe 通知父页面显示“请刷新页面”。刷新后重新交换 Cookie。
 
-1. 用户按原方式登录父平台，浏览器保留 Spring Boot 的 Session Cookie。
-2. Vue 向 Spring Boot 发 `POST /api/mcp/ticket`，带 `credentials: include` 和 `purpose: login` 或 `purpose: key`。Spring Boot 从自己的服务端 Session 获取当前用户。
-3. Spring Boot 签发有效期不超过 60 秒的 HS256 票据。票据包含 `iss`、`aud`、`sub`、`email`、`purpose`、`iat`、`exp`、`jti`。
-4. Vue 将票据放在 JSON 请求体中，调用 `POST http://mcp.intra.example/auth/portal/exchange`。两个请求都不把票据放在 URL。
-5. 网关核对签名、用途、时效、来源、用户状态和一次性 `jti`。登录用途返回 `jwt_token` Cookie；领取用途返回路径限于 `/admin/api-key` 的 `member_key_proof` Cookie。
-6. Vue 根据网关返回的 `next` 加载 iframe。领取页在证明过期时通过 `postMessage` 请父页面重取票据。
+领取页仅接受已经注册、启用且绑定 `portal` 的账号。工作区首次登录可创建普通账号。已有其他登录方式的账号不会按邮箱自动绑定。平台管理员仍使用原有管理员登录入口。Team、虚拟 MCP 的可见性和领取权限仍由网关检查。
 
-新用户只在工作区登录时创建，默认不是管理员。领取页不创建账号。已有本地或其他身份服务账号不会仅凭相同邮箱自动关联；管理员须先完成受控迁移，不能直接把父平台票据映射成原管理员账号。父平台应向网关提供已核实且稳定的用户邮箱。
+## Cookie 与网关配置
 
-## 2. Spring Boot 签发端
-
-以下代码展示票据格式。把 `session.getAttribute("LOGIN_USER")` 改成现有登录代码读取当前用户的方法。`PortalUser` 表示你现有的用户对象，其 `id` 应是稳定用户 ID，`email` 应是已核实的邮箱。
-
-```java
-@RestController
-public class McpTicketController {
-    private static final Base64.Encoder B64 = Base64.getUrlEncoder().withoutPadding();
-    private final ObjectMapper json;
-    private final byte[] secret;
-
-    public McpTicketController(ObjectMapper json, @Value("${mcp.ticket-secret}") String secret) {
-        if (secret.length() < 32) throw new IllegalArgumentException("mcp.ticket-secret must have at least 32 characters");
-        this.json = json;
-        this.secret = secret.getBytes(StandardCharsets.UTF_8);
-    }
-
-    public record TicketRequest(String purpose) {}
-
-    @PostMapping("/api/mcp/ticket")
-    public Map<String, String> ticket(@RequestBody TicketRequest request, HttpSession session) throws Exception {
-        PortalUser user = (PortalUser) session.getAttribute("LOGIN_USER");
-        if (user == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        if (!"login".equals(request.purpose()) && !"key".equals(request.purpose())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        }
-        long now = Instant.now().getEpochSecond();
-        String header = B64.encodeToString(json.writeValueAsBytes(Map.of("alg", "HS256", "typ", "JWT")));
-        String payload = B64.encodeToString(json.writeValueAsBytes(Map.of(
-            "iss", "parent-portal", "aud", "contextforge-portal",
-            "sub", user.id(), "email", user.email(), "purpose", request.purpose(),
-            "iat", now, "exp", now + 60, "jti", UUID.randomUUID().toString()
-        )));
-        String unsigned = header + "." + payload;
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(secret, "HmacSHA256"));
-        String signature = B64.encodeToString(mac.doFinal(unsigned.getBytes(StandardCharsets.US_ASCII)));
-        return Map.of("ticket", unsigned + "." + signature);
-    }
-}
-```
-
-所需 Java 类来自 `java.time.Instant`、`java.util.Base64`、`java.util.Map`、`java.util.UUID`、`java.nio.charset.StandardCharsets`、`javax.crypto.Mac`、`javax.crypto.spec.SecretKeySpec`、Jackson 和 Spring Web。Spring Boot 3 使用 `jakarta.servlet.http.HttpSession`。保留父平台原有的 Session Cookie 和 CSRF 防护；不要让前端传入邮箱或管理员标记。给 `/api/mcp/ticket` 响应加 `Cache-Control: no-store`，并限制只有已登录用户能调用。
-
-## 3. ContextForge 配置
-
-将相同的随机共享密钥分别放入 Spring Boot 和网关服务端配置。示例值只是变量名，不能照抄作为密钥：
+父页面和网关必须使用同一主机名的不同端口、同站点共享 Cookie 域名，或同源反向代理。Cookie 要覆盖网关请求路径。两个不同 IP 地址上的 HTTP 页面不能直接共享父页面 Cookie。以下配置以 `http://portal.intra.example` 为父页面 Origin：
 
 ```dotenv
 EMAIL_AUTH_ENABLED=true
 PORTAL_SSO_ENABLED=true
-PORTAL_SSO_SHARED_SECRET=${从安全配置注入的随机值}
-PORTAL_SSO_ISSUER=parent-portal
 PORTAL_SSO_PARENT_ORIGIN=http://portal.intra.example
 SELF_SERVICE_API_KEYS_ENABLED=true
 MCPGATEWAY_UI_ENABLED=true
@@ -80,38 +30,40 @@ CORS_ALLOW_CREDENTIALS=true
 ALLOWED_ORIGINS=["http://portal.intra.example","http://mcp.intra.example"]
 ```
 
-将这些变量传入实际网关容器，再执行 Alembic 迁移到 `head` 并重建网关容器。`portal_ticket_uses` 表记录已兑换的 `jti`，防止多进程或多节点重复兑换。网关默认关闭此入口；密钥短于 32 字符、缺少父平台 Origin 或签发方时会拒绝兑换。
+如果通过 `/mcp` 反向代理网关，还需设置 `APP_ROOT_PATH=/mcp`，并将 Vue 示例的 `gatewayOrigin` 改为 `http://portal.intra.example/mcp`。父页面的 Cookie 使用 `Path=/`。同站点子域名部署时，父页面还需给 Cookie 设置共同的 `Domain`。
 
-父页面与网关必须在同站点 HTTP 子域名，或同一 IP 的不同端口。若是不同 IP，HTTP iframe Cookie 可能被浏览器阻止。HTTP 会明文传输父平台会话、票据和 API Key，仅供受控内网使用。生产环境如设置 `ENVIRONMENT=production`，网关 Cookie 会带 `Secure`，入口需使用 HTTPS。
+## Vue 父页面
 
-## 4. Vue 父页面
-
-把 [portal-client.js](portal-client.js) 放进 Vue 项目，按现有 CSRF 规则传入 `ticketHeaders`。以下示例假定 Spring Boot API 与 Vue 页面同源；若不同源，还需按现有父平台配置处理 CORS 和 Session Cookie。
+将 [portal-client.js](portal-client.js) 复制到 Vue 项目。下面的例子假定父页面和网关共用 `intra.example` Cookie 域名。按实际域名修改 `cookieDomain` 与 `gatewayOrigin`；同主机名部署时可以去掉 `Domain` 属性。
 
 ```vue
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { openContextForge, listenForKeyRefresh } from './portal-client.js'
+import { openContextForge, listenForCredentialExpiry } from './portal-client.js'
 
 const frame = ref(null)
 const error = ref('')
-const config = {
-  gatewayOrigin: 'http://mcp.intra.example',
-  ticketEndpoint: '/api/mcp/ticket',
-  ticketHeaders: { 'X-CSRF-TOKEN': /* 使用父平台现有 CSRF token */ '' },
-}
+const gatewayOrigin = 'http://mcp.intra.example'
+const cookieDomain = '; Domain=intra.example'
 let stopListening
+
+function setIdentity(user) {
+  document.cookie = `mcp_username=${encodeURIComponent(user.username)}; Path=/; SameSite=Lax${cookieDomain}`
+  document.cookie = `mcp_email=${encodeURIComponent(user.email)}; Path=/; SameSite=Lax${cookieDomain}`
+}
 
 async function open(purpose) {
   try {
     error.value = ''
-    await openContextForge(frame.value, purpose, config)
+    await openContextForge(frame.value, purpose, { gatewayOrigin })
   } catch (cause) {
     error.value = cause.message
   }
 }
 
-onMounted(() => { stopListening = listenForKeyRefresh(frame.value, config, cause => { error.value = cause.message }) })
+onMounted(() => {
+  stopListening = listenForCredentialExpiry(frame.value, { gatewayOrigin }, cause => { error.value = cause.message })
+})
 onBeforeUnmount(() => stopListening?.())
 </script>
 
@@ -123,13 +75,13 @@ onBeforeUnmount(() => stopListening?.())
 </template>
 ```
 
-只向已登录的父平台用户显示这两个按钮。网关必须允许该父页面的 `frame-ancestors`，父页面 CSP 必须允许网关的 `frame-src` 和 `connect-src`。Vue 不保存共享密钥，不解析票据来决定用户权限。
+在父页面取得已登录用户资料后调用 `setIdentity(user)`，然后再显示入口。父页面退出登录时，用相同的 `Path` 和 `Domain` 将两个 Cookie 的 `Max-Age` 设为 `0`。领取凭据过期后刷新父页面，再调用 `open('key')`。
 
-## 5. 验收
+## 验收
 
-- 未登录父平台、关闭桥接开关、签名错误、过期、重复兑换、错误 Origin 与禁用用户必须被拒绝。
-- 登录票据只能设置网关会话；领取票据只能设置领取凭据。只有 `jwt_token` 时，领取接口仍返回 401。
-- 首次普通用户登录后检查个人 Team 和默认角色。领取前确认有效 Team、所选虚拟 MCP 的访问权及 `servers.use` 权限。
-- 使用领取的 Key 调用所选 MCP；尝试其他虚拟 MCP 应被拒绝。
+- 缺少任一身份 Cookie、错误 Origin、关闭桥接开关或停用账号时，交换必须失败。
+- 工作区交换只设置 `jwt_token`；领取交换只设置 `member_key_proof`。只有工作区 Cookie 时，领取接口返回 401。
+- 新用户首次登录不是管理员。领取前检查有效 Team、所选虚拟 MCP 和 `servers.use` 权限。
+- 从父页面打开两个 iframe 入口，并使用领取的 API Key 调用所选 MCP。
 
-父平台实际的 Session 属性、用户对象、CSRF 头和内网 Origin 尚未提供。部署时需将示例接到真实代码，并完成这四项配置。
+前端可以改写 `mcp_username` 和 `mcp_email`。此模式不验证父平台登录状态，适用于用户已经接受该信任边界的受控内网部署。网关不会把 Cookie 中的管理员标记当作权限来源。

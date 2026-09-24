@@ -5796,7 +5796,7 @@ class SSOProvider(Base):
 
 
 class PortalTicketUse(Base):
-    """Record consumed parent-application tickets across gateway workers."""
+    """Retain the historical ticket table for upgraded databases."""
 
     __tablename__ = "portal_ticket_uses"
 

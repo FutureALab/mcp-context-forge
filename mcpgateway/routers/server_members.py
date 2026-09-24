@@ -42,6 +42,7 @@ from mcpgateway.services.server_member_service import issue_member_key, register
 from mcpgateway.services.server_service import ServerService
 from mcpgateway.services.team_management_service import MemberAlreadyExistsError, TeamManagementError, TeamManagementService
 from mcpgateway.utils.member_key_proof import MEMBER_KEY_PROOF_COOKIE, read_member_key_proof
+from mcpgateway.utils.paths import resolve_root_path
 
 router = APIRouter()
 
@@ -193,7 +194,7 @@ async def member_key_page(request: Request):
         request,
         "member_key.html",
         {
-            "root_path": request.scope.get("root_path", ""),
+            "root_path": resolve_root_path(request),
             "bundle_css": get_bundle_css_files(),
             "portal_sso_enabled": settings.portal_sso_enabled,
             "portal_sso_parent_origin": settings.portal_sso_parent_origin.rstrip("/"),

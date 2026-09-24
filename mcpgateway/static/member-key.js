@@ -107,8 +107,8 @@
   async function startSso() {
     if (portalSso) {
       if (window.parent === window || !portalParentOrigin) throw new Error("请从内网父平台打开领取页面。");
-      window.parent.postMessage({ type: "contextforge-portal-ticket-required", purpose: "key" }, portalParentOrigin);
-      message.textContent = "正在等待内网平台重新鉴权…";
+      window.parent.postMessage({ type: "contextforge-portal-cookie-required", purpose: "key" }, portalParentOrigin);
+      message.textContent = "领取凭据已过期，请刷新父页面。";
       return;
     }
     if (!provider.value) {

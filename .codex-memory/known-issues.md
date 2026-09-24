@@ -1,5 +1,9 @@
 # Known Issues
 
+## Parent-page Cookie identity
+
+The opt-in portal bridge reads user identity from browser-writable `mcp_username` and `mcp_email` Cookies. It does not verify the parent platform's session. Only enable it for the accepted intranet trust model. A gateway login remains valid for up to one hour after the parent page clears those Cookies.
+
 ## Windows JavaScript MIME mapping
 
 Windows MIME configuration classified `.js` as `text/plain` on this machine.

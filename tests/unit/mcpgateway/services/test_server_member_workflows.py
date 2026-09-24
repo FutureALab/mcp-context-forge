@@ -602,6 +602,8 @@ class TestManagementBoundaries(unittest.TestCase):
             with patch("mcpgateway.routers.server_members.settings") as settings:
                 settings.self_service_api_keys_enabled = enabled
                 settings.email_auth_enabled = email_auth
+                settings.sso_enabled = False
+                settings.portal_sso_enabled = False
                 with self.assertRaises(HTTPException) as error:
                     require_self_service()
                 self.assertEqual(error.exception.status_code, 404)
