@@ -96,7 +96,7 @@
         <div class="panel-head"><h2 id="settings-heading">父页面输入</h2><span>仅用于本机演示</span></div>
         <div class="controls">
           <form id="identity-form">
-            <label class="field" for="gateway-url">网关地址<input id="gateway-url" type="url" value="http://localhost:8000" required></label>
+            <label class="field" for="gateway-url">网关地址<input id="gateway-url" type="url" value="http://localhost:4445" required></label>
             <label class="field" for="username">用户名<input id="username" autocomplete="username" placeholder="父平台当前用户名" required></label>
             <label class="field" for="email">邮箱<input id="email" type="email" autocomplete="email" placeholder="MCP 已注册的普通用户邮箱" required></label>
           </form>
@@ -138,6 +138,7 @@
     function origin() { return gatewayUrl.value.trim().replace(/\/$/, ""); }
     function storageKey() { return "mcp-portal-token:" + origin(); }
     function expiryKey() { return "mcp-portal-expires:" + origin(); }
+    let gatewayReachable = false;
     function updateAuthorization() {
       const token = sessionStorage.getItem(storageKey());
       const expiresAt = Number(sessionStorage.getItem(expiryKey()));
@@ -147,16 +148,29 @@
         return;
       }
       const seconds = Math.max(0, Math.ceil(expiresAt - Date.now() / 1000));
-      tokenState.textContent = seconds ? "有效，剩余 " + Math.floor(seconds / 3600) + " 小时 " + Math.floor(seconds % 3600 / 60) + " 分" : "已过期，需重新授权";
+      tokenState.textContent = seconds ? (gatewayReachable ? "有效" : "本地留存，未验证网关") + "，剩余 " + Math.floor(seconds / 3600) + " 小时 " + Math.floor(seconds % 3600 / 60) + " 分" : "已过期，需重新授权";
       tokenExpiry.textContent = new Date(expiresAt * 1000).toLocaleString();
     }
     function setStatus(message, kind) {
       status.textContent = message;
       status.dataset.kind = kind;
     }
+    function hideFrame() {
+      frame.removeAttribute("src");
+      frame.hidden = true;
+      document.querySelector("#empty").hidden = false;
+      document.querySelector("#preview-url").textContent = "尚未打开";
+    }
     window.addEventListener("message", (event) => {
       if (event.origin !== new URL(origin()).origin || event.source !== frame.contentWindow) return;
-      if (event.data?.type === "contextforge-portal-cookie-required") setStatus("MCP 页面凭据已过期，请刷新父页面后重新打开。", "error");
+      if (event.data?.type === "contextforge-portal-cookie-required") {
+        hideFrame();
+        setStatus("MCP 页面凭据已过期，请刷新父页面后重新打开。", "error");
+      }
+      if (event.data?.type === "contextforge-portal-access-denied") {
+        hideFrame();
+        setStatus("该账号没有 MCP 工作区权限，请联系管理员分配有效 Team 和工作区角色。", "error");
+      }
     });
     async function open(purpose) {
       if (location.protocol === "file:") {
@@ -180,15 +194,16 @@
             body: JSON.stringify({ purpose, ...(oldToken ? { token: oldToken } : {}) }),
           });
         } catch (error) {
-          if (error instanceof TypeError) throw new Error("无法连接网关 " + gatewayOrigin + "。5173 只提供演示页；请另行启动 MCP 网关，并填写实际端口。");
+          if (error instanceof TypeError) throw new Error("无法访问网关 " + gatewayOrigin + "。网关可能未启动，或请求被限流/CORS 拦截。本机请运行 start_local.py 并使用 4445 端口。");
           throw error;
         }
         const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.detail || "鉴权失败 (" + response.status + ")");
+        if (!response.ok) throw new Error(response.status === 429 ? "网关请求过多，请等待 " + (response.headers.get("retry-after") || "稍后") + " 秒，或运行 start_local.py 使用 4445 端口。" : result.detail || "鉴权失败 (" + response.status + ")");
         const destination = new URL(result.next, gatewayOrigin);
         if (destination.origin !== new URL(gatewayOrigin).origin) throw new Error("网关返回了无效地址");
         sessionStorage.setItem(storageKey(), result.token);
         sessionStorage.setItem(expiryKey(), String(result.expires_at));
+        gatewayReachable = true;
         if (purpose === "key") destination.searchParams.set("portal", "success");
         document.querySelector("#preview-url").textContent = destination.pathname;
         document.querySelector("#empty").hidden = true;
@@ -198,6 +213,9 @@
         const grant = oldToken ? oldToken === result.token ? "已复用授权" : "已重新授权" : "首次授权成功";
         setStatus(grant + "，正在打开" + (purpose === "login" ? "工作区。" : " API Key 领取页。"), "success");
       } catch (error) {
+        gatewayReachable = false;
+        hideFrame();
+        updateAuthorization();
         setStatus(error.message, "error");
       } finally {
         loginButton.disabled = keyButton.disabled = false;
@@ -211,10 +229,8 @@
       document.cookie = "mcp_email=; Path=/; Max-Age=0; SameSite=Lax";
       sessionStorage.removeItem(storageKey());
       sessionStorage.removeItem(expiryKey());
-      frame.removeAttribute("src");
-      frame.hidden = true;
-      document.querySelector("#empty").hidden = false;
-      document.querySelector("#preview-url").textContent = "尚未打开";
+      gatewayReachable = false;
+      hideFrame();
       updateAuthorization();
       setStatus("父页面 Cookie 和 token 已清除。", "success");
     });

@@ -466,9 +466,10 @@
       document.addEventListener("DOMContentLoaded", async function () {
         attachCsrfToPostForms();
         if ({{ 'true' if portal_sso_enabled else 'false' }} && window.parent !== window) {
-          showError("请刷新父页面重新获取登录凭据。");
+          const denied = new URLSearchParams(window.location.search).get("error") === "admin_required";
+          showError(denied ? "当前账号没有工作区权限，请联系管理员分配有效 Team 和工作区角色。" : "请刷新父页面重新获取登录凭据。");
           window.parent.postMessage(
-            { type: "contextforge-portal-cookie-required", purpose: "login" },
+            { type: denied ? "contextforge-portal-access-denied" : "contextforge-portal-cookie-required", purpose: "login" },
             {{ portal_sso_parent_origin | tojson }}
           );
         }

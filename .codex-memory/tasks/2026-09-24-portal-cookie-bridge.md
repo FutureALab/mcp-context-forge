@@ -75,3 +75,13 @@
 
 - The base `I:\anaconda\python.exe` lacks `uvicorn`; `I:\anaconda\envs\py312\python.exe` has it.
 - The local guide now starts the gateway with the `py312` interpreter and UTF-8 console output.
+
+## Local demo and workspace permission diagnosis
+
+- The user's existing gateway on 4444 returned a 15-minute 429 lockout to localhost. The parent page still showed a cached token as valid.
+- Added `start_local.py` to launch the local demo on 5173 and a loopback-only gateway on 4445 with a demo-only rate-limit override.
+- The demo now labels cached tokens as unverified until exchange succeeds and clears a failed iframe.
+- The registered `asd@example.com` account is active and has `platform_viewer`, but no active Team. Its login exchange succeeds, then `/admin` redirects with `admin_required` under the current public-only scope rule.
+- The iframe now reports workspace denial separately from expired credentials. No Team or role was added to the account.
+- Live browser verification opened the Key page on 4445 and showed the precise workspace denial. The Key options page reported no effective Team.
+- Ruff, ESLint, and four focused Vitest cases passed. The script started a healthy 4445 gateway and reused the existing 5173 page server.

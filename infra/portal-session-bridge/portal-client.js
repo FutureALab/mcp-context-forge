@@ -24,8 +24,9 @@ export async function openContextForge(frame, purpose, { gatewayOrigin, token })
 export function listenForCredentialExpiry(frame, config, onError) {
   const listener = (event) => {
     if (event.origin !== new URL(config.gatewayOrigin).origin || event.source !== frame.contentWindow) return;
-    if (event.data?.type !== "contextforge-portal-cookie-required" || !["login", "key"].includes(event.data.purpose)) return;
-    onError(new Error("MCP 凭据已过期，请刷新父页面"));
+    if (!["login", "key"].includes(event.data?.purpose)) return;
+    if (event.data.type === "contextforge-portal-access-denied") onError(new Error("该账号没有 MCP 工作区权限，请联系管理员分配有效 Team 和工作区角色"));
+    if (event.data.type === "contextforge-portal-cookie-required") onError(new Error("MCP 凭据已过期，请刷新父页面"));
   };
   window.addEventListener("message", listener);
   return () => window.removeEventListener("message", listener);

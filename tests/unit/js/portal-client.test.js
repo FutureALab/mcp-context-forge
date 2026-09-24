@@ -64,6 +64,8 @@ describe("parent identity cookie bridge", () => {
     expect(onError.mock.calls[0][0].message).toContain("刷新父页面");
     window.dispatchEvent(new MessageEvent("message", { origin: "http://mcp.test", source: frame.contentWindow, data: { type: "contextforge-portal-cookie-required", purpose: "login" } }));
     expect(onError).toHaveBeenCalledTimes(2);
+    window.dispatchEvent(new MessageEvent("message", { origin: "http://mcp.test", source: frame.contentWindow, data: { type: "contextforge-portal-access-denied", purpose: "login" } }));
+    expect(onError.mock.calls[2][0].message).toContain("工作区权限");
     stop();
   });
 });

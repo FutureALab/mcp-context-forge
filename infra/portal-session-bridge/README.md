@@ -88,24 +88,35 @@ onBeforeUnmount(() => stopListening?.())
 
 ## 本机按钮验证
 
-需要同时运行网关和静态页面服务。`python -m http.server` 只提供演示页，不会启动 MCP 网关。在仓库根目录打开两个 PowerShell 窗口：
+在仓库根目录运行下面的命令。脚本启动网关和演示页，网关使用 4445 端口，避开已占用或被限流的 4444 端口。脚本只为本机演示关闭网关速率限制，不修改 `.env`。
 
-1. 在第一个窗口启动网关。下面的变量只对当前窗口有效；本机基础环境的 `python` 缺少 `uvicorn`，因此使用已安装项目依赖的 `py312` 环境。网关默认监听 4444 端口。
+```powershell
+& 'I:\anaconda\envs\py312\python.exe' .\infra\portal-session-bridge\start_local.py
+```
+
+打开 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。页面默认网关地址为 `http://localhost:4445`。脚本会检查两个服务是否就绪。
+
+也可以手动启动两个服务：
+
+1. 在第一个窗口启动网关。下面的变量只对当前窗口有效；本机基础环境的 `python` 缺少 `uvicorn`，因此使用已安装项目依赖的 `py312` 环境。这里指定网关监听 4445 端口。
 
    ```powershell
    $env:PORTAL_SSO_ENABLED = 'true'
    $env:PORTAL_SSO_PARENT_ORIGIN = 'http://localhost:5173'
-   $env:ALLOWED_ORIGINS = '["http://localhost:5173","http://localhost:4444"]'
+   $env:ALLOWED_ORIGINS = '["http://localhost:5173","http://localhost:4445"]'
+   $env:HOST = '127.0.0.1'
+   $env:PORT = '4445'
    $env:X_FRAME_OPTIONS = 'none'
    $env:SECURE_COOKIES = 'false'
+   $env:RATE_LIMITING_ENABLED = 'false'
    $env:PYTHONIOENCODING = 'utf-8'
    & 'I:\anaconda\envs\py312\python.exe' -m mcpgateway
    ```
 
 2. 在第二个窗口运行 `python -m http.server 5173 --bind localhost`。
-3. 打开 `http://localhost:5173/infra/portal-session-bridge/local-test.html`，把“网关地址”改成 `http://localhost:4444`。不要双击 HTML 文件或使用 `file://`。
+3. 打开 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。不要双击 HTML 文件或使用 `file://`。
 
-如果使用 `make dev`，网关端口为 8000，页面中的网关地址保持 `http://localhost:8000`。输入 MCP 已注册普通用户的用户名和邮箱，依次点击“打开工作区”和“打开 API Key 领取页”。页面展示首次授权、token 复用和到期时间，并在 iframe 中加载网关。
+如果使用 `make dev`，网关端口为 8000，请把页面中的网关地址改为 `http://localhost:8000`。输入 MCP 已注册普通用户的用户名和邮箱，依次点击“打开工作区”和“打开 API Key 领取页”。页面展示首次授权、token 复用和到期时间，并在 iframe 中加载网关。工作区仍要求有效 Team 和工作区角色；没有 Team 的账号可通过身份验证，但不能进入工作区。
 
 ## 验收
 
