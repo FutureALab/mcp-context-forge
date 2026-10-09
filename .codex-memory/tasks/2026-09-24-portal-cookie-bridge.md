@@ -112,3 +112,9 @@
 - The entry uses Streamable HTTP, the current gateway origin and root path, and the newly issued Key in the `Authorization` header.
 - The JSON clears with the Key when the account changes, the Key renews, or the page closes.
 - ESLint and nine focused Vitest cases passed. A disposable local gateway and parent page verified the iframe flow and JSON fields.
+
+## SSE client configuration
+
+- The Key result now lets users switch one `mcpServers` JSON between Streamable HTTP and SSE without issuing another Key.
+- SSE uses `/servers/{id}/sse`; Streamable HTTP uses `/servers/{id}/mcp/`. Both include the issued Key in the `Authorization` header.
+- ESLint, nine focused Vitest cases, and an isolated live parent-page and gateway browser flow passed for both options.

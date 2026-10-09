@@ -11,6 +11,7 @@
   const result = document.getElementById("member-key-result");
   const value = document.getElementById("member-key-value");
   const configValue = document.getElementById("member-config-value");
+  const transport = document.getElementById("member-transport");
   const ssoFields = document.getElementById("member-sso-fields");
   const passwordFields = document.getElementById("member-password-fields");
   const provider = document.getElementById("member-sso-provider");
@@ -23,11 +24,27 @@
   let account = "";
   let mode = "sso";
   let version = 0;
+  let issuedServer = null;
+  const renderConfig = () => {
+    if (!issuedServer || !value.value) return;
+    const sse = transport.value === "sse";
+    configValue.value = JSON.stringify({
+      mcpServers: {
+        [issuedServer.name]: {
+          type: transport.value,
+          url: new URL(`${form.dataset.root}/servers/${encodeURIComponent(issuedServer.id)}/${sse ? "sse" : "mcp/"}`, window.location.origin).href,
+          headers: { Authorization: `Bearer ${value.value}` },
+        },
+      },
+    }, null, 2);
+  };
   const clearResult = () => {
+    issuedServer = null;
     value.value = "";
     configValue.value = "";
     result.classList.add("hidden");
   };
+  transport.addEventListener("change", renderConfig);
   const csrf = () =>
     decodeURIComponent(
       document.cookie
@@ -211,15 +228,8 @@
         return;
       }
       value.value = data.api_key;
-      configValue.value = JSON.stringify({
-        mcpServers: {
-          [data.server_name || data.server_id]: {
-            type: "streamableHttp",
-            url: new URL(`${form.dataset.root}/servers/${encodeURIComponent(data.server_id)}/mcp/`, window.location.origin).href,
-            headers: { Authorization: `Bearer ${data.api_key}` },
-          },
-        },
-      }, null, 2);
+      issuedServer = { id: data.server_id, name: data.server_name || data.server_id };
+      renderConfig();
       result.classList.remove("hidden");
       message.textContent = `已生成；到期时间：${new Date(data.expires_at).toLocaleString()}`;
     } catch (error) {

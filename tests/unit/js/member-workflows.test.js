@@ -63,6 +63,20 @@ test("self-service sends passwords and invalidates changed account input", async
       },
     },
   });
+  el("member-transport").value = "sse";
+  el("member-transport").dispatchEvent(new Event("change"));
+  expect(JSON.parse(el("member-config-value").value)).toEqual({
+    mcpServers: {
+      "Public MCP": {
+        type: "sse",
+        url: `${window.location.origin}/servers/public-server/sse`,
+        headers: { Authorization: "Bearer fixture-key" },
+      },
+    },
+  });
+  el("member-transport").value = "streamableHttp";
+  el("member-transport").dispatchEvent(new Event("change"));
+  expect(JSON.parse(el("member-config-value").value).mcpServers["Public MCP"].url).toBe(`${window.location.origin}/servers/public-server/mcp/`);
   expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({
     password: "fixture-password",
     team_id: "my-team",
