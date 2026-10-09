@@ -10,6 +10,7 @@
   const message = document.getElementById("member-key-message");
   const result = document.getElementById("member-key-result");
   const value = document.getElementById("member-key-value");
+  const configValue = document.getElementById("member-config-value");
   const ssoFields = document.getElementById("member-sso-fields");
   const passwordFields = document.getElementById("member-password-fields");
   const provider = document.getElementById("member-sso-provider");
@@ -24,6 +25,7 @@
   let version = 0;
   const clearResult = () => {
     value.value = "";
+    configValue.value = "";
     result.classList.add("hidden");
   };
   const csrf = () =>
@@ -209,6 +211,15 @@
         return;
       }
       value.value = data.api_key;
+      configValue.value = JSON.stringify({
+        mcpServers: {
+          [data.server_name || data.server_id]: {
+            type: "streamableHttp",
+            url: new URL(`${form.dataset.root}/servers/${encodeURIComponent(data.server_id)}/mcp/`, window.location.origin).href,
+            headers: { Authorization: `Bearer ${data.api_key}` },
+          },
+        },
+      }, null, 2);
       result.classList.remove("hidden");
       message.textContent = `已生成；到期时间：${new Date(data.expires_at).toLocaleString()}`;
     } catch (error) {
@@ -236,6 +247,17 @@
         message.textContent = "已复制 API Key。";
       } catch {
         value.select();
+        message.textContent = "请按 Ctrl+C 复制。";
+      }
+    });
+  document
+    .getElementById("copy-member-config")
+    .addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(configValue.value);
+        message.textContent = "已复制 MCP 配置 JSON。";
+      } catch {
+        configValue.select();
         message.textContent = "请按 Ctrl+C 复制。";
       }
     });

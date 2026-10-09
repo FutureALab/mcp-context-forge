@@ -30,7 +30,7 @@ test("self-service sends passwords and invalidates changed account input", async
         ],
       });
     }
-    return response({ api_key: "fixture-key", expires_at: "2026-10-17T12:00:00Z" });
+    return response({ api_key: "fixture-key", server_id: "public-server", server_name: "Public MCP", expires_at: "2026-10-17T12:00:00Z" });
   });
   vi.stubGlobal("fetch", fetchMock);
   await import("../../../mcpgateway/static/member-key.js");
@@ -54,6 +54,15 @@ test("self-service sends passwords and invalidates changed account input", async
   await vi.waitFor(() =>
     expect(el("member-key-value").value).toBe("fixture-key")
   );
+  expect(JSON.parse(el("member-config-value").value)).toEqual({
+    mcpServers: {
+      "Public MCP": {
+        type: "streamableHttp",
+        url: `${window.location.origin}/servers/public-server/mcp/`,
+        headers: { Authorization: "Bearer fixture-key" },
+      },
+    },
+  });
   expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({
     password: "fixture-password",
     team_id: "my-team",
@@ -64,11 +73,13 @@ test("self-service sends passwords and invalidates changed account input", async
   el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
   await vi.waitFor(() => expect(document.body.textContent).toContain("原 API Key 已续期至"));
   expect(el("member-key-value").value).toBe("");
+  expect(el("member-config-value").value).toBe("");
   expect(JSON.parse(fetchMock.mock.calls[3][1].body).days).toBe(365);
   el("member-password").dispatchEvent(new Event("input"));
   expect(el("member-team").disabled).toBe(true);
   expect(el("issue-member-key").disabled).toBe(true);
   expect(el("member-key-value").value).toBe("");
+  expect(el("member-config-value").value).toBe("");
   vi.unstubAllGlobals();
 });
 
@@ -122,7 +133,7 @@ test("self-service offers a personal workspace and public MCPs without a team", 
         ],
       });
     }
-    return response({ api_key: "public-key", expires_at: "2026-10-17T12:00:00Z" });
+    return response({ api_key: "public-key", server_id: "public-server", server_name: "Public", expires_at: "2026-10-17T12:00:00Z" });
   });
   vi.stubGlobal("fetch", fetchMock);
   await import("../../../mcpgateway/static/member-key.js?public-choice");
@@ -140,6 +151,7 @@ test("self-service offers a personal workspace and public MCPs without a team", 
   el("member-server").dispatchEvent(new Event("change"));
   el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
   await vi.waitFor(() => expect(el("member-key-value").value).toBe("public-key"));
+  expect(JSON.parse(el("member-config-value").value).mcpServers.Public.url).toBe(`${window.location.origin}/servers/public-server/mcp/`);
   expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({ team_id: null, server_id: "public-server" });
   vi.unstubAllGlobals();
 });

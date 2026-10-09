@@ -105,3 +105,10 @@
 - Clicking the already-selected intranet authorization tab revealed the OAuth provider field because `switchMode()` ignored `portalSso`.
 - The provider field now stays hidden in portal mode, including after switching from password mode.
 - Seven JavaScript workflow tests and ESLint passed. A live browser click on the running Key page kept the OAuth field hidden.
+
+## API Key client configuration display
+
+- The Key result now includes a copyable `mcpServers` JSON entry for the selected virtual MCP.
+- The entry uses Streamable HTTP, the current gateway origin and root path, and the newly issued Key in the `Authorization` header.
+- The JSON clears with the Key when the account changes, the Key renews, or the page closes.
+- ESLint and nine focused Vitest cases passed. A disposable local gateway and parent page verified the iframe flow and JSON fields.
