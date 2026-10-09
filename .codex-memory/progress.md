@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-10-09: Local portal startup recovery
+
+- Reproduced the 60-second startup timeout and confirmed PostgreSQL `localhost:5432` was unavailable.
+- Verified `--demo-db` startup, portal login, workspace HTML, Key options, and public-only Key issuance over HTTP.
+- Default startup now fails in about six seconds with a PostgreSQL diagnostic. Ruff, Python compilation, and diff checks passed.
+- Stopped both test services and removed only the temporary databases created during verification.
+
 ## 2026-09-24: Personal workspace and public MCP Key choices
 
 - Python member workflow suite passed: 23 tests, including HTTP options/issuance and deny paths.

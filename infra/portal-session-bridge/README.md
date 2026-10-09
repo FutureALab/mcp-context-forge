@@ -88,13 +88,21 @@ onBeforeUnmount(() => stopListening?.())
 
 ## 本机按钮验证
 
-在仓库根目录运行下面的命令。脚本启动网关和演示页，网关使用 4445 端口，避开已占用或被限流的 4444 端口。脚本只为本机演示关闭网关速率限制，不修改 `.env`。
+在仓库根目录运行下面的命令。脚本启动网关和演示页，网关使用 4445 端口。默认连接 `.env` 中的数据库；先确认该数据库已经启动。脚本只为本机演示关闭网关速率限制，不修改 `.env`。复制命令时不要包含 PowerShell 提示符 `PS D:\...>`。
 
 ```powershell
 & 'I:\anaconda\envs\py312\python.exe' .\infra\portal-session-bridge\start_local.py
 ```
 
-打开 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。页面默认网关地址为 `http://localhost:4445`。脚本会检查两个服务是否就绪。
+如果提示 `PostgreSQL localhost:5432 未启动或无法连接`，可以先启动自己的 PostgreSQL，以使用其中已有的账号。只想立即测试页面和接口时，改用独立的 SQLite 演示数据库：
+
+```powershell
+& 'I:\anaconda\envs\py312\python.exe' .\infra\portal-session-bridge\start_local.py --demo-db
+```
+
+演示账号填 `Demo User` 和 `demo@example.com`。脚本会创建个人空间和一个公开虚拟 MCP。演示数据库保存在系统临时目录；它与 `.env` 中的 PostgreSQL 数据互不影响。脚本会打印演示数据库的路径。该账号只用于本机演示，不能代表内网的真实账号。
+
+打开 `http://localhost:5173/infra/portal-session-bridge/local-test.html`。页面默认网关地址为 `http://localhost:4445`。脚本会检查两个服务是否就绪。脚本返回命令提示符后，网关和页面服务仍在后台运行。
 
 也可以手动启动两个服务：
 

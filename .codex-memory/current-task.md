@@ -1,5 +1,11 @@
 # Current Task
 
+## 2026-10-09: Local portal startup recovery
+
+- `.env` points to PostgreSQL at `localhost:5432`; that port was closed, so the gateway did not become ready.
+- `start_local.py` now reports the missing database immediately and supports `--demo-db` for an isolated SQLite demo.
+- The demo seeds one portal user, personal team, and public MCP. It does not alter the configured PostgreSQL database.
+
 ## 2026-09-24: Personal workspace and public MCP Key choices
 
 - Self-service options label personal teams and expose public MCPs without a Team membership.

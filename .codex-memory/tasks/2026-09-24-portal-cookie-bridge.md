@@ -1,5 +1,12 @@
 # Parent-page Cookie bridge
 
+## 2026-10-09 startup recovery
+
+- Local startup depends on the database selected by `.env`; the configured PostgreSQL service was unavailable.
+- `start_local.py --demo-db` now starts an isolated SQLite database and seeds a registered portal user, personal team, and public MCP.
+- The default path keeps existing database data and fails early when PostgreSQL cannot be reached.
+- Live HTTP checks passed both iframe purposes and public-only Key issuance. Temporary test services and files were cleaned up.
+
 ## Decision
 
 - The parent Vue page writes `mcp_username` and `mcp_email` after its own login.
