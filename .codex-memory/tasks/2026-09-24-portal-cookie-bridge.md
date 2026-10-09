@@ -1,5 +1,12 @@
 # Parent-page Cookie bridge
 
+## 2026-10-09 independent intranet deployment guide
+
+- Added `docs/docs/deployment/intranet-portal-gateway.md` for a gateway-only container behind the existing Nginx on `devops.com:18090`.
+- The guide uses the existing PostgreSQL, an exact parent Origin of `http://devops.com`, and HTTP-compatible Cookie settings.
+- Current images compile `messages.mo`; the guide shows how to export and mount that file at the runtime gettext catalog path.
+- The previous untracked top-level `DEPLOY-INTRANET.md` remains untouched.
+
 ## 2026-10-09 startup recovery
 
 - Local startup depends on the database selected by `.env`; the configured PostgreSQL service was unavailable.
