@@ -1,5 +1,13 @@
 # Progress
 
+## 2026-10-10: Key authorization selector
+
+- Renamed the portal authorization button to 用户登录鉴权.
+- Both mode buttons use purple fill and white text when their existing aria-pressed state is true.
+- Passed nine member workflow JavaScript tests, Tailwind/Vite builds, and diff checks.
+- Browser verifies switching in both directions against the live gateway and confirms the selected colors.
+- Restarted the existing preview gateway on localhost:4445 to refresh its template cache.
+
 ## 2026-10-10: Monitoring design and Key recovery
 
 - Follow-up reproduces historical hash-only Keys and supplies a new recoverable Key without invalidating the old one.
