@@ -207,7 +207,7 @@ async def issue_for_user(db: Session, user: EmailUser, body: MemberKeyRequest | 
     )
     if recent >= 10:
         raise HTTPException(429, "该账号每小时最多生成 10 个 Key，请稍后重试")
-    result = await issue_member_key(db, user.email, body.team_id, body.server_id, body.days, "self-service")
+    result = await issue_member_key(db, user.email, body.team_id, body.server_id, body.days, "self-service", require_recoverable=True)
     if result["renewed"]:
         token = db.scalar(
             select(EmailApiToken).where(

@@ -2,6 +2,11 @@
 
 ## 2026-10-10: Monitoring design and Key recovery
 
+- Follow-up reproduces historical hash-only Keys and supplies a new recoverable Key without invalidating the old one.
+- Live MCP initialization succeeds with both Keys. Browser confirms repeat display and white backgrounds on all three pages.
+- Reran 41 Python tests, 82 JavaScript tests, lint, build, and whitespace checks successfully.
+- Restarted preview on 4445 and stopped the isolated test gateway on 4447.
+
 - Replaced the monitoring slab with metric cards, chart panels, ranked lists, and structured audit controls.
 - Repeated self-service requests redisplay the same Key and client configuration, including the lifetime cap.
 - Historical hash-only material shows a recovery limitation without replacing the existing Key.

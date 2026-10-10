@@ -389,6 +389,7 @@ class TokenCatalogService:
         caller_token_teams_provided: bool = False,
         is_active: bool = True,
         caller_email: Optional[str] = None,
+        require_recoverable: bool = False,
     ) -> tuple[EmailApiToken, str]:
         """
         Create a new API token with team-level scoping and additional configurations.
@@ -431,6 +432,7 @@ class TokenCatalogService:
             caller_email (Optional[str]): The email of the caller creating the token. When admin delegation
                 is used (``user_email != caller_email``), team membership checks are enforced even for
                 unrestricted admins to prevent privilege escalation.
+            require_recoverable (bool): Reuse only keys with encrypted material. Preserve historical hash-only keys when creating a recoverable key.
 
         Returns:
             tuple[EmailApiToken, str]: A tuple where the first element is the `EmailApiToken` database record and
@@ -536,6 +538,8 @@ class TokenCatalogService:
                     and (candidate.time_restrictions or {}) == (scope.time_restrictions or {})
                     and (candidate.usage_limits or {}) == (scope.usage_limits or {})
                 ):
+                    if require_recoverable and not candidate.encrypted_token:
+                        continue
                     if candidate.expires_at is not None:
                         lifetime_limit = candidate.created_at + timedelta(days=365)
                         if candidate.expires_at < lifetime_limit:

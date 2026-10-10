@@ -236,7 +236,7 @@
           : `原 Key 无法展示：${data.key_message || "未保存可恢复的原文"}。如已丢失，请联系管理员处理。`;
         return;
       }
-      message.textContent = `已生成；到期时间：${new Date(data.expires_at).toLocaleString()}`;
+      message.textContent = `已生成可保存的 API Key；到期时间：${new Date(data.expires_at).toLocaleString()}。请复制下方 Key 和配置 JSON，原有 Key 不受影响。`;
     } catch (error) {
       if (mode === "sso" && error.message === "AUTH_REQUIRED") {
         try {

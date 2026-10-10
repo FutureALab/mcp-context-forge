@@ -112,13 +112,27 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(response.status_code, 200, response.text)
                 self.assertEqual(response.json()["api_key"], first["api_key"])
                 stored = self.db.get(EmailApiToken, first["token_id"])
+                original_expiry = stored.expires_at
+                original_hash = stored.token_hash
                 stored.encrypted_token = None
                 self.db.commit()
-                missing = await client.post("/api-key/sso/issue", json={"team_id": "team-a", "server_id": "server-a", "days": 7})
-                self.assertIsNone(missing.json()["api_key"])
-                self.assertIn("无法恢复", missing.json()["key_message"])
-                self.assertEqual(self.db.query(EmailApiToken).count(), 1)
+                replacement = await client.post("/api-key/sso/issue", json={"team_id": "team-a", "server_id": "server-a", "days": 7})
+                self.assertEqual(replacement.status_code, 200, replacement.text)
+                recovered = replacement.json()
+                self.assertTrue(recovered["api_key"])
+                self.assertFalse(recovered["renewed"])
+                self.assertNotEqual(recovered["token_id"], first["token_id"])
+                self.assertNotEqual(recovered["api_key"], first["api_key"])
+                self.db.refresh(stored)
+                self.assertEqual(stored.expires_at, original_expiry)
+                self.assertEqual(stored.token_hash, original_hash)
+                self.assertTrue(stored.is_active)
+                repeated = await client.post("/api-key/sso/issue", json={"team_id": "team-a", "server_id": "server-a", "days": 7})
+                self.assertEqual(repeated.json()["api_key"], recovered["api_key"])
+                self.assertEqual(repeated.json()["token_id"], recovered["token_id"])
+                self.assertEqual(self.db.query(EmailApiToken).count(), 2)
                 self.assertNotIn(first["api_key"], str(audit.mock_calls))
+                self.assertNotIn(recovered["api_key"], str(audit.mock_calls))
 
     async def test_self_service_recovery_rejects_mismatched_owner(self):
         """Reject renewal metadata that refers to another token owner."""

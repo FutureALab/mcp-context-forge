@@ -2,6 +2,10 @@
 
 ## 2026-10-10: Monitoring design and Key recovery
 
+- Follow-up: historical hash-only self-service Keys now receive one new recoverable Key. The old Key remains valid.
+- The three monitoring pages now use white main backgrounds. Browser and live checks confirm the follow-up behavior.
+- Preview restarted on localhost:4445. The isolated test gateway is stopped.
+
 - Redesigned the three monitoring pages with separate panels, consistent spacing, indigo accents, and status badges.
 - Self-service renewal and lifetime-cap responses display the encrypted original Key and client configuration.
 - Recovery retains password/SSO authorization, token ownership, team/server checks, and no-cache headers.

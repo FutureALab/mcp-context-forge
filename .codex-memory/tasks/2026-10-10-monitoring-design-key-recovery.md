@@ -30,3 +30,16 @@ Status: completed
 - Stopped isolated validation processes and confirmed ports 4447 and 9010 have no listener.
 - Started the configured preview gateway on localhost:4445. Its health endpoint returns 200.
 - Kept the existing local parent-page server on port 5173. No deployment configuration changes are part of this task.
+
+## Follow-up: Historical Hash-only Keys and White Background
+
+- The user screenshot confirms the deployed Key has no encrypted material. Existing recovery cannot reconstruct its original value.
+- Self-service now skips matching hash-only Keys during reuse and creates one encrypted, recoverable Key.
+- Existing Key hashes, expiration, and active status remain unchanged. Later requests reuse the new recoverable Key.
+- Management and bulk issuance retain their previous reuse behavior.
+- This supersedes the administrator-contact behavior above for historical hash-only self-service Keys.
+- The three monitoring pages use a white main background. Other administration pages retain their existing background.
+- Passed 41 Python tests, 82 JavaScript tests, Ruff, ESLint, build, and whitespace checks.
+- Live tests start with a hash-only Key and confirm both old and new Keys initialize MCP sessions.
+- Browser confirms Key/configuration display, repeated retrieval, and white backgrounds on all three pages.
+- Stopped the isolated test gateway on 4447. Restarted the configured preview on 4445 and confirmed health status 200.

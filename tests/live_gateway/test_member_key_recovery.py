@@ -38,6 +38,18 @@ class TestMemberKeyRecoveryLive(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             first = response.json()
             self.assertTrue(first["api_key"])
+            legacy_key = os.getenv("MCP_USAGE_LEGACY_KEY")
+            if legacy_key:
+                self.assertNotEqual(first["api_key"], legacy_key)
+                self.assertFalse(first["renewed"])
+                for key in (legacy_key, first["api_key"]):
+                    initialized = client.post(
+                        f"/servers/{body['server_id']}/mcp/",
+                        headers={"Authorization": f"Bearer {key}", "Accept": "application/json, text/event-stream"},
+                        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "key-recovery-test", "version": "1"}}},
+                    )
+                    self.assertEqual(initialized.status_code, 200)
+                    self.assertIn("protocolVersion", initialized.text)
             for days in (7, 365, 365):
                 response = client.post("/admin/api-key/issue", json={**body, "days": days})
                 self.assertEqual(response.status_code, 200)

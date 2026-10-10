@@ -57,7 +57,7 @@ async def member_server(db: Session, email: str, team_id: str | None, server_id:
     return user, server
 
 
-async def issue_member_key(db: Session, email: str, team_id: str | None, server_id: str, days: int, actor: str) -> dict:
+async def issue_member_key(db: Session, email: str, team_id: str | None, server_id: str, days: int, actor: str, require_recoverable: bool = False) -> dict:
     """Issue or renew a key with only the recipient's MCP permissions."""
     user, server = await member_server(db, email, team_id, server_id)
     token_teams = [team_id] if team_id else []
@@ -76,6 +76,7 @@ async def issue_member_key(db: Session, email: str, team_id: str | None, server_
         caller_token_teams=token_teams,
         caller_token_teams_provided=True,
         caller_email=user.email,
+        require_recoverable=require_recoverable,
     )
     result = {
         "email": user.email,
