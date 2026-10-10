@@ -1,4 +1,4 @@
-"""Extract bounded MCP metadata without retaining tool arguments or results.
+"""Extract bounded MCP metadata and optional redacted audit payloads.
 
 Copyright contributors to the MCP-CONTEXT-FORGE project.
 SPDX-License-Identifier: Apache-2.0
@@ -6,6 +6,35 @@ SPDX-License-Identifier: Apache-2.0
 
 # Standard
 import json
+from typing import Any
+
+# First-Party
+from mcpgateway.utils.trace_redaction import serialize_trace_payload
+
+
+def normalize_audit_payload(value: Any, depth: int = 0) -> Any:
+    """Expose JSON embedded in MCP text content to the redaction boundary."""
+    if depth >= 16:
+        return "[audit nesting limit]"
+    if isinstance(value, dict):
+        return {key: normalize_audit_payload(item, depth + 1) for key, item in value.items()}
+    if isinstance(value, list):
+        return [normalize_audit_payload(item, depth + 1) for item in value]
+    if isinstance(value, str):
+        candidates = [value]
+        if '\\"' in value:
+            try:
+                candidates.append(json.loads(f'"{value}"', strict=False))
+            except (ValueError, RecursionError):
+                pass
+        for candidate in candidates:
+            try:
+                decoded = json.loads(candidate)
+            except (ValueError, RecursionError):
+                continue
+            if isinstance(decoded, (dict, list)):
+                return serialize_trace_payload(normalize_audit_payload(decoded, depth + 1), max_size=16384)
+    return value
 
 
 class MCPUsageCapture:
@@ -24,7 +53,7 @@ class MCPUsageCapture:
         target.extend(body[:remaining])
         self.truncated = self.truncated or len(body) > remaining
 
-    def details(self) -> dict | None:
+    def details(self, include_payloads: bool = False) -> dict | None:
         """Return names, protocol outcome, and explicitly reported usage."""
         try:
             request = json.loads(self.request)
@@ -38,6 +67,8 @@ class MCPUsageCapture:
             name = params.get("name") or params.get("uri")
             if isinstance(name, str):
                 details["resource"] = name[:255]
+            if include_payloads and request["method"] == "tools/call":
+                details["input"] = serialize_trace_payload(normalize_audit_payload(params.get("arguments", {})), max_size=16384)
         try:
             responses = [json.loads(self.response)]
         except (ValueError, UnicodeDecodeError):
@@ -54,6 +85,8 @@ class MCPUsageCapture:
             result = response.get("result")
             result = result if isinstance(result, dict) else {}
             details["outcome"] = "error" if "error" in response or result.get("isError") is True else "success"
+            if include_payloads and request["method"] == "tools/call":
+                details["output"] = serialize_trace_payload(normalize_audit_payload(response.get("error", result)), max_size=16384)
             meta = result.get("_meta")
             meta = meta if isinstance(meta, dict) else {}
             usage = meta.get("usage", result.get("usage"))

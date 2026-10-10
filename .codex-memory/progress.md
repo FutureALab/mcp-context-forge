@@ -1,5 +1,17 @@
 # Progress
 
+## 2026-10-09: MCP usage pages
+
+- Added three monitoring pages with real invocation metrics, UTC daily charts, four rankings, connector status, and audit filters.
+- Added administrator-only read APIs, paginated audits, and optional bounded payload capture using the existing JSON metadata column.
+- Fixed redaction of JSON embedded in escaped upstream text. Ambiguous historical connector matches remain unknown.
+- Passed 39 Python tests and 82 JavaScript tests. Final changed JavaScript and navigation rerun passed 73 tests.
+- Ruff, ESLint, Vite production build, and diff whitespace checks pass.
+- Isolated live SQLite gateway verification passes 22 real tool calls, MCP errors with HTTP 200, pagination, payload redaction, and permission denials.
+- Browser confirms charts, populated rankings, error filtering, and expandable audit details.
+- Final cleanup on 2026-10-10 confirms validation processes exited and no TCP listener remains on ports 4447 and 9010.
+- Full repository gates remain unrun because required tools are absent. PostgreSQL integration remains unrun.
+
 ## 2026-10-09: Local portal startup recovery
 
 - Reproduced the 60-second startup timeout and confirmed PostgreSQL `localhost:5432` was unavailable.

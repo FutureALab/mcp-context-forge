@@ -31,7 +31,8 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 # First-Party
 from mcpgateway.auth_context import get_jwt_user_email_from_payload, is_trusted_internal_mcp_request
-from mcpgateway.db import fresh_db_session
+from mcpgateway.config import settings
+from mcpgateway.db import Tool, fresh_db_session
 from mcpgateway.middleware.path_filter import should_skip_auth_context
 from mcpgateway.services.mcp_usage_capture import MCPUsageCapture
 from mcpgateway.services.token_catalog_service import TokenCatalogService
@@ -268,7 +269,14 @@ class TokenUsageMiddleware:
                 ip_address = client[0] if client else None
                 headers = Headers(scope=scope)
                 user_agent = headers.get("user-agent")
-                mcp_details = capture.details() if capture is not None else None
+                mcp_details = capture.details(include_payloads=settings.mcp_audit_payloads_enabled) if capture is not None else None
+                if mcp_details and mcp_details.get("method") == "tools/call" and mcp_details.get("resource"):
+                    # Third-Party
+                    from sqlalchemy import select  # pylint: disable=import-outside-toplevel
+
+                    gateway_ids = db.execute(select(Tool.gateway_id).where(Tool.name == mcp_details["resource"]).distinct()).scalars().all()
+                    if len(gateway_ids) == 1 and gateway_ids[0]:
+                        mcp_details["gateway_id"] = gateway_ids[0]
                 server_match = re.search(r"/(?:servers|virtual-servers)/([^/]+)/", scope.get("modified_path", path))
                 if server_match:
                     mcp_details = {**(mcp_details or {}), "server_id": server_match.group(1)}

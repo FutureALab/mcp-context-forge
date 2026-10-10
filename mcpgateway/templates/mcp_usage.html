@@ -1,0 +1,21 @@
+{% for view, title, description in [('mcp-dashboard', '仪表盘', '查看 MCP 工具使用概况与连接器状态。'), ('mcp-analytics', '数据分析', '按工具、连接器、MCP 服务器和用户分析调用量。'), ('mcp-audit', '审计日志', '查询 MCP 工具调用历史，展开查看调用详情。')] %}
+<div id="{{ view }}-panel" class="tab-panel hidden">
+  <div class="mcp-usage" data-view="{{ view }}" data-root="{{ root_path }}">
+    <header class="mcp-heading"><div><h2>{{ title }}</h2><p>{{ description }}</p></div><div class="mcp-actions"><label>时间范围<select data-filter="days">{% if view == 'mcp-dashboard' %}<option value="7">最近 7 天</option>{% else %}<option value="30">最近 30 天</option><option value="7">最近 7 天</option>{% endif %}<option value="90">最近 90 天</option></select></label><button type="button" data-refresh>刷新</button></div></header>
+    <p class="mcp-status" role="status" aria-live="polite"></p>
+    {% if view == 'mcp-audit' %}
+    <form class="mcp-filters"><label>调用状态<select data-filter="status"><option value="all">全部</option><option value="success">成功</option><option value="error">错误</option><option value="timeout">超时</option><option value="unknown">结果未采集</option></select></label><label class="mcp-search">搜索<input data-filter="search" placeholder="按工具、连接器或用户搜索" maxlength="255" /></label><label>连接器<select data-filter="gateway_id"><option value="">所有连接器</option></select></label><label>MCP 服务器<select data-filter="server_id"><option value="">所有 MCP 服务器</option></select></label><button type="submit">查询</button></form>
+    <div class="mcp-table-scroll" data-audit></div><footer class="mcp-pagination"><span data-page-label></span><div><button type="button" data-previous>上一页</button><button type="button" data-next>下一页</button></div></footer>
+    {% else %}
+    <section class="mcp-cards" data-cards aria-label="核心指标"></section>
+    <div class="mcp-trend-layout"><section class="mcp-section"><div class="mcp-section-heading"><h3>调用次数 · <span data-period></span></h3><span class="mcp-legend"><i></i>成功 <i class="error"></i>错误 / 超时</span></div><div class="mcp-chart"><canvas role="img" aria-label="每日成功及失败工具调用量"></canvas></div><p class="mcp-empty" data-trend-empty></p></section>{% if view == 'mcp-dashboard' %}<aside class="mcp-section" data-summary></aside>{% endif %}</div>
+    {% if view == 'mcp-dashboard' %}
+    <div class="mcp-grid"><section class="mcp-section"><div class="mcp-section-heading"><h3>连接器健康</h3><span>最近一次检测</span></div><div data-health></div></section><section class="mcp-section"><h3>快捷操作</h3><div class="mcp-shortcuts"><a href="#gateways">管理连接器<span>注册和维护上游 MCP 服务</span></a><a href="#catalog">虚拟 MCP 服务器<span>配置工具及访问范围</span></a><a href="#mcp-audit">查看审计日志<span>查询错误、超时及调用详情</span></a></div></section></div>
+    {% else %}
+    <div class="mcp-grid">{% for category, heading in [('tool', '热门工具'), ('gateway', '按连接器的调用量'), ('server', '按 MCP 服务器的调用量'), ('email', '按用户的调用量')] %}<section class="mcp-section"><h3>{{ heading }} <small>前 10 项</small></h3><div data-ranking="{{ category }}"></div></section>{% endfor %}</div>
+    {% endif %}
+    {% endif %}
+    <p class="mcp-coverage" data-coverage></p>
+  </div>
+</div>
+{% endfor %}

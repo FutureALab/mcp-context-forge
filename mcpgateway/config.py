@@ -2385,6 +2385,7 @@ class Settings(BaseSettings):
     # API Token Tracking Configuration
     # Controls how token usage and last_used timestamps are tracked
     token_usage_logging_enabled: bool = Field(default=True, description="Enable API token usage logging middleware")
+    mcp_audit_payloads_enabled: bool = Field(default=False, description="Retain bounded, redacted MCP tool inputs and outputs in API token usage logs")
     token_last_used_update_interval_minutes: int = Field(default=5, ge=1, le=1440, description="Minimum minutes between last_used timestamp updates (rate-limits DB writes)")
 
     # Metrics Aggregation Configuration

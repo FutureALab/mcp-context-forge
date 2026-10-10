@@ -1,5 +1,7 @@
 # Project Memory
 
+- [[tasks/2026-10-09-mcp-usage-pages]]: MCP dashboard, analytics, and invocation audits.
+
 - [[tasks/2026-09-24-public-member-keys]]: Personal workspace and public MCP self-service Key choices.
 
 - [[tasks/2026-09-24-portal-cookie-bridge]]: Parent-page account cookies for embedded login and Key issuance.

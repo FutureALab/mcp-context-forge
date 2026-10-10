@@ -26,6 +26,9 @@ export const ADMIN_ONLY_TABS = new Set([
   "users",
   "metrics",
   "member-usage",
+  "mcp-dashboard",
+  "mcp-analytics",
+  "mcp-audit",
   "performance",
   "observability",
   "plugins",
@@ -464,6 +467,10 @@ export const showTab = function (tabName) {
         if (tabName === "member-usage" && !panel.classList.contains("hidden")) {
           await loadFeature("charts");
           document.dispatchEvent(new CustomEvent("member-usage:open"));
+        }
+        if (["mcp-dashboard", "mcp-analytics", "mcp-audit"].includes(tabName) && !panel.classList.contains("hidden")) {
+          if (tabName !== "mcp-audit") await loadFeature("charts");
+          document.dispatchEvent(new CustomEvent("mcp-usage:open", { detail: tabName }));
         }
         if (tabName === "llm-chat") {
           // llmChat.js is lazy-loaded above; loadFeature() populates window.Admin with its exports

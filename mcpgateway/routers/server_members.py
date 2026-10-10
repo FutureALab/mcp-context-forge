@@ -9,9 +9,11 @@ from datetime import timedelta
 import io
 import json
 import secrets
+from typing import Literal
 
 # Third-Party
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 import openpyxl
 from pydantic import BaseModel, EmailStr, Field, SecretStr
@@ -38,6 +40,7 @@ from mcpgateway.routers.tokens import _require_authenticated_session
 from mcpgateway.services.email_auth_service import EmailAuthService
 from mcpgateway.services.audit_trail_service import get_audit_trail_service
 from mcpgateway.services.server_key_inventory import inventory_query, inventory_record, inventory_secret
+from mcpgateway.services.mcp_usage_service import invocation_audit, usage_overview
 from mcpgateway.services.server_member_service import issue_member_key, registered_user
 from mcpgateway.services.server_service import ServerService
 from mcpgateway.services.team_management_service import MemberAlreadyExistsError, TeamManagementError, TeamManagementService
@@ -45,6 +48,27 @@ from mcpgateway.utils.member_key_proof import MEMBER_KEY_PROOF_COOKIE, read_memb
 from mcpgateway.utils.paths import resolve_root_path
 
 router = APIRouter()
+
+
+@router.get("/mcp-usage/overview")
+@require_permission("tokens.read")
+async def mcp_usage_overview(days: int = Query(7, ge=1, le=90), user=Depends(get_current_user_with_permissions), db: Session = Depends(get_db)):
+    """Return platform MCP usage for an unrestricted administrator session."""
+    require_platform_session(user)
+    return JSONResponse(jsonable_encoder(usage_overview(db, days)), headers={"Cache-Control": "no-store"})
+
+
+@router.get("/mcp-usage/audit")
+@require_permission("tokens.read")
+async def mcp_usage_audit(
+    days: int = Query(30, ge=1, le=90), search: str = Query("", max_length=255), gateway_id: str = Query("", max_length=36),
+    server_id: str = Query("", max_length=36), status: Literal["all", "success", "error", "timeout", "unknown"] = "all",
+    offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=100),
+    user=Depends(get_current_user_with_permissions), db: Session = Depends(get_db),
+):
+    """Return filtered tool invocation audits for a platform administrator session."""
+    require_platform_session(user)
+    return JSONResponse(jsonable_encoder(invocation_audit(db, days, search, gateway_id, server_id, status, offset, limit)), headers={"Cache-Control": "no-store"})
 
 
 class AccountRequest(BaseModel):

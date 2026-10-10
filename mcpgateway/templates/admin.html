@@ -179,6 +179,7 @@
     {% endfor %}
     <link href="{{ root_path }}/static/admin.css" rel="stylesheet" />
     {% if is_admin %}<link href="{{ root_path }}/static/member-usage.css" rel="stylesheet" />{% endif %}
+    {% if is_admin %}<link href="{{ root_path }}/static/mcp-usage.css" rel="stylesheet" />{% endif %}
     <link href="{{ root_path }}/static/gantt-chart.css" rel="stylesheet" />
     <link href="{{ root_path }}/static/flame-graph.css" rel="stylesheet" />
     <style>
@@ -435,6 +436,11 @@
             </a>
             {% endif %}
             {% if is_admin %}
+            {% for usage_tab, usage_label, usage_icon in [('mcp-dashboard', '仪表盘', 'M3 3v18h18M7 16v-5m5 5V6m5 10v-8'), ('mcp-analytics', '数据分析', 'M3 12h4l3-8 4 16 3-8h4'), ('mcp-audit', '审计日志', 'M5 3h14v18H5zM8 8h8M8 12h8M8 16h5')] %}
+            <a href="#{{ usage_tab }}" id="tab-{{ usage_tab }}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors" :class="{ 'justify-center': sidebarCollapsed }" title="{{ usage_label }}" data-action-click="showTab" data-arg0="{{ usage_tab }}">
+              <svg class="sidebar-icon" :class="{ 'mr-3': !sidebarCollapsed }" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="{{ usage_icon }}" /></svg><span x-show="!sidebarCollapsed">{{ usage_label }}</span>
+            </a>
+            {% endfor %}
             <a href="#member-usage" id="tab-member-usage"
                class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors"
                :class="{ 'justify-center': sidebarCollapsed }" title="成员调用统计"
@@ -8058,6 +8064,7 @@ Hello &#123;&#123; name &#125;&#125;, welcome to &#123;&#123; company &#125;&#12
 
       {% if is_admin %}
       <div id="member-usage-panel" class="tab-panel hidden">{% include "member_usage.html" %}</div>
+      {% include "mcp_usage.html" %}
       {% endif %}
       {% if 'metrics' not in hidden_sections %}
       <!-- Metrics Panel -->
@@ -15059,6 +15066,7 @@ class="fixed z-40 inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-ce
     {% if is_admin %}
     {% include "server_members.html" %}
     <script src="{{ root_path }}/static/member-usage.js" defer></script>
+    <script src="{{ root_path }}/static/mcp-usage.js" defer></script>
     {% endif %}
   </body>
 </html>

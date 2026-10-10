@@ -1,5 +1,18 @@
 # Current Task
 
+## 2026-10-09: MCP usage pages
+
+- Added 仪表盘, 数据分析, and 审计日志 under Monitoring. Existing member statistics remain available.
+- Statistics include API Key-authenticated `tools/call`. SQL aggregation covers all matching records; audits use stable pagination.
+- Reads require `tokens.read` and unrestricted platform sessions. API tokens, ordinary users, and narrowed sessions remain denied.
+- `MCP_AUDIT_PAYLOADS_ENABLED` defaults to false. Enabling it captures bounded, redacted inputs and outputs for new calls.
+- Payload normalization handles JSON embedded in upstream text before redaction. Historical missing details remain unavailable.
+- Passed 39 Python tests, 82 JavaScript tests, Ruff, ESLint, production build, and isolated live gateway verification.
+- Browser verification covers the three pages, rankings, error filtering, and redacted details.
+- Confirmed temporary processes exited and ports 4447 and 9010 have no TCP listener on 2026-10-10.
+- Full repository checks remain unavailable: `make`, pytest, ty, mypy, pyrefly, bandit, interrogate, pylint, and pre-commit are absent.
+- Restart the deployed gateway and reload the browser to apply the pages. See [[tasks/2026-10-09-mcp-usage-pages]].
+
 ## 2026-10-09: Local portal startup recovery
 
 - `.env` points to PostgreSQL at `localhost:5432`; that port was closed, so the gateway did not become ready.
