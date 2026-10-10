@@ -1,5 +1,15 @@
 # Current Task
 
+## 2026-10-10: Intranet delivery
+
+- Updated parent integration and Kylin deployment guides for the current Cookie bridge.
+- Added compiled Chinese catalogs to image builds and verified them in release jobs.
+- Release bundles now include a separate documentation archive and checksum.
+- Passed 54 i18n tests, six portal ASGI tests, four helper tests, and documentation/configuration checks.
+- Full image builds, MkDocs builds, and real Kylin acceptance remain unverified locally.
+- Preserve local `.env.example` credential changes and `.codegraph`/`.cursor` files outside this commit.
+- See [[tasks/2026-10-10-intranet-delivery]].
+
 ## 2026-10-10: Monitoring design and Key recovery
 
 - Follow-up: historical hash-only self-service Keys now receive one new recoverable Key. The old Key remains valid.

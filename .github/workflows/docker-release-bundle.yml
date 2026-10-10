@@ -20,6 +20,7 @@
 # Release assets:
 #   mcpgateway-<version>-linux-<arch>.tar.gz         docker save archive, both images
 #   mcpgateway-<version>-linux-<arch>.tar.gz.sha256  checksum
+#   contextforge-deployment-docs-<version>-linux-<arch>.tar.gz  deployment guides and parent helper
 #   docker-compose.yaml                              stack: gateway + phoenix + postgres
 #
 # Load and run on the target host:
@@ -299,6 +300,18 @@ jobs:
           docker run --rm --entrypoint /bin/sh "${image}" -c 'test -x /app/docker-entrypoint.sh'
           echo "Gateway entrypoint present."
 
+          docker run --rm --entrypoint python3 "${image}" -c '
+          import gettext
+          from pathlib import Path
+          import mcpgateway
+
+          catalog_dir = Path(mcpgateway.__file__).parent / "translations"
+          catalog = gettext.translation("messages", localedir=str(catalog_dir), languages=["zh_CN"])
+          translated = catalog.gettext("Language")
+          assert translated == "语言", f"Chinese catalog verification failed: {translated!r}"
+          print("Chinese translation catalog verified.")
+          '
+
       # Pull the Phoenix variant that matches this architecture and prove it
       # starts, so a broken upstream image fails the release instead of the
       # consumer. The Phoenix image has no shell, so probe /health from the runner.
@@ -376,6 +389,18 @@ jobs:
           sha256sum "${archive}" | tee "${archive}.sha256"
           ls -lh "${archive}" "${archive}.sha256"
 
+      - name: Package intranet deployment and parent integration guides
+        shell: bash
+        run: |
+          set -euo pipefail
+          docs_archive="contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
+          tar -czf "${docs_archive}" \
+            DEPLOY-INTRANET.md \
+            docs/docs/deployment/intranet-portal-gateway.md \
+            infra/portal-session-bridge/README.md \
+            infra/portal-session-bridge/portal-client.js
+          sha256sum "${docs_archive}" > "${docs_archive}.sha256"
+
       - name: Upload bundle artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -383,6 +408,8 @@ jobs:
           path: |
             mcpgateway-${{ env.IMAGE_VERSION }}-linux-${{ matrix.suffix }}.tar.gz
             mcpgateway-${{ env.IMAGE_VERSION }}-linux-${{ matrix.suffix }}.tar.gz.sha256
+            contextforge-deployment-docs-${{ env.IMAGE_VERSION }}-linux-${{ matrix.suffix }}.tar.gz
+            contextforge-deployment-docs-${{ env.IMAGE_VERSION }}-linux-${{ matrix.suffix }}.tar.gz.sha256
           if-no-files-found: error
           retention-days: 14
 
@@ -397,6 +424,8 @@ jobs:
 
           gh release upload "${RELEASE_TAG}" \
             "${archive}" "${archive}.sha256" \
+            "contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz" \
+            "contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz.sha256" \
             --repo "${GITHUB_REPOSITORY}" \
             --clobber
 
@@ -410,6 +439,7 @@ jobs:
 
           {
             echo "### ${archive}"
+            echo "Deployment guides and parent helper: contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
             echo ""
             echo '```bash'
             echo "docker load < ${archive}"

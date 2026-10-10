@@ -1,5 +1,20 @@
 # Progress
 
+## 2026-10-10: Intranet deployment delivery
+
+- Documented first Cookie exchange, parent-token reuse, iframe messages, account switching, and logout limits.
+- Added Kylin architecture checks, offline import, external PostgreSQL, Nginx, Chinese catalogs, acceptance, and rollback.
+- Image builds compile catalogs; release smoke checks require the Chinese Language translation.
+- Release artifacts and release uploads include deployment documentation and the parent helper with SHA-256 checksums.
+- Passed 54 i18n tests with isolated configuration and existing temporary pytest dependencies.
+- Passed six portal ASGI tests, four JavaScript helper tests, Ruff, and gettext compilation.
+- Validated 30 Bash examples, two JavaScript examples, five YAML examples, seven local links, and workflow syntax.
+- Compose configuration and a disposable offline Nginx configuration check passed.
+- Sandbox temp-directory failures were resolved with isolated test directories and approved execution.
+- No gateway image is installed locally. Full image builds and real Kylin acceptance remain external checks.
+- MkDocs and repository-wide make gates are unavailable in this Windows environment.
+- Stopped both stalled test processes. The disposable Nginx container exited and was removed.
+
 ## 2026-10-10: Sidebar Key claim entry
 
 - Moved the member-statistics Key claim link into the MCP sidebar as MCP 权限领取.

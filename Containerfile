@@ -344,6 +344,8 @@ COPY gunicorn.config.py mcp-catalog.yml /app/
 COPY mcpgateway/ /app/mcpgateway/
 COPY plugins/ /app/plugins/
 
+RUN /app/.venv/bin/python3 -m mcpgateway.scripts.i18n compile
+
 # ----------------------------------------------------------------------------
 # Final pass: compile bytecode with -OO, strip caches, fix OpenShift-compatible
 # ownership. Merged into one layer — all of these are cheap and all get

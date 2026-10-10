@@ -1,5 +1,7 @@
 # Project Memory
 
+- [[tasks/2026-10-10-intranet-delivery]]: Chinese catalog packaging, parent Cookie integration, and Kylin deployment guides.
+
 - [[tasks/2026-10-10-monitoring-design-key-recovery]]: Monitoring redesign and original Key recovery during self-service renewal.
 
 - [[tasks/2026-10-09-mcp-usage-pages]]: MCP dashboard, analytics, and invocation audits.
