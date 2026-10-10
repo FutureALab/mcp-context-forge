@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-10-10: Sidebar Key claim entry
+
+- Moved the member-statistics Key claim link into the MCP sidebar as MCP 权限领取.
+- The entry directly navigates to the existing root-path-aware /admin/api-key page.
+- The entry appears when self-service and a supported authorization mode are enabled.
+- Passed 79 navigation/member workflow tests, Ruff, and diff checks.
+- Browser confirms the old header link is absent and the sidebar link opens the claim page.
+- Restarted the configured preview on localhost:4445. No temporary services were started.
+
 ## 2026-10-10: Key authorization selector
 
 - Renamed the portal authorization button to 用户登录鉴权.

@@ -4260,6 +4260,7 @@ async def admin_ui(
             "performance_enabled": getattr(settings, "mcpgateway_performance_tracking", False),
             "current_user": get_user_email(user),
             "email_auth_enabled": getattr(settings, "email_auth_enabled", False),
+            "self_service_api_keys_enabled": settings.self_service_api_keys_enabled and (settings.email_auth_enabled or settings.sso_enabled or settings.portal_sso_enabled),
             "is_admin": is_admin,
             "user_teams": user_teams,
             "mcpgateway_ui_tool_test_timeout": settings.mcpgateway_ui_tool_test_timeout,
