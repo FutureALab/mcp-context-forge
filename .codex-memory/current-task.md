@@ -1,5 +1,15 @@
 # Current Task
 
+## 2026-10-10: Monitoring design and Key recovery
+
+- Redesigned the three monitoring pages with separate panels, consistent spacing, indigo accents, and status badges.
+- Self-service renewal and lifetime-cap responses display the encrypted original Key and client configuration.
+- Recovery retains password/SSO authorization, token ownership, team/server checks, and no-cache headers.
+- Passed 41 Python tests, 82 JavaScript tests, lint, build, live MCP/recovery checks, and browser integration.
+- Full repository gates remain unavailable. Narrow-screen validation is limited by the existing open sidebar.
+- Test services are stopped. The configured preview runs on localhost:4445 with health status 200.
+- See [[tasks/2026-10-10-monitoring-design-key-recovery]].
+
 ## 2026-10-09: MCP usage pages
 
 - Added 仪表盘, 数据分析, and 审计日志 under Monitoring. Existing member statistics remain available.

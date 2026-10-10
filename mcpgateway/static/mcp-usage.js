@@ -64,12 +64,16 @@
         return;
       }
       const max = Math.max(...rows.map((row) => row.calls), 1);
-      rows.forEach((row) => {
+      rows.forEach((row, index) => {
         const item = node("div", null, "mcp-rank");
         const label = node("div", null, "mcp-rank-label");
         const name = node("span", row.name);
         name.title = row.name;
-        label.append(name, node("span", row.calls));
+        label.append(
+          node("span", String(index + 1).padStart(2, "0"), "mcp-rank-position"),
+          name,
+          node("span", row.calls, "mcp-rank-count")
+        );
         const track = node("div", null, "mcp-track");
         const bar = node("div");
         bar.style.width = `${(row.calls / max) * 100}%`;
@@ -80,10 +84,28 @@
     }
     function cards(rows) {
       get("[data-cards]").replaceChildren(
-        ...rows.map(([label, value, detail]) => {
-          const card = node("div", null, "mcp-card");
+        ...rows.map(([label, value, detail], index) => {
+          const icons =
+            panel.dataset.view === "mcp-dashboard"
+              ? [
+                "fa-plug",
+                "fa-wrench",
+                "fa-chart-column",
+                "fa-circle-exclamation",
+              ]
+              : [
+                "fa-chart-column",
+                "fa-circle-check",
+                "fa-clock",
+                "fa-user-group",
+              ];
+          const card = node("div", null, `mcp-card mcp-tone-${index}`);
+          const heading = node("div", null, "mcp-card-heading");
+          const icon = node("i", null, `fa-solid ${icons[index]}`);
+          icon.setAttribute("aria-hidden", "true");
+          heading.append(node("span", label), icon);
           card.append(
-            node("span", label),
+            heading,
             node("strong", format(value)),
             node("p", detail)
           );
@@ -100,6 +122,12 @@
         : "所选时段暂无工具调用";
       if (!window.Chart) throw new Error("图表组件加载失败，请刷新页面。");
       const muted = getComputedStyle(panel).getPropertyValue("--mcp-muted");
+      const accent = getComputedStyle(panel)
+        .getPropertyValue("--mcp-accent")
+        .trim();
+      const rule = getComputedStyle(panel)
+        .getPropertyValue("--mcp-rule")
+        .trim();
       state.chart = new window.Chart(canvas, {
         type: "bar",
         data: {
@@ -108,16 +136,16 @@
             {
               label: "成功",
               data: data.trend.map((row) => row.successes),
-              backgroundColor: "#002fa7",
-              borderRadius: 3,
-              maxBarThickness: 48,
+              backgroundColor: accent,
+              borderRadius: 5,
+              maxBarThickness: 36,
             },
             {
               label: "错误 / 超时",
               data: data.trend.map((row) => row.errors),
-              backgroundColor: "#be123c",
-              borderRadius: 3,
-              maxBarThickness: 48,
+              backgroundColor: "#e45c79",
+              borderRadius: 5,
+              maxBarThickness: 36,
             },
           ],
         },
@@ -130,13 +158,20 @@
             x: {
               stacked: true,
               grid: { display: false },
-              ticks: { color: muted },
+              border: { display: false },
+              ticks: { color: muted, maxRotation: 0, maxTicksLimit: 10 },
             },
             y: {
               stacked: true,
               beginAtZero: true,
-              ticks: { precision: 0, color: muted },
-              grid: { color: "#e5e7eb" },
+              border: { display: false },
+              ticks: {
+                precision: 0,
+                color: muted,
+                maxTicksLimit: 5,
+                padding: 12,
+              },
+              grid: { color: rule, drawTicks: false },
             },
           },
         },
@@ -170,7 +205,8 @@
         node("h3", `${get('[data-filter="days"]').value} 天概览`),
         node(
           "p",
-          `成功率 ${format(data.summary.success_rate)}${data.summary.success_rate == null ? "" : "%"}`
+          `成功率 ${format(data.summary.success_rate)}${data.summary.success_rate == null ? "" : "%"}`,
+          "mcp-success-label"
         )
       );
       const track = node("div", null, "mcp-track");
@@ -255,8 +291,15 @@
           `${format(record.latency_ms)} ms`,
         ].forEach((value, index) => {
           const cell = row.insertCell();
-          cell.textContent = value;
-          if (index === 4) cell.className = `mcp-outcome ${record.outcome}`;
+          if (index === 4) {
+            cell.append(node("span", value, `mcp-badge ${record.outcome}`));
+          } else {
+            cell.textContent = value;
+          }
+          if (index === 1) {
+            cell.className = "mcp-tool-name";
+            cell.title = value;
+          }
         });
         const button = node("button", "展开");
         button.type = "button";

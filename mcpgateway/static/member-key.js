@@ -217,20 +217,25 @@
         days: Number(document.getElementById("member-days").value),
       });
       if (current !== version) return;
+      if (data.api_key) {
+        value.value = data.api_key;
+        issuedServer = { id: data.server_id, name: data.server_name || data.server_id };
+        renderConfig();
+        result.classList.remove("hidden");
+      }
       if (data.renewed) {
         if (data.limit_reached) {
           message.textContent = `已达到从首次创建日起累计 365 天的上限，到期时间为 ${new Date(data.expires_at).toLocaleString()}，请继续使用原 Key。`;
-          return;
+        } else {
+          message.textContent = data.expires_at
+            ? `原 API Key 已续期至 ${new Date(data.expires_at).toLocaleString()}，请继续使用原 Key，无需修改客户端。`
+            : "原 API Key 长期有效，请继续使用原 Key，无需修改客户端。";
         }
-        message.textContent = data.expires_at
-          ? `原 API Key 已续期至 ${new Date(data.expires_at).toLocaleString()}，请继续使用原 Key，无需修改客户端。`
-          : "原 API Key 长期有效，请继续使用原 Key，无需修改客户端。";
+        message.textContent += data.api_key
+          ? "原 Key 和客户端配置已显示在下方，可重新复制保存。"
+          : `原 Key 无法展示：${data.key_message || "未保存可恢复的原文"}。如已丢失，请联系管理员处理。`;
         return;
       }
-      value.value = data.api_key;
-      issuedServer = { id: data.server_id, name: data.server_name || data.server_id };
-      renderConfig();
-      result.classList.remove("hidden");
       message.textContent = `已生成；到期时间：${new Date(data.expires_at).toLocaleString()}`;
     } catch (error) {
       if (mode === "sso" && error.message === "AUTH_REQUIRED") {

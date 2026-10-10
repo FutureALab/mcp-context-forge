@@ -82,13 +82,28 @@ test("self-service sends passwords and invalidates changed account input", async
     team_id: "my-team",
     server_id: "public-server",
   });
-  fetchMock.mockResolvedValueOnce(response({ renewed: true, api_key: "", expires_at: "2027-10-17T12:00:00Z" }));
+  fetchMock.mockResolvedValueOnce(response({ renewed: true, api_key: "fixture-key", server_id: "public-server", server_name: "Public MCP", expires_at: "2027-10-17T12:00:00Z" }));
   el("member-days").value = "365";
   el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
   await vi.waitFor(() => expect(document.body.textContent).toContain("原 API Key 已续期至"));
-  expect(el("member-key-value").value).toBe("");
-  expect(el("member-config-value").value).toBe("");
+  expect(el("member-key-result").classList.contains("hidden")).toBe(false);
+  expect(el("member-key-value").value).toBe("fixture-key");
+  expect(JSON.parse(el("member-config-value").value).mcpServers["Public MCP"].headers.Authorization).toBe("Bearer fixture-key");
   expect(JSON.parse(fetchMock.mock.calls[3][1].body).days).toBe(365);
+  const writeText = vi.fn().mockResolvedValue();
+  vi.stubGlobal("navigator", { clipboard: { writeText } });
+  el("copy-member-key").click();
+  await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("fixture-key"));
+  fetchMock.mockResolvedValueOnce(response({ renewed: true, limit_reached: true, api_key: "fixture-key", server_id: "public-server", server_name: "Public MCP", expires_at: "2027-10-17T12:00:00Z" }));
+  el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
+  await vi.waitFor(() => expect(el("member-key-message").textContent).toContain("已达到"));
+  expect(el("member-key-value").value).toBe("fixture-key");
+  expect(el("member-config-value").value).toContain("Bearer fixture-key");
+  fetchMock.mockResolvedValueOnce(response({ renewed: true, api_key: null, key_message: "仅保存哈希，无法恢复原文", expires_at: "2027-10-17T12:00:00Z" }));
+  el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
+  await vi.waitFor(() => expect(el("member-key-message").textContent).toContain("仅保存哈希"));
+  expect(el("member-key-value").value).toBe("");
+  expect(el("member-key-result").classList.contains("hidden")).toBe(true);
   el("member-password").dispatchEvent(new Event("input"));
   expect(el("member-team").disabled).toBe(true);
   expect(el("issue-member-key").disabled).toBe(true);

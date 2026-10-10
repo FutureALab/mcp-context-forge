@@ -64,6 +64,73 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(claims["scopes"]["server_id"], "server-a")
         self.assertNotIn("tokens.create", claims["scopes"]["permissions"])
 
+    async def test_self_service_redisplays_existing_key(self):
+        """Return the original encrypted key after renewal and the lifetime cap."""
+        # Third-Party
+        from argon2 import PasswordHasher
+        from fastapi import FastAPI
+        import httpx
+
+        # First-Party
+        from mcpgateway.db import EmailApiToken
+        from mcpgateway.routers.server_members import get_db, router
+        from mcpgateway.utils.member_key_proof import create_member_key_proof
+
+        user = self.db.query(EmailUser).filter_by(email="member@example.com").one()
+        user.password_hash = PasswordHasher().hash("Fixture-password-927!")
+        self.db.commit()
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_db] = lambda: self.db
+        csrf = "redisplay-csrf-value-" * 3
+        body = {"email": user.email, "password": "Fixture-password-927!", "team_id": "team-a", "server_id": "server-a", "days": 7}
+        with (
+            patch("mcpgateway.routers.server_members.settings.self_service_api_keys_enabled", True),
+            patch("mcpgateway.routers.server_members.settings.email_auth_enabled", True),
+            patch("mcpgateway.routers.server_members.settings.sso_enabled", True),
+            patch("mcpgateway.services.server_member_service.get_audit_trail_service") as audit,
+        ):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app, client=("127.0.0.15", 12345)), base_url="http://test",
+                headers={"Origin": "http://test", "X-CSRF-Token": csrf}, cookies={"mcpgateway_csrf_token": csrf},
+            ) as client:
+                first = (await client.post("/api-key/issue", json=body)).json()
+                for days in (7, 365, 365):
+                    response = await client.post("/api-key/issue", json={**body, "days": days})
+                    self.assertEqual(response.status_code, 200, response.text)
+                    self.assertEqual(response.headers["cache-control"], "no-store")
+                    self.assertEqual(response.json()["token_id"], first["token_id"])
+                    self.assertEqual(response.json()["api_key"], first["api_key"])
+                    self.assertTrue(response.json()["renewed"])
+                    self.assertEqual(response.json()["limit_reached"], days == 365)
+                self.assertEqual((await client.post("/api-key/issue", json={**body, "password": "wrong"})).status_code, 403)
+                self.assertEqual((await client.post("/api-key/issue", json={**body, "team_id": "team-b"})).status_code, 403)
+                user.auth_provider = "google"
+                self.db.commit()
+                client.cookies.set("member_key_proof", create_member_key_proof(user.email, "google"))
+                response = await client.post("/api-key/sso/issue", json={"team_id": "team-a", "server_id": "server-a", "days": 7})
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(response.json()["api_key"], first["api_key"])
+                stored = self.db.get(EmailApiToken, first["token_id"])
+                stored.encrypted_token = None
+                self.db.commit()
+                missing = await client.post("/api-key/sso/issue", json={"team_id": "team-a", "server_id": "server-a", "days": 7})
+                self.assertIsNone(missing.json()["api_key"])
+                self.assertIn("无法恢复", missing.json()["key_message"])
+                self.assertEqual(self.db.query(EmailApiToken).count(), 1)
+                self.assertNotIn(first["api_key"], str(audit.mock_calls))
+
+    async def test_self_service_recovery_rejects_mismatched_owner(self):
+        """Reject renewal metadata that refers to another token owner."""
+        # First-Party
+        from mcpgateway.routers.server_members import SsoMemberKeyRequest, issue_for_user
+
+        with patch("mcpgateway.services.server_member_service.get_audit_trail_service"):
+            issued = await issue_member_key(self.db, "member@example.com", "team-a", "server-a", 7, "test")
+        with patch("mcpgateway.routers.server_members.issue_member_key", return_value={**issued, "renewed": True}), self.assertRaises(HTTPException) as error:
+            await issue_for_user(self.db, self.db.query(EmailUser).filter_by(email="other@example.com").one(), SsoMemberKeyRequest(team_id="team-a", server_id="server-a", days=7))
+        self.assertEqual(error.exception.status_code, 404)
+
     async def test_public_key_without_team_and_private_resource_denials(self):
         """Allow a registered viewer to use public MCPs without a team."""
         from mcpgateway.routers.server_members import member_options_for_user

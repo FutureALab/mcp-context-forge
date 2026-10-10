@@ -208,6 +208,18 @@ async def issue_for_user(db: Session, user: EmailUser, body: MemberKeyRequest | 
     if recent >= 10:
         raise HTTPException(429, "该账号每小时最多生成 10 个 Key，请稍后重试")
     result = await issue_member_key(db, user.email, body.team_id, body.server_id, body.days, "self-service")
+    if result["renewed"]:
+        token = db.scalar(
+            select(EmailApiToken).where(
+                EmailApiToken.id == result["token_id"],
+                EmailApiToken.user_email == user.email,
+                EmailApiToken.server_id == body.server_id,
+                EmailApiToken.team_id == body.team_id,
+            )
+        )
+        if token is None:
+            raise HTTPException(404, "Key 不存在或不属于当前账号和资源")
+        result.update(await inventory_secret(token))
     return JSONResponse(result, headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
 
 

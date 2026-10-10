@@ -1,5 +1,15 @@
 # Progress
 
+## 2026-10-10: Monitoring design and Key recovery
+
+- Replaced the monitoring slab with metric cards, chart panels, ranked lists, and structured audit controls.
+- Repeated self-service requests redisplay the same Key and client configuration, including the lifetime cap.
+- Historical hash-only material shows a recovery limitation without replacing the existing Key.
+- Passed 41 Python tests, 82 JavaScript tests, Ruff, ESLint, build, and diff checks.
+- Live MCP verification passes 22 calls. Live recovery and browser checks pass unchanged Key and configuration display.
+- Stopped isolated services on 4447 and 9010. The configured preview remains available on localhost:4445.
+- Full repository gates remain unrun. See [[tasks/2026-10-10-monitoring-design-key-recovery]].
+
 ## 2026-10-09: MCP usage pages
 
 - Added three monitoring pages with real invocation metrics, UTC daily charts, four rankings, connector status, and audit filters.
