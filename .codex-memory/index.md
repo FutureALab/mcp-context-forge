@@ -1,5 +1,7 @@
 # Project Memory
 
+- [[tasks/2026-10-12-parent-integration-guide]]: Independent intranet parent integration and authentication interface guide.
+
 - [[tasks/2026-10-10-intranet-delivery]]: Chinese catalog packaging, parent Cookie integration, and Kylin deployment guides.
 
 - [[tasks/2026-10-10-monitoring-design-key-recovery]]: Monitoring redesign and original Key recovery during self-service renewal.

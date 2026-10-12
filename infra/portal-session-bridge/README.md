@@ -2,6 +2,7 @@
 
 适用分支：`feature_20260917_dev`。更新日期：2026-10-10。
 内网麒麟部署步骤见 [网关部署文档](../../docs/docs/deployment/intranet-portal-gateway.md)。
+独立父平台的原生 JavaScript 示例和登录鉴权接口见 [内网父平台对接指南](../../docs/docs/deployment/intranet-parent-integration.md)。
 
 此方案不需要 OIDC，也不调用 Spring Boot Session 接口。父页面写入 `mcp_username` 和 `mcp_email` Cookie。ContextForge 在启用 `PORTAL_SSO_ENABLED` 后，只允许 MCP 已注册且启用的普通用户登录，并设置自己的浏览器凭据。这个流程是自定义 Cookie 登录桥接，并非 OAuth 协议。
 
