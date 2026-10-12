@@ -34,3 +34,10 @@ Status: completed
 - MkDocs is absent from the available Python environment; full documentation build remains unverified.
 - Validate the documented flow against the actual intranet parent application and deployed gateway.
 - Preserve unrelated environment, current-task memory, and tool-directory changes.
+
+## Frontend Scope Correction
+
+- The user requests a short frontend-only guide. Replace deployment and backend sections with the exchange contract.
+- Document login triggers, response fields, minimal iframe code, error display, and account-switch cleanup.
+- The earlier work summary and validation describe the initial draft, not the final document.
+- The final examples pass syntax, JSON, simulated login/Key, error-display, and iframe-message checks.
