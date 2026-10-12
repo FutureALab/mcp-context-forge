@@ -19,6 +19,11 @@
   const passwordMode = document.getElementById("member-mode-password");
   const portalSso = form.dataset.portalSso === "true";
   const portalParentOrigin = form.dataset.parentOrigin;
+  const hasSession = form.dataset.sessionCookie === "true";
+  if (hasSession) {
+    ssoFields.classList.add("hidden");
+    ssoMode.textContent = "已登录账号";
+  }
   const publicChoice = "__public__";
   let servers = [];
   let account = "";
@@ -101,7 +106,7 @@
   }
   function switchMode(nextMode) {
     mode = nextMode;
-    ssoFields.classList.toggle("hidden", mode !== "sso" || portalSso);
+    ssoFields.classList.toggle("hidden", mode !== "sso" || portalSso || hasSession);
     passwordFields.classList.toggle("hidden", mode !== "password");
     email.required = mode === "password";
     password.required = mode === "password";
@@ -110,7 +115,7 @@
     invalidateAccount();
   }
   async function loadProviders() {
-    if (portalSso) return;
+    if (portalSso || hasSession) return;
     try {
       const response = await fetch(`${form.dataset.root}/auth/sso/providers`, { credentials: "same-origin" });
       if (!response.ok) throw new Error("OAuth 未启用");
@@ -129,6 +134,10 @@
       if (window.parent === window || !portalParentOrigin) throw new Error("请从内网父平台打开领取页面。");
       window.parent.postMessage({ type: "contextforge-portal-cookie-required", purpose: "key" }, portalParentOrigin);
       message.textContent = "领取凭据已过期，请刷新父页面。";
+      return;
+    }
+    if (hasSession) {
+      message.textContent = "登录已过期，请重新登录系统后打开领取页面。";
       return;
     }
     if (!provider.value) {
@@ -283,7 +292,7 @@
       message.textContent = "该用户未在系统中注册，请联系管理员处理。";
     } else if (params.has("error")) {
       message.textContent = "授权失败，请重试。";
-    } else if ((params.get("sso") === "success" || params.get("portal") === "success") && mode === "sso") {
+    } else if ((hasSession || params.get("sso") === "success" || params.get("portal") === "success") && mode === "sso") {
       load.click();
     }
   });

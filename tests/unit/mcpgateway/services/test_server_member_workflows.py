@@ -83,7 +83,7 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
         app.include_router(router)
         app.dependency_overrides[get_db] = lambda: self.db
         csrf = "redisplay-csrf-value-" * 3
-        body = {"email": user.email, "password": "Fixture-password-927!", "team_id": "team-a", "server_id": "server-a", "days": 7}
+        body = {"email": user.email, "password": "Fixture-password-927!", "team_id": "team-a", "server_id": "server-a", "days": 7}  # pragma: allowlist secret
         with (
             patch("mcpgateway.routers.server_members.settings.self_service_api_keys_enabled", True),
             patch("mcpgateway.routers.server_members.settings.email_auth_enabled", True),
@@ -103,7 +103,7 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(response.json()["api_key"], first["api_key"])
                     self.assertTrue(response.json()["renewed"])
                     self.assertEqual(response.json()["limit_reached"], days == 365)
-                self.assertEqual((await client.post("/api-key/issue", json={**body, "password": "wrong"})).status_code, 403)
+                self.assertEqual((await client.post("/api-key/issue", json={**body, "password": "wrong"})).status_code, 403)  # pragma: allowlist secret
                 self.assertEqual((await client.post("/api-key/issue", json={**body, "team_id": "team-b"})).status_code, 403)
                 user.auth_provider = "google"
                 self.db.commit()
@@ -413,7 +413,7 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
         # First-Party
         from mcpgateway.routers.server_members import KeyExportRequest, member_keys_export
 
-        body = KeyExportRequest(results=[{"email": "member@example.com", "server_name": "=1+1", "api_key": "test-only-key"}])
+        body = KeyExportRequest(results=[{"email": "member@example.com", "server_name": "=1+1", "api_key": "test-only-key"}])  # pragma: allowlist secret
         response = await member_keys_export.__wrapped__(body=body, user={"email": "admin@example.com", "is_admin": True, "auth_method": "session", "token_teams": None})
         workbook = openpyxl.load_workbook(io.BytesIO(response.body))
         self.assertEqual(workbook.active.cell(2, 2).data_type, "s")
@@ -554,11 +554,11 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
                 for endpoint in ("options", "issue"):
                     missing = await client.post(f"/api-key/{endpoint}", json=body)
                     self.assertEqual(missing.status_code, 422)
-                    wrong = await client.post(f"/api-key/{endpoint}", json={**body, "password": "wrong-password"})
+                    wrong = await client.post(f"/api-key/{endpoint}", json={**body, "password": "wrong-password"})  # pragma: allowlist secret
                     self.assertEqual(wrong.status_code, 403)
                 self.db.refresh(user)
                 self.assertEqual(user.failed_login_attempts, 2)
-                valid = {**body, "password": "Fixture-password-927!"}
+                valid = {**body, "password": "Fixture-password-927!"}  # pragma: allowlist secret
                 options = await client.post("/api-key/options", json=valid)
                 self.assertEqual(options.status_code, 200, options.text)
                 self.assertEqual(options.json()["servers"][0]["eligible_team_ids"], ["team-a"])
@@ -593,8 +593,9 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(missing_cookie.status_code, 401)
                 client.cookies.set("jwt_token", "fixture-session")
                 self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 401)
-                with patch("mcpgateway.routers.server_members.settings.sso_enabled", False):
+                with patch("mcpgateway.routers.server_members.settings.sso_enabled", False), patch("mcpgateway.routers.server_members.settings.email_auth_enabled", False), patch("mcpgateway.routers.server_members.settings.portal_sso_enabled", False):
                     self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 404)
+                client.cookies.delete("jwt_token")
                 client.cookies.set("member_key_proof", create_member_key_proof(user.email, "google"))
                 self.assertEqual((await client.post("/api-key/sso/options", json={}, headers={"Authorization": "Bearer fixture-session"})).status_code, 403)
                 client.cookies.set("member_key_proof", create_member_key_proof(user.email, "other-provider"))
@@ -678,7 +679,7 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(service.authorize_existing_member_key_user({"email": user.email, "email_verified": True, "provider": "google"}, "google"))
 
     async def test_sso_member_key_reads_verified_browser_cookie(self):
-        """Reject a gateway session while accepting the Key-only OAuth proof."""
+        """Reject invalid sessions and retain legacy OAuth proof support."""
         # Third-Party
         from fastapi import FastAPI
         import httpx
@@ -702,11 +703,74 @@ class TestMemberKeys(unittest.IsolatedAsyncioTestCase):
                 client.cookies.set("jwt_token", "fixture-session")
                 self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 401)
                 client.cookies.set("member_key_proof", create_member_key_proof(user.email, "google"))
+                self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 401)
+                client.cookies.delete("jwt_token")
                 options = await client.post("/api-key/sso/options", json={})
                 self.assertEqual(options.status_code, 200, options.text)
                 self.assertEqual(options.json()["email"], user.email)
                 bearer = await client.post("/api-key/sso/options", json={}, headers={"Authorization": "Bearer fixture-session"})
                 self.assertEqual(bearer.status_code, 403)
+
+    async def test_session_member_key_issuance_and_boundaries(self):
+        """Reuse login sessions without expanding team scope or bypassing account checks."""
+        # Third-Party
+        from fastapi import FastAPI
+        import httpx
+
+        # First-Party
+        from mcpgateway.admin import rate_limit_storage
+        from mcpgateway.routers.server_members import get_db, router
+
+        rate_limit_storage.clear()
+        user = self.db.query(EmailUser).filter_by(email="member@example.com").one()
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_db] = lambda: self.db
+        csrf = "session-csrf-value-" * 3
+        body = {"team_id": "team-a", "server_id": "server-a", "days": 7}
+        with (
+            patch("mcpgateway.routers.server_members.settings.self_service_api_keys_enabled", True),
+            patch("mcpgateway.routers.server_members.settings.email_auth_enabled", True),
+            patch("mcpgateway.routers.server_members.settings.sso_enabled", False),
+            patch("mcpgateway.routers.server_members.verify_jwt_token_cached", new_callable=AsyncMock, return_value={"token_use": "session"}) as verify,
+            patch("mcpgateway.routers.server_members.get_session_user", new_callable=AsyncMock, return_value=user) as authenticate,
+            patch("mcpgateway.routers.server_members.get_scoped_resource_access_context", return_value=(user.email, ["team-a"])) as scope,
+            patch("mcpgateway.services.server_member_service.get_audit_trail_service"),
+        ):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app, client=("127.0.0.27", 12345)), base_url="http://test",
+                headers={"Origin": "http://test", "X-CSRF-Token": csrf}, cookies={"jwt_token": "test-session", "mcpgateway_csrf_token": csrf},
+            ) as client:
+                options = await client.post("/api-key/sso/options", json={})
+                self.assertEqual(options.status_code, 200, options.text)
+                self.assertEqual([team["id"] for team in options.json()["teams"]], ["team-a"])
+                issued = await client.post("/api-key/sso/issue", json=body)
+                self.assertEqual(issued.status_code, 200, issued.text)
+                self.assertTrue(issued.json()["api_key"])
+                self.assertNotIn("tokens.create", jwt.decode(issued.json()["api_key"], options={"verify_signature": False})["scopes"]["permissions"])
+                self.assertEqual((await client.post("/api-key/sso/issue", json={**body, "team_id": "team-b"})).status_code, 403)
+                scope.return_value = (user.email, [])
+                self.assertEqual((await client.post("/api-key/sso/options", json={})).json()["teams"], [])
+                self.assertEqual((await client.post("/api-key/sso/issue", json=body)).status_code, 403)
+                scope.return_value = (user.email, ["team-a"])
+                self.assertEqual((await client.post("/api-key/sso/issue", json=body, headers={"X-CSRF-Token": "wrong"})).status_code, 403)
+                self.assertEqual((await client.post("/api-key/sso/options", json={}, headers={"Authorization": "Bearer test-session"})).status_code, 403)
+                verify.return_value = {"token_use": "api"}
+                self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 403)
+                verify.return_value = {"token_use": "session"}
+                authenticate.side_effect = HTTPException(401, "Token has been revoked")
+                self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 401)
+                authenticate.side_effect = None
+                rate_limit_storage.clear()
+                user.is_active = False
+                self.db.commit()
+                self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 403)
+                user.is_active = True
+                self.db.query(UserRole).filter_by(user_email=user.email).delete()
+                self.db.commit()
+                self.assertEqual((await client.post("/api-key/sso/issue", json=body)).status_code, 403)
+                with patch("mcpgateway.routers.server_members.settings.self_service_api_keys_enabled", False):
+                    self.assertEqual((await client.post("/api-key/sso/options", json={})).status_code, 404)
 
     def test_roster_and_method_filter(self):
         """Include unused members and filter records by their actual server."""
@@ -740,7 +804,7 @@ class TestMCPCapture(unittest.TestCase):
     def test_sse_tool_error_with_usage(self):
         """Read a chunked SSE result without storing tool arguments."""
         capture = MCPUsageCapture()
-        capture.append(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "search", "arguments": {"secret": "not-stored"}}}).encode())
+        capture.append(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "search", "arguments": {"secret": "not-stored"}}}).encode())  # pragma: allowlist secret
         response = b'data: {"jsonrpc":"2.0","id":1,"result":{"isError":true,"_meta":{"usage":{"input_tokens":12,"output_tokens":4}}}}\n\n'
         capture.append(response[:40], response=True)
         capture.append(response[40:], response=True)

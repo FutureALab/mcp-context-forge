@@ -52,7 +52,10 @@
 | `token` | 可保存，在下次交换请求中传回；不保存也可以再次按 Cookie 交换 |
 | `expires_at` | token 的到期时间，单位是 Unix 秒；默认有效期 12 小时 |
 
-网关同时设置自己的登录 Cookie，浏览器自动保存，父页面不需要读取。
+两种 `purpose` 都设置同一种登录 Cookie：一小时有效的 HttpOnly `jwt_token`。
+浏览器自动保存，父页面不需要读取或手工设置，也不需要 `member_key_proof`。
+登录后直接把 iframe 切到 `${gatewayBase}/admin/api-key`，即可自动查询账号并领取 Key。
+已登录时不用再次交换 `purpose: "key"`；它只是直接打开领取页的入口。
 **自动登录发生在“交换成功后加载 next”这一步，不是写入身份 Cookie 时。**
 `token` 不是 MCP API Key，也不要把它放到 Authorization header 或 iframe URL。
 

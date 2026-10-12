@@ -32,10 +32,11 @@ from mcpgateway.admin import (
     parse_bulk_user_workbook,
     rate_limit,
 )
-from mcpgateway.auth_context import get_user_email
+from mcpgateway.auth_context import get_scoped_resource_access_context, get_user_email
 from mcpgateway.config import settings
 from mcpgateway.db import EmailApiToken, EmailTeam, EmailTeamMember, EmailUser, Server, utc_now
 from mcpgateway.middleware.rbac import get_current_user_with_permissions, require_permission
+from mcpgateway.routers.auth import get_session_user
 from mcpgateway.routers.tokens import _require_authenticated_session
 from mcpgateway.services.email_auth_service import EmailAuthService
 from mcpgateway.services.audit_trail_service import get_audit_trail_service
@@ -46,6 +47,7 @@ from mcpgateway.services.server_service import ServerService
 from mcpgateway.services.team_management_service import MemberAlreadyExistsError, TeamManagementError, TeamManagementService
 from mcpgateway.utils.member_key_proof import MEMBER_KEY_PROOF_COOKIE, read_member_key_proof
 from mcpgateway.utils.paths import resolve_root_path
+from mcpgateway.utils.verify_credentials import get_auth_header_value, verify_jwt_token_cached
 
 router = APIRouter()
 
@@ -120,7 +122,11 @@ def management_team(db: Session, server: Server, team_id: str | None) -> EmailTe
 
 def require_self_service(auth_mode: str | None = None) -> None:
     """Reject self-service when the operator disables the feature."""
-    mode_enabled = {None: settings.email_auth_enabled or settings.sso_enabled or settings.portal_sso_enabled, "password": settings.email_auth_enabled, "sso": settings.sso_enabled or settings.portal_sso_enabled}
+    mode_enabled = {
+        None: settings.email_auth_enabled or settings.sso_enabled or settings.portal_sso_enabled,
+        "password": settings.email_auth_enabled,
+        "sso": settings.email_auth_enabled or settings.sso_enabled or settings.portal_sso_enabled,
+    }
     if not settings.self_service_api_keys_enabled or not mode_enabled.get(auth_mode, False):
         raise HTTPException(404, "自助领取未启用")
 
@@ -151,10 +157,25 @@ async def authenticate_member(request: Request, body: AccountRequest, db: Sessio
     return user
 
 
-def authenticate_sso_member(request: Request, db: Session) -> EmailUser:
-    """Accept only the Key page's dedicated proof for an active local account."""
-    if request.headers.get("authorization"):
+async def authenticate_sso_member(request: Request, db: Session) -> EmailUser:
+    """Accept a verified browser session or a legacy Key proof.
+
+    Args:
+        request: Browser request with Cookie credentials.
+        db: Database session for the registered account.
+
+    Returns:
+        An active registered account.
+    """
+    if request.headers.get("authorization") or get_auth_header_value(request.headers):
         raise HTTPException(403, "请使用领取页面完成鉴权")
+    session_token = request.cookies.get("jwt_token")
+    if session_token:
+        payload = await verify_jwt_token_cached(session_token, request)
+        if payload.get("token_use") != "session":
+            raise HTTPException(403, "请使用登录会话领取 Key")
+        user = await get_session_user(request, credentials=None)
+        return registered_user(db, user.email)
     email, provider = read_member_key_proof(request.cookies.get(MEMBER_KEY_PROOF_COOKIE))
     user = registered_user(db, email)
     if not user.auth_provider or user.auth_provider.lower() != provider.lower():
@@ -162,7 +183,7 @@ def authenticate_sso_member(request: Request, db: Session) -> EmailUser:
     return user
 
 
-async def member_options_for_user(db: Session, user: EmailUser) -> JSONResponse:
+async def member_options_for_user(db: Session, user: EmailUser, token_teams: list[str] | None = None) -> JSONResponse:
     """List active teams and accessible servers for one verified account."""
     teams = (
         db.execute(
@@ -178,6 +199,8 @@ async def member_options_for_user(db: Session, user: EmailUser) -> JSONResponse:
         .scalars()
         .all()
     )
+    if token_teams is not None:
+        teams = [team for team in teams if team.id in token_teams]
     servers = (
         db.execute(
             select(Server).where(Server.enabled.is_(True), (Server.team_id.in_([t.id for t in teams])) | (Server.visibility == "public") | (Server.owner_email == user.email)).order_by(Server.name)
@@ -192,11 +215,16 @@ async def member_options_for_user(db: Session, user: EmailUser) -> JSONResponse:
         public_access = not user.is_admin and await service._check_server_access(db, server, user.email, [])
         if eligible or public_access:
             visible.append({"id": server.id, "name": server.name, "team_id": server.team_id, "visibility": server.visibility, "eligible_team_ids": eligible, "public_access": public_access})
-    return JSONResponse({"email": user.email, "full_name": user.full_name, "teams": [{"id": t.id, "name": t.name, "is_personal": t.is_personal} for t in teams], "servers": visible}, headers={"Cache-Control": "no-store"})
+    return JSONResponse(
+        {"email": user.email, "full_name": user.full_name, "teams": [{"id": t.id, "name": t.name, "is_personal": t.is_personal} for t in teams], "servers": visible},
+        headers={"Cache-Control": "no-store"},
+    )
 
 
-async def issue_for_user(db: Session, user: EmailUser, body: MemberKeyRequest | SsoMemberKeyRequest) -> JSONResponse:
+async def issue_for_user(db: Session, user: EmailUser, body: MemberKeyRequest | SsoMemberKeyRequest, token_teams: list[str] | None = None) -> JSONResponse:
     """Apply the shared rate limit and resource checks before key issuance."""
+    if body.team_id and token_teams is not None and body.team_id not in token_teams:
+        raise HTTPException(403, "当前登录会话不能访问所选 Team")
     recent = db.scalar(
         select(func.count())
         .select_from(EmailApiToken)
@@ -235,6 +263,7 @@ async def member_key_page(request: Request):
             "bundle_css": get_bundle_css_files(),
             "portal_sso_enabled": settings.portal_sso_enabled,
             "portal_sso_parent_origin": settings.portal_sso_parent_origin.rstrip("/"),
+            "has_session_cookie": bool(request.cookies.get("jwt_token")),
         },
     )
     _set_admin_csrf_cookie(request, response)
@@ -268,8 +297,9 @@ async def member_key_sso_options(request: Request, db: Session = Depends(get_db)
     """Check the registered SSO account and list its available resources."""
     require_self_service("sso")
     require_public_csrf(request)
-    user = authenticate_sso_member(request, db)
-    return await member_options_for_user(db, user)
+    user = await authenticate_sso_member(request, db)
+    token_teams = get_scoped_resource_access_context(request, user)[1] if request.cookies.get("jwt_token") else None
+    return await member_options_for_user(db, user, token_teams)
 
 
 @router.post("/api-key/sso/issue")
@@ -278,8 +308,9 @@ async def member_key_sso_issue(request: Request, body: SsoMemberKeyRequest, db: 
     """Issue a key for the SSO session's account after access checks."""
     require_self_service("sso")
     require_public_csrf(request)
-    user = authenticate_sso_member(request, db)
-    return await issue_for_user(db, user, body)
+    user = await authenticate_sso_member(request, db)
+    token_teams = get_scoped_resource_access_context(request, user)[1] if request.cookies.get("jwt_token") else None
+    return await issue_for_user(db, user, body, token_teams)
 
 
 @router.get("/member-usage")

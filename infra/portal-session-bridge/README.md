@@ -123,8 +123,8 @@ onBeforeUnmount(() => stopListening?.())
 {"purpose":"login"}
 ```
 
-请求 `purpose=login` 时，网关设置一小时的 HttpOnly `jwt_token`。
-请求 `purpose=key` 时，网关只设置五分钟的 HttpOnly `member_key_proof`，不会建立工作区登录会话。
+请求 `purpose=login` 或 `purpose=key` 时，网关都设置一小时的 HttpOnly `jwt_token`。
+工作区和领取页共用登录会话。已登录时直接打开 `/admin/api-key`，无需再次交换或设置 `member_key_proof`。
 Key 页仍需选择 Team、虚拟 MCP 和有效期，再通过自助领取接口获得实际 API Key。
 
 成功响应的结构如下。这里的 token 是占位示例：
@@ -141,7 +141,7 @@ Key 页仍需选择 Team、虚拟 MCP 和有效期，再通过自助领取接口
 使用路径前缀时，两者也包含该前缀。
 `expires_at` 是 Unix 秒时间戳，前端显示时使用 `new Date(expires_at * 1000)`。
 不要将响应中的 token 当成 MCP API Key；它有独立的签名密钥派生、用途和 audience。
-工作区登录 JWT 和 Key 页校验 Cookie 都由浏览器保存，父页面不读取它们。
+登录 JWT 由浏览器保存，父页面不读取它。
 
 复用请求：
 
@@ -241,7 +241,7 @@ const stopListening = listenForCredentialExpiry(frame, config, error => {
 保留这两个检查，不接受其他窗口伪造的续期通知。
 
 父平台退出仅删除本地 token 和身份 Cookie，**不会撤销已经签发的网关凭据**。
-现有网关会话最长仍可持续一小时，Key 页校验 Cookie 最长仍可持续五分钟。
+现有网关会话最长仍可持续一小时，工作区和 Key 页共用该会话。
 父平台 token 没有逐个 token 的撤销接口；只要仍有效且账号可用，它仍能进行交换。
 因此，清理浏览器存储不等于服务端单点退出，已经领取的 MCP API Key 也不会随父平台退出失效。
 需要即时联动退出时，必须另行实现父平台 token 撤销和网关会话退出，不属于本文现有功能。
@@ -329,7 +329,8 @@ const stopListening = listenForCredentialExpiry(frame, config, error => {
 
 - 首次授权缺少任一身份 Cookie、错误 Origin、关闭桥接开关或停用账号时，交换必须失败。
 - 有效 token 可在没有身份 Cookie 时复用；过期 token 须由身份 Cookie 重新授权。
-- 工作区交换只设置 `jwt_token`；领取交换只设置 `member_key_proof`。只有工作区 Cookie 时，领取接口返回 401。
+- 两种交换均设置 `jwt_token`。领取接口验证现有登录会话，不要求独立的 `member_key_proof`。
+- 过期、撤销、伪造的会话和 API token 均不能领取 Key。会话限定的 Team 仍限制领取范围。
 - 未注册用户不能通过登录或领取入口，管理员不能通过 Cookie 桥接。领取前检查有效 Team、所选虚拟 MCP 和 `servers.use` 权限。
 - 从父页面打开两个 iframe 入口，并使用领取的 API Key 调用所选 MCP。
 

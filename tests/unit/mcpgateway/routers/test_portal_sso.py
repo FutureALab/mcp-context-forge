@@ -17,7 +17,6 @@ from mcpgateway.admin import rate_limit_storage
 from mcpgateway.config import Settings, settings
 from mcpgateway.db import Base, EmailUser, get_db
 from mcpgateway.routers.portal_sso import router
-from mcpgateway.utils.member_key_proof import read_member_key_proof
 
 
 class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
@@ -54,8 +53,8 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app, client=("127.0.0.12", 12345)), base_url="http://gateway.test", cookies=cookies) as client:
             return await client.post("/auth/portal/exchange", json={"purpose": purpose, **({"token": token} if token else {})}, headers={"Origin": origin})
 
-    async def test_login_and_key_receive_different_cookies(self):
-        """Keep gateway sessions separate from Key-only proofs."""
+    async def test_login_and_key_receive_session_cookies(self):
+        """Use the same browser session type for login and Key issuance."""
         self.assertEqual(Settings.model_fields["portal_sso_token_ttl_minutes"].default, 720)
         with patch("mcpgateway.routers.portal_sso.settings.portal_sso_enabled", True), patch("mcpgateway.routers.portal_sso.settings.self_service_api_keys_enabled", True), patch(
             "mcpgateway.routers.portal_sso.settings.portal_sso_parent_origin", "http://portal.test"
@@ -69,8 +68,10 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
             self.assertAlmostEqual(login.json()["expires_at"] - time.time(), 720 * 60, delta=2)
             key = await self.exchange("key")
             self.assertEqual(key.status_code, 200, key.text)
-            self.assertIn("member_key_proof=", key.headers["set-cookie"])
-            self.assertNotIn("jwt_token=", key.headers["set-cookie"])
+            self.assertIn("jwt_token=", key.headers["set-cookie"])
+            self.assertNotIn("member_key_proof=", key.headers["set-cookie"])
+            claims = jwt.decode(key.cookies.get("jwt_token"), options={"verify_signature": False})
+            self.assertEqual(claims["token_use"], "session")
             self.assertEqual(key.json()["next"], "/admin/api-key")
 
     async def test_parent_token_reuse_and_expiry(self):
@@ -149,7 +150,7 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(local_login.status_code, 200, local_login.text)
             local_key = await self.exchange("key", email="local-member@example.com")
             self.assertEqual(local_key.status_code, 200, local_key.text)
-            self.assertEqual(read_member_key_proof(local_key.cookies.get("member_key_proof")), ("local-member@example.com", "local"))
+            self.assertEqual(jwt.decode(local_key.cookies.get("jwt_token"), options={"verify_signature": False})["token_use"], "session")
 
     async def test_proxy_prefix_scopes_both_cookies(self):
         """Return iframe URLs and cookies beneath the configured proxy prefix."""
@@ -161,4 +162,5 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
             self.assertIn("Path=/mcp", login.headers["set-cookie"])
             key = await self.exchange("key")
             self.assertEqual(key.json()["next"], "/mcp/admin/api-key")
-            self.assertIn("Path=/mcp/admin/api-key", key.headers["set-cookie"])
+            self.assertIn("Path=/mcp;", key.headers["set-cookie"])
+            self.assertIn("HttpOnly", key.headers["set-cookie"])

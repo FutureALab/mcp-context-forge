@@ -22,14 +22,13 @@ from mcpgateway.db import EmailUser, get_db
 from mcpgateway.services.email_auth_service import EmailAuthService, EmailValidationError
 from mcpgateway.services.server_member_service import registered_user
 from mcpgateway.utils.create_jwt_token import create_jwt_token
-from mcpgateway.utils.member_key_proof import create_member_key_proof, MEMBER_KEY_PROOF_COOKIE, MEMBER_KEY_PROOF_TTL_SECONDS
 from mcpgateway.utils.paths import resolve_root_path
 from mcpgateway.utils.security_cookies import CookieTooLargeError, set_auth_cookie
 
 router = APIRouter(prefix="/auth/portal", tags=["Parent Application Authentication"])
 _PROVIDER = "portal"
 _AUDIENCE = "contextforge-portal-authorization"
-_TOKEN_USE = "portal_authorization"
+_TOKEN_USE = "portal_authorization"  # nosec B105 - JWT claim type, not a password.
 
 
 class PortalExchangeRequest(BaseModel):
@@ -127,28 +126,17 @@ async def exchange_portal_cookies(request: Request, body: PortalExchangeRequest,
     root_path = resolve_root_path(request)
     destination = f"{root_path}/admin" if body.purpose == "login" else f"{root_path}/admin/api-key"
     response = JSONResponse({"next": destination, "token": portal_token, "expires_at": expires_at}, headers={"Cache-Control": "no-store", "Pragma": "no-cache", "Vary": "Origin, Cookie"})
-    if body.purpose == "login":
-        token = await create_jwt_token(
-            {
-                "sub": str(user.id),
-                "auth_provider": _PROVIDER,
-                "token_use": "session",
-                "scopes": {"server_id": None, "permissions": [], "ip_restrictions": [], "time_restrictions": {}},
-            },
-            expires_in_minutes=60,
-        )
-        try:
-            set_auth_cookie(response, token, remember_me=False)
-        except CookieTooLargeError as exc:
-            raise HTTPException(400, "网关登录会话过大") from exc
-    else:
-        response.set_cookie(
-            key=MEMBER_KEY_PROOF_COOKIE,
-            value=create_member_key_proof(user.email, user.auth_provider),
-            max_age=MEMBER_KEY_PROOF_TTL_SECONDS,
-            httponly=True,
-            secure=(settings.environment == "production") or settings.secure_cookies,
-            samesite=settings.cookie_samesite,
-            path=f"{root_path}/admin/api-key",
-        )
+    token = await create_jwt_token(
+        {
+            "sub": str(user.id),
+            "auth_provider": _PROVIDER,
+            "token_use": "session",  # nosec B105 - JWT claim type, not a password.
+            "scopes": {"server_id": None, "permissions": [], "ip_restrictions": [], "time_restrictions": {}},
+        },
+        expires_in_minutes=60,
+    )
+    try:
+        set_auth_cookie(response, token, remember_me=False)
+    except CookieTooLargeError as exc:
+        raise HTTPException(400, "网关登录会话过大") from exc
     return response

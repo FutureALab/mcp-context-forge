@@ -250,6 +250,42 @@ test("self-service parent cookie proof loads teams without an OIDC provider", as
   vi.unstubAllGlobals();
 });
 
+test("existing login session automatically loads memberships and issues a key", async () => {
+  document.body.innerHTML = template("member_key")
+    .replace("{{ 'true' if has_session_cookie else 'false' }}", "true");
+  const fetchMock = vi.fn(async (url) => response(url.endsWith("options") ? {
+    email: "member@example.com",
+    teams: [{ id: "team-a", name: "Team A" }],
+    servers: [{ id: "server-a", name: "MCP A", eligible_team_ids: ["team-a"] }],
+  } : { api_key: "session-issued-key", server_id: "server-a", expires_at: "2026-11-01T00:00:00Z" }));
+  vi.stubGlobal("fetch", fetchMock);
+  await import("../../../mcpgateway/static/member-key.js?existing-session");
+  await vi.waitFor(() => expect(el("member-team").disabled).toBe(false));
+  expect(fetchMock.mock.calls[0][0]).toBe("/admin/api-key/sso/options");
+  expect(fetchMock.mock.calls[0][1].credentials).toBe("same-origin");
+  expect(el("member-mode-sso").textContent).toBe("已登录账号");
+  expect(el("member-sso-fields").classList.contains("hidden")).toBe(true);
+  el("member-team").value = "team-a";
+  el("member-team").dispatchEvent(new Event("change"));
+  el("member-server").value = "server-a";
+  el("member-server").dispatchEvent(new Event("change"));
+  el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
+  await vi.waitFor(() => expect(el("member-key-value").value).toBe("session-issued-key"));
+  expect(fetchMock.mock.calls[1][0]).toBe("/admin/api-key/sso/issue");
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ team_id: "team-a", server_id: "server-a", days: 30 });
+  vi.unstubAllGlobals();
+});
+
+test("expired local login session displays a login instruction", async () => {
+  document.body.innerHTML = template("member_key")
+    .replace("{{ 'true' if has_session_cookie else 'false' }}", "true");
+  vi.stubGlobal("fetch", vi.fn(async () => ({ status: 401, redirected: false })));
+  await import("../../../mcpgateway/static/member-key.js?local-session-expired");
+  await vi.waitFor(() => expect(el("member-key-message").textContent).toContain("请重新登录系统"));
+  expect(el("issue-member-key").disabled).toBe(true);
+  vi.unstubAllGlobals();
+});
+
 test("expired parent cookie proof asks the parent page to refresh", async () => {
   document.body.innerHTML = template("member_key")
     .replace("{{ 'true' if portal_sso_enabled else 'false' }}", "true")
