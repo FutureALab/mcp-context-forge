@@ -41,3 +41,13 @@ Status: completed
 - Document login triggers, response fields, minimal iframe code, error display, and account-switch cleanup.
 - The earlier work summary and validation describe the initial draft, not the final document.
 - The final examples pass syntax, JSON, simulated login/Key, error-display, and iframe-message checks.
+
+## Shared Session Revision
+
+- Replace the earlier separate-proof requirement with the shared `jwt_token` session behavior.
+- Login and Key exchange establish the same session. An authenticated parent opens `/admin/api-key` directly.
+- Shorten the guide to the parent interface, response fields, login trigger, Cookie ownership, and error handling.
+- The gateway manages `mcpgateway_csrf_token`. The parent does not set `member_key_proof`.
+- Preserve the identity-Cookie trust boundary and gateway logout requirement.
+- Verify JSON and JavaScript syntax, login/Key examples, encoded Cookies, failure messages, and iframe message validation.
+- These example checks use browser mocks. The actual intranet deployment check remains outstanding.

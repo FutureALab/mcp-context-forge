@@ -1,78 +1,59 @@
-# 父页面前端对接：自动登录 MCP
+# 内网父页面前端对接
 
-父页面只需要调用 **一个接口：`POST /auth/portal/exchange`**。
-父平台登录成功后，写入身份 Cookie，调用接口，再把返回地址加载进 iframe，就能触发 MCP 自动登录。
-不需要另外调用 `/auth/login`，也不需要父页面收集网关密码。
+父页面确认用户已登录后，调用一次 `POST /auth/portal/exchange`，再把返回的 `next` 加载到 iframe。
+工作区和 API Key 领取页共用 `jwt_token`。已登录后，直接打开领取页即可。
 
-## 1. 准备什么
+## 1. 接入条件
 
-- 网关浏览器地址，例如 `http://devops.com:18090`。
-- 父平台当前登录用户的用户名、邮箱；邮箱必须对应网关已注册、启用的普通账号。
-- 一个 iframe 和一个错误提示区域。
+- 本例父页面为 `http://devops.com`，网关为 `http://devops.com:18090`。
+  浏览器访问地址使用同一主机名即可共享 Cookie，Nginx 和网关可以在不同服务器。
+  不同 IP 或不同主机名不能直接使用本例共享 Cookie。
+- 用户邮箱对应网关中已启用的普通账号；工作区权限由网关的 Team 和角色决定。
+- 运维已启用父平台登录，并配置父页面来源、跨域请求和 iframe 嵌入。
 
-下面按父页面 `http://devops.com`、网关 `http://devops.com:18090` 举例。
-两个浏览器地址共用主机名，因此可以共享 Cookie；不同服务器不影响这一点。
-如果两个入口使用不同 IP，本例的 Cookie 不能共享，需要先统一访问地址。
+## 2. 父页面调用的接口
 
-## 2. 接口请求和返回值
+**`POST http://devops.com:18090/auth/portal/exchange`**
 
-**地址：`POST http://devops.com:18090/auth/portal/exchange`**
-
-| 请求项 | 内容 |
-| --- | --- |
-| Content-Type | `application/json` |
-| fetch 参数 | `credentials: "include"`，让浏览器携带并接收 Cookie |
-| 身份 Cookie | `mcp_username`：当前用户名；`mcp_email`：当前用户邮箱；均使用 `Path=/` |
-| Authorization | 不需要 |
-
-请求体：
+请求使用 `Content-Type: application/json` 和 `credentials: "include"`，不需要 `Authorization`。
+先写入当前用户的 `mcp_username`、`mcp_email` Cookie，使用 `Path=/` 和 URL 编码。
 
 ```json
 {"purpose":"login"}
 ```
 
-| 字段 | 必填 | 说明 |
+| 请求字段 | 必填 | 含义 |
 | --- | --- | --- |
-| `purpose` | 是 | `login` 自动登录工作区；`key` 打开 API Key 领取页 |
-| `token` | 否 | 上次接口返回的 token，可用于复用授权 |
+| `purpose` | 是 | `login` 进入工作区；`key` 直接进入领取页。两者都建立相同的登录会话 |
+| `token` | 否 | 上次接口返回的授权 token；不传也可以按身份 Cookie 交换 |
 
-成功返回 HTTP `200`：
+成功返回 HTTP `200`，同时通过 `Set-Cookie` 写入 `jwt_token`：
 
 ```json
-{
-  "next": "/admin",
-  "token": "<父平台授权token>",
-  "expires_at": 1900000000
-}
+{"next":"/admin","token":"<父平台授权token>","expires_at":1900000000}
 ```
 
-| 返回字段 | 前端怎么用 |
+| 返回字段 | 含义 |
 | --- | --- |
-| `next` | 与网关地址拼接，作为 iframe 的 src；key 模式返回 `/admin/api-key` |
-| `token` | 可保存，在下次交换请求中传回；不保存也可以再次按 Cookie 交换 |
-| `expires_at` | token 的到期时间，单位是 Unix 秒；默认有效期 12 小时 |
+| `next` | iframe 页面路径；`login` 返回 `/admin`，`key` 返回 `/admin/api-key` |
+| `token` | 可在下次交换时传回。它不是 Cookie 中的 `jwt_token`，也不是 MCP API Key |
+| `expires_at` | 返回 token 的到期时间，Unix 秒；默认有效期 12 小时 |
 
-两种 `purpose` 都设置同一种登录 Cookie：一小时有效的 HttpOnly `jwt_token`。
-浏览器自动保存，父页面不需要读取或手工设置，也不需要 `member_key_proof`。
-登录后直接把 iframe 切到 `${gatewayBase}/admin/api-key`，即可自动查询账号并领取 Key。
-已登录时不用再次交换 `purpose: "key"`；它只是直接打开领取页的入口。
-**自动登录发生在“交换成功后加载 next”这一步，不是写入身份 Cookie 时。**
-`token` 不是 MCP API Key，也不要把它放到 Authorization header 或 iframe URL。
+`jwt_token` 默认有效期 1 小时。浏览器自动保存和携带，父页面不需要读取或手动设置。
+不要把任何 token 拼到 iframe URL 中。
 
-## 3. 最小前端代码
+## 3. 最小示例与自动登录触发
 
-页面放置提示区域和 iframe：
+把脚本放在这些元素之后；`currentUser` 使用父平台自己的登录用户资料。
+把用户资料映射为 `{username, email}`，在 MCP 模块初始化或菜单点击时调用 `openMcp(currentUser)`。
 
 ```html
 <p id="mcp-error" role="alert"></p>
-<iframe id="mcp-frame" title="MCP 页面" hidden
-        style="width:100%;height:800px;border:0"></iframe>
+<iframe id="mcp-frame" title="MCP 页面" hidden style="width:100%;height:800px;border:0"></iframe>
 ```
 
-将以下脚本放在这些元素之后。Vue/React 项目可以把 DOM 操作换成组件状态。
-
 ```javascript
-const gatewayBase = "http://devops.com:18090"; // 改成实际网关地址。
+const gatewayBase = "http://devops.com:18090";
 const frame = document.getElementById("mcp-frame");
 const errorText = document.getElementById("mcp-error");
 
@@ -81,12 +62,11 @@ async function openMcp(user, purpose = "login") {
   frame.hidden = true;
   frame.src = "about:blank";
   try {
-    if (!user?.username || !user?.email) throw new Error("请先登录父平台并取得用户名和邮箱。");
+    if (!user?.username || !user?.email) throw new Error("请先登录父平台。");
     const suffix = "; Path=/; SameSite=Lax"
       + (location.protocol === "https:" ? "; Secure" : "");
     document.cookie = `mcp_username=${encodeURIComponent(user.username)}${suffix}`;
     document.cookie = `mcp_email=${encodeURIComponent(user.email)}${suffix}`;
-
     const response = await fetch(`${gatewayBase}/auth/portal/exchange`, {
       method: "POST",
       credentials: "include",
@@ -99,69 +79,42 @@ async function openMcp(user, purpose = "login") {
     if (typeof result.next !== "string") throw new Error("网关没有返回页面地址。");
     const destination = new URL(result.next, gatewayBase);
     if (destination.origin !== new URL(gatewayBase).origin) throw new Error("网关返回地址不正确。");
-    if (purpose === "key") destination.searchParams.set("portal", "success");
     frame.src = destination.href;
     frame.hidden = false;
   } catch (error) {
-    errorText.textContent = error instanceof TypeError
-      ? "无法访问 MCP，请检查网络或联系运维。" : error.message;
+    errorText.textContent = error instanceof TypeError ? "无法访问 MCP，请联系运维。" : error.message;
   }
 }
-```
 
-**什么时候调用？** 父页面确认用户已登录，并取得当前用户资料后调用：
-
-```javascript
-// currentUser 来自父平台自己的登录状态或用户资料接口。
-// 如果字段名不同，先映射成 username 和 email。
-await openMcp({ username: currentUser.username, email: currentUser.email });
-```
-
-把这次调用放到 MCP 模块的初始化流程中，就能进入模块后自动登录。
-如果只想点击菜单后打开，就放到菜单点击事件里。不要在每次页面渲染时重复调用。
-打开 API Key 领取页使用同一个接口，改传 `key`：
-
-```javascript
-await openMcp({ username: currentUser.username, email: currentUser.email }, "key");
-```
-
-## 4. 失败时怎么提示
-
-接口失败通常返回：
-
-```json
-{"detail":"登录已过期，请刷新页面"}
-```
-
-| 状态 | 常见原因或提示 |
-| --- | --- |
-| 401 | Cookie 缺失，提示“登录已过期，请刷新页面”；邮箱无效也返回 401 |
-| 403 | 账号不存在或已停用、管理员不能走此入口，或父平台来源不匹配 |
-| 404 | 父平台登录或自助领取功能未启用，联系运维 |
-| 422 | purpose 或其他请求字段不合法 |
-| 429 | 请求过多，稍后重试；不要无限自动调用 |
-
-前端检查 `response.ok` 并显示 `detail`。上面的示例已包含这个处理。
-交换成功后，工作区还会检查角色权限。监听以下消息，才能在父页面显示这类提示：
-
-```javascript
 window.addEventListener("message", (event) => {
-  if (event.origin !== new URL(gatewayBase).origin
-      || event.source !== frame.contentWindow) return;
-  if (!["login", "key"].includes(event.data?.purpose)) return;
-  if (event.data.type === "contextforge-portal-access-denied") {
-    errorText.textContent = "没有 MCP 工作区权限，请联系管理员分配 Team 和角色。";
-  } else if (event.data.type === "contextforge-portal-cookie-required") {
-    errorText.textContent = "MCP 登录凭据已过期，请重新打开入口或刷新父页面。";
+  if (event.origin !== new URL(gatewayBase).origin || event.source !== frame.contentWindow) return;
+  if (event.data?.type === "contextforge-portal-access-denied") {
+    errorText.textContent = "没有 MCP 工作区权限，请联系管理员。";
+  } else if (event.data?.type === "contextforge-portal-cookie-required") {
+    errorText.textContent = "MCP 登录已过期，请重新打开入口或刷新父页面。";
   }
 });
 ```
 
-## 5. 退出和切换账号
+首次直接进入领取页：`openMcp(currentUser, "key")`。
+**已登录后打开领取页：`frame.src = gatewayBase + "/admin/api-key"`，不用再次交换授权。**
+不要在每次渲染时重复调用，也不要并发交换。切换用户时，等待旧交换结束，再用新用户重新交换。
 
-父平台退出时，删除两个身份 Cookie，清空 iframe。如果保存过返回的 token，也要删除。
-组件卸载时移除消息监听。不要并发交换；切换账号时取消旧请求并忽略旧请求结果。
-取消请求也不能保证阻止已到达浏览器的响应写入 Cookie。
+## 4. Cookie 与失败提示
 
-注意：清理父页面不会撤销已签发的网关凭据。当前 Cookie 桥接不验证父平台后端登录会话，
-只适用于接受该身份信任方式的内网。上线前用真实父页面验证登录、无权限提示和账号切换。
+| Cookie | 谁设置 | 用途 |
+| --- | --- | --- |
+| `mcp_username` | 父页面 | 当前用户名称 |
+| `mcp_email` | 父页面 | 当前用户邮箱 |
+| `jwt_token` | 网关 | HttpOnly 登录 Cookie，工作区与领取页共用 |
+| `mcpgateway_csrf_token` | 网关 | 防止跨站伪造操作；网关页面自动处理，父页面无需设置 |
+
+父页面不需要设置 `member_key_proof`，也不需要直接调用领取页内部接口。
+接口失败返回 `{"detail":"具体原因"}`；示例会把原因显示在父页面。
+`401` 表示身份缺失或无效，`403` 表示账号不可用或来源不匹配，`404` 表示功能未启用。
+`422` 表示请求参数错误，`429` 表示请求过多，`503` 表示父页面来源尚未配置。
+交换后的权限不足或会话过期，通过示例中的 `message` 监听显示提示。
+
+父平台退出时删除两个身份 Cookie、清空 iframe，并删除保存的返回 token。
+这些清理不会注销网关会话；网关退出仍需使用网关的退出功能。
+当前桥接根据身份 Cookie 识别用户，不校验父平台后端登录会话。
