@@ -15,11 +15,8 @@ while IFS= read -r line || [[ -n "${line}" ]]; do
       value="$(openssl rand -base64 48)"
       printf '%s=%s\n' "${line%%=*}" "${value}"
       ;;
-    POSTGRES_PASSWORD=*)
-      value="$(openssl rand -hex 32)"
-      printf 'POSTGRES_PASSWORD=%s\n' "${value}"
-      ;;
     *) printf '%s\n' "${line}" ;;
   esac
 done < .env.example > .env
 echo 'Created .env. Read PLATFORM_ADMIN_PASSWORD there before signing in.'
+echo 'Set GATEWAY_DATABASE_URL to your existing PostgreSQL connection before starting Compose.'

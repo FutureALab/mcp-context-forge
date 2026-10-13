@@ -1,5 +1,15 @@
 # Progress
 
+## 2026-10-13: External database and Release publication fix
+
+- Supersede the original three-image bundle. Keep gateway and Phoenix; require an existing PostgreSQL connection.
+- Run 38361188387 passes build and startup but fails publication because its draft has no Git tag.
+- Create and verify the tag before uploading. Recover existing drafts after complete asset verification.
+- Pass 17 regressions, Python quality checks, workflow Bash syntax, and actual extracted Compose validation.
+- The user authorizes pushing the release changes to feature_20260917_dev. The earlier authorization-pending note is superseded.
+- New workflow startup/publication and target Kylin checks remain pending. No local services start.
+- See [[tasks/2026-10-13-offline-release-bundle]].
+
 ## 2026-10-13: Complete offline Release bundles
 
 - Add automatic build Releases after all requested architectures pass deployment checks.

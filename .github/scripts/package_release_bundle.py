@@ -74,7 +74,7 @@ def package(root: Path, args: argparse.Namespace) -> Path:
     """
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", args.version):
         raise ValueError("Version must be a valid Docker tag and file name")
-    refs = (args.gateway_image, args.phoenix_image, args.postgres_image)
+    refs = (args.gateway_image, args.phoenix_image)
     inspected = json.loads(args.image_metadata.read_text(encoding="utf-8"))
     images = []
     for ref in refs:
@@ -108,7 +108,7 @@ def package(root: Path, args: argparse.Namespace) -> Path:
             shutil.copyfile(root / filename, destination)
 
         compose = (root / "docker-compose.phoenix-bundle.yml").read_text(encoding="utf-8")
-        for variable, default, ref in zip(("GATEWAY_IMAGE", "PHOENIX_IMAGE", "POSTGRES_IMAGE"), ("mcpgateway/mcpgateway:latest", "arizephoenix/phoenix:latest", "postgres:16-alpine"), refs):
+        for variable, default, ref in zip(("GATEWAY_IMAGE", "PHOENIX_IMAGE"), ("mcpgateway/mcpgateway:latest", "arizephoenix/phoenix:latest"), refs):
             compose = compose.replace(f"image: ${{{variable}:-{default}}}", f"image: {ref}")
         compose = compose.replace("  gateway:\n", "  gateway:\n    env_file: .env\n")
         (staging / "docker-compose.yaml").write_text(compose, encoding="utf-8", newline="\n")
@@ -132,7 +132,6 @@ def main() -> None:
     parser.add_argument("--architecture", required=True, choices=("amd64", "arm64"))
     parser.add_argument("--gateway-image", required=True)
     parser.add_argument("--phoenix-image", required=True)
-    parser.add_argument("--postgres-image", required=True)
     parser.add_argument("--image-archive", required=True, type=Path)
     parser.add_argument("--image-metadata", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)

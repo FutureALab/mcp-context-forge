@@ -51,3 +51,21 @@ Status: pushed; live build verification pending
 - Run repository-wide make gates where make is installed. No PR readiness claim is made.
 - Validate the package on the target Kylin host.
 - Preserve unrelated .env.example, .codex-memory/current-task.md, .codegraph, and .cursor changes.
+
+## 2026-10-13 follow-up: external database and publication fix
+
+- This follow-up supersedes the original bundled PostgreSQL decision.
+- The user requests removal of the PostgreSQL image. Keep Phoenix for gateway tracing.
+- Package only gateway and Phoenix images, metadata, and Compose services.
+- Require GATEWAY_DATABASE_URL for an existing PostgreSQL instance. Remove generated database credentials and database volumes.
+- Keep PostgreSQL only as a temporary CI test container outside the exported archive. Clean up its container and network.
+- Run 38361188387 passes image builds and extracted-package startup. Release publication fails with HTTP 422.
+- Draft Release creation does not create its Git tag. The following commit lookup therefore fails.
+- Create missing tags at the source SHA before creating drafts. Verify the tag before uploading assets.
+- Publish existing drafts after successful upload verification. Preserve existing published Release status.
+- Reproduce the old publication failure with a missing-tag fixture. Pass 17 focused regression tests after the fix.
+- Pass Python quality checks, workflow YAML parsing, 12 Bash syntax checks, and actual extracted Compose validation.
+- Actual Compose validation requires an external database URL and configures only gateway and Phoenix images.
+- No local services or containers start. Local gateway and Phoenix images remain absent.
+- The revised live startup and GitHub publication require a new workflow run from the updated branch.
+- Full repository make gates and target Kylin verification remain pending. make is absent locally.

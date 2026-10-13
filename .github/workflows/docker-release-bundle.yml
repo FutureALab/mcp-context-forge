@@ -2,7 +2,7 @@
 # Docker Release Bundle
 # ==============================================================================
 #
-# Build the gateway and bundle Phoenix, PostgreSQL, source, and deployment files.
+# Build the gateway and bundle Phoenix, source, and deployment files.
 # Publish a Release after every requested architecture passes deployment checks.
 #
 # Triggers:
@@ -17,10 +17,10 @@
 # Release assets:
 #   contextforge-<version>-linux-<arch>.tar.gz      complete offline deployment
 #   contextforge-<version>-linux-<arch>.tar.gz.sha256  checksum
-#   mcpgateway-<version>-linux-<arch>.tar.gz         docker save archive, three images
+#   mcpgateway-<version>-linux-<arch>.tar.gz         docker save archive, two images
 #   mcpgateway-<version>-linux-<arch>.tar.gz.sha256  checksum
 #   contextforge-deployment-docs-<version>-linux-<arch>.tar.gz  deployment guides and parent helper
-#   docker-compose.yaml                              stack: gateway + phoenix + postgres
+#   docker-compose.yaml                              gateway + phoenix; existing PostgreSQL
 #
 # Load and run on the target host:
 #   sha256sum --check contextforge-<version>-linux-amd64.tar.gz.sha256
@@ -29,13 +29,13 @@
 #   sha256sum -c SHA256SUMS
 #   docker load -i images.tar.gz
 #   bash init-env.sh
+#   # Set GATEWAY_DATABASE_URL in .env to an existing PostgreSQL connection.
 #   docker compose up -d --pull never
 #
 # Images inside each archive:
 #   mcpgateway/mcpgateway:<version>   mcpgateway/mcpgateway:<tag>
 #   mcpgateway/mcpgateway:latest      ghcr.io/<owner>/<repo>:<tag>
 #   arizephoenix/phoenix:latest
-#   postgres:16-alpine
 #
 # The compose file is generated from docker-compose.phoenix-bundle.yml, with the
 # gateway image pinned to the released version.
@@ -75,11 +75,6 @@ on:
         required: false
         default: "arizephoenix/phoenix:latest"
         type: string
-      postgres_image:
-        description: "PostgreSQL image to bundle"
-        required: false
-        default: "postgres:16-alpine"
-        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.event.inputs.release_tag || github.ref }}
@@ -106,7 +101,6 @@ jobs:
       release_tag: ${{ steps.meta.outputs.release_tag }}
       upload_release: ${{ steps.meta.outputs.upload_release }}
       phoenix_image: ${{ steps.meta.outputs.phoenix_image }}
-      postgres_image: ${{ steps.meta.outputs.postgres_image }}
     steps:
       - name: Checkout the requested source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -124,7 +118,6 @@ jobs:
           INPUT_SOURCE_REF: ${{ github.event.inputs.source_ref }}
           INPUT_ARCHITECTURES: ${{ github.event.inputs.architectures }}
           INPUT_PHOENIX_IMAGE: ${{ github.event.inputs.phoenix_image }}
-          INPUT_POSTGRES_IMAGE: ${{ github.event.inputs.postgres_image }}
           REF: ${{ github.ref }}
           SHA: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
@@ -202,16 +195,10 @@ jobs:
           if [[ "${PHOENIX_IMAGE##*/}" != *:* ]]; then
             PHOENIX_IMAGE="${PHOENIX_IMAGE}:latest"
           fi
-          POSTGRES_IMAGE="${INPUT_POSTGRES_IMAGE:-postgres:16-alpine}"
-          if [[ "${POSTGRES_IMAGE##*/}" != *:* ]]; then
-            POSTGRES_IMAGE="${POSTGRES_IMAGE}:latest"
+          if [[ ! "${PHOENIX_IMAGE}" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
+            echo "Invalid bundle image reference" >&2
+            exit 1
           fi
-          for image in "${PHOENIX_IMAGE}" "${POSTGRES_IMAGE}"; do
-            if [[ ! "${image}" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
-              echo "Invalid bundle image reference" >&2
-              exit 1
-            fi
-          done
 
           MATRIX="["
           SEP=""
@@ -237,7 +224,6 @@ jobs:
             echo "release_tag=${RELEASE_TARGET}"
             echo "upload_release=${UPLOAD_RELEASE}"
             echo "phoenix_image=${PHOENIX_IMAGE}"
-            echo "postgres_image=${POSTGRES_IMAGE}"
           } >> "${GITHUB_OUTPUT}"
 
           {
@@ -250,7 +236,7 @@ jobs:
             echo "| Checkout ref | ${CHECKOUT_REF} |"
             echo "| Architectures | ${ARCHS} |"
             echo "| Phoenix image | ${PHOENIX_IMAGE} |"
-            echo "| PostgreSQL image | ${POSTGRES_IMAGE} |"
+            echo "| Database | Existing PostgreSQL (not bundled) |"
             if [[ -n "${RELEASE_TARGET}" ]]; then
               echo "| Attach to release | ${RELEASE_TARGET} |"
             else
@@ -279,7 +265,6 @@ jobs:
       UPLOAD_RELEASE: ${{ needs.prepare.outputs.upload_release }}
       ENABLE_RUST: ${{ github.event.inputs.enable_rust == 'true' }}
       PHOENIX_IMAGE: ${{ needs.prepare.outputs.phoenix_image }}
-      POSTGRES_IMAGE: ${{ needs.prepare.outputs.postgres_image }}
     steps:
       - name: Checkout code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -382,10 +367,6 @@ jobs:
           fi
           echo "Phoenix ${PHOENIX_IMAGE} is healthy."
 
-      - name: Pull PostgreSQL for the deployment architecture
-        shell: bash
-        run: docker pull --platform "${{ matrix.platform }}" "${POSTGRES_IMAGE}"
-
       - name: Save all deployment images to one gzipped archive
         shell: bash
         run: |
@@ -400,7 +381,6 @@ jobs:
             "${IMAGE_REPO}:latest" \
             "${GHCR_IMAGE}:${IMAGE_TAG}" \
             "${PHOENIX_IMAGE}" \
-            "${POSTGRES_IMAGE}" \
             | gzip -9 > "${archive}"
 
           # Confirm the archive is a docker save archive before publishing it.
@@ -421,7 +401,7 @@ jobs:
             echo "Archive ${archive} carries no docker image metadata." >&2
             exit 1
           fi
-          for ref in "${IMAGE_REPO}:${IMAGE_VERSION}" "${PHOENIX_IMAGE}" "${POSTGRES_IMAGE}"; do
+          for ref in "${IMAGE_REPO}:${IMAGE_VERSION}" "${PHOENIX_IMAGE}"; do
             if ! grep -qF "${ref}" /tmp/bundle-refs.txt; then
               echo "Archive ${archive} does not contain ${ref}." >&2
               exit 1
@@ -448,11 +428,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker image inspect "${IMAGE_REPO}:${IMAGE_VERSION}" "${PHOENIX_IMAGE}" "${POSTGRES_IMAGE}" > "${RUNNER_TEMP}/bundle-images.json"
+          docker image inspect "${IMAGE_REPO}:${IMAGE_VERSION}" "${PHOENIX_IMAGE}" > "${RUNNER_TEMP}/bundle-images.json"
           python3 .github/scripts/package_release_bundle.py \
             --version "${IMAGE_VERSION}" --architecture "${{ matrix.suffix }}" \
             --gateway-image "${IMAGE_REPO}:${IMAGE_VERSION}" \
-            --phoenix-image "${PHOENIX_IMAGE}" --postgres-image "${POSTGRES_IMAGE}" \
+            --phoenix-image "${PHOENIX_IMAGE}" \
             --image-archive "mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz" \
             --image-metadata "${RUNNER_TEMP}/bundle-images.json" --output-dir release-assets \
             --build-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
@@ -470,14 +450,42 @@ jobs:
           docker load -i images.tar.gz
           bash init-env.sh
           export COMPOSE_PROJECT_NAME="release-smoke-${GITHUB_RUN_ID}"
+          network="${COMPOSE_PROJECT_NAME}-database"
+          database="${COMPOSE_PROJECT_NAME}-postgres"
+          password="$(openssl rand -hex 32)"
+          export GATEWAY_DATABASE_URL="postgresql+psycopg://postgres:${password}@database:5432/mcp"
+          export COMPOSE_FILE=docker-compose.yaml:compose.smoke.yaml
+          cat > compose.smoke.yaml <<EOF
+          networks:
+            default:
+              name: ${network}
+              external: true
+          EOF
           cleanup() {
             status=$?
+            set +e
             docker compose logs --no-color --tail 50 || true
-            docker compose down --volumes --remove-orphans
-            test -z "$(docker compose ps -aq)"
+            docker compose down --volumes --remove-orphans || status=1
+            test -z "$(docker compose ps -aq)" || status=1
+            docker logs "${database}" --tail 20 || true
+            docker rm -fv "${database}" || status=1
+            docker network rm "${network}" || status=1
             exit "${status}"
           }
           trap cleanup EXIT
+          docker pull --platform "${{ matrix.platform }}" postgres:16-alpine
+          docker network create "${network}"
+          docker run -d --name "${database}" --network "${network}" --network-alias database \
+            -e POSTGRES_PASSWORD="${password}" -e POSTGRES_DB=mcp postgres:16-alpine
+          ready=false
+          for _ in $(seq 1 60); do
+            if docker exec "${database}" pg_isready -U postgres -d mcp; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "${ready}" = true
           docker compose config --quiet
           docker compose up -d --pull never --wait --wait-timeout 300
           curl -fsS http://127.0.0.1:4444/health | jq -e '.status == "healthy"'
@@ -516,6 +524,7 @@ jobs:
             echo "sha256sum -c SHA256SUMS"
             echo "docker load -i images.tar.gz"
             echo "bash init-env.sh"
+            echo '# Set GATEWAY_DATABASE_URL in .env to an existing PostgreSQL connection.'
             echo "docker compose up -d --pull never"
             echo '```'
             echo ""
@@ -525,7 +534,6 @@ jobs:
             echo "- ${IMAGE_REPO}:latest"
             echo "- ${GHCR_IMAGE}:${IMAGE_TAG}"
             echo "- ${PHOENIX_IMAGE}"
-            echo "- ${POSTGRES_IMAGE}"
             echo ""
             echo "Traces land in the Phoenix project \`mcp-gateway\` (http://localhost:6006)."
           } >> "${GITHUB_STEP_SUMMARY}"
@@ -580,11 +588,22 @@ jobs:
           SOURCE_SHA: ${{ needs.prepare.outputs.checkout_ref }}
         run: |
           set -euo pipefail
+          tag_uri="${RELEASE_TAG//\//%2F}"
+          if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag_uri}" > /dev/null 2>&1; then
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" --method POST \
+              -f "ref=refs/tags/${RELEASE_TAG}" -f "sha=${SOURCE_SHA}" > /dev/null
+          fi
+          tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/tags%2F${tag_uri}" --jq .sha)"
+          test "${tag_sha}" = "${SOURCE_SHA}" || {
+            echo 'Release tag and built source commit differ.' >&2
+            exit 1
+          }
           created=false
           if ! gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" > /dev/null 2>&1; then
             {
               echo 'Download contextforge-*-linux-<architecture>.tar.gz and its .sha256 file for offline deployment.'
-              echo 'The complete archive includes gateway, Phoenix, PostgreSQL, source, configuration, and deployment guides.'
+              echo 'The complete archive includes gateway, Phoenix, source, configuration, and deployment guides.'
+              echo 'Set GATEWAY_DATABASE_URL to an existing PostgreSQL connection before starting.'
               echo "Source commit: ${SOURCE_SHA}"
               echo "Build: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             } > release-notes.md
@@ -592,13 +611,9 @@ jobs:
               --target "${SOURCE_SHA}" --title "ContextForge ${RELEASE_TAG}" \
               --notes-file release-notes.md --draft --prerelease --latest=false
             created=true
+          else
+            created="$(gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq .isDraft)"
           fi
-          tag_uri="${RELEASE_TAG//\//%2F}"
-          tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${tag_uri}" --jq .sha)"
-          test "${tag_sha}" = "${SOURCE_SHA}" || {
-            echo 'Release tag and built source commit differ.' >&2
-            exit 1
-          }
           gh release upload "${RELEASE_TAG}" release-assets/* \
             --repo "${GITHUB_REPOSITORY}" \
             --clobber

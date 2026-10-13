@@ -6,13 +6,13 @@
 手动运行时，`release_tag` 留空即可创建新版本；填写已有标签则将产物附加到对应 Release。
 从 Releases 下载 `contextforge-<版本>-linux-<架构>.tar.gz` 和同名 `.sha256` 文件。
 
-完整包包含网关、Phoenix、PostgreSQL 镜像、对应提交的工程源码、固定镜像标签的 Compose、配置模板和部署文档。
+完整包包含网关、Phoenix 两个镜像、对应提交的工程源码、固定镜像标签的 Compose、配置模板和部署文档。
 先校验并解压总包，再按包内 `README.md` 部署。
 总包使用 `tar -xzf` 解压；内部 `images.tar.gz` 使用 `docker load -i` 导入。
 启动命令 `docker compose up -d --pull never` 禁止下载镜像。
 首次部署运行 `bash init-env.sh` 生成密钥；升级保留原 `.env`。
 
-默认 Compose 启动包内 PostgreSQL。复用现有 PostgreSQL 时，按本文或麒麟部署指南创建独立网关配置。
+默认 Compose 连接现有 PostgreSQL。首次启动前，在 `.env` 中填写 `GATEWAY_DATABASE_URL`。
 已有镜像归档和独立文档包继续提供。操作系统的 Docker、Compose 和命令工具由运维提前准备。
 
 ## 最新父页面与麒麟部署入口（2026-10-10）
@@ -95,7 +95,7 @@ uname -m
 ```
 
 其中 `.tar.gz` 是镜像归档，`.sha256` 是校验文件，不是第二个镜像包。
-更新后的镜像归档包含 ContextForge、Phoenix 和 PostgreSQL。本文复用现有数据库，不启动包内 PostgreSQL。
+更新后的镜像归档包含 ContextForge 和 Phoenix。PostgreSQL 由现场现有数据库提供。
 
 ```bash
 mkdir -p /opt/contextforge
@@ -259,7 +259,7 @@ print("中文编译和校验成功")
 ### 5.2 全新部署的完整配置
 
 将下面内容保存为 `/opt/contextforge/docker-compose.yaml`。
-这是完整的外部 PostgreSQL 配置，可代替仓库中包含 PostgreSQL 容器的示例文件。
+这是完整的外部 PostgreSQL 配置，可代替发布包的默认 Compose 文件。
 已有部署按第 5.3 节合并修改，不要覆盖原有定制配置。
 
 ```yaml
