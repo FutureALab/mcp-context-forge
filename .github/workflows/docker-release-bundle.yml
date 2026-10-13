@@ -2,36 +2,40 @@
 # Docker Release Bundle
 # ==============================================================================
 #
-# Builds the ContextForge image from Containerfile, pulls the Arize Phoenix
-# trace backend, and packs both into one air-gapped install bundle: a single
-# `docker save` archive, gzipped, with a matching SHA-256 checksum. The release
-# also carries the compose file that runs the images together.
+# Build the gateway and bundle Phoenix, PostgreSQL, source, and deployment files.
+# Publish a Release after every requested architecture passes deployment checks.
 #
 # Triggers:
 #   - release: published  Builds amd64 and arm64 bundles for the released tag and
 #                         attaches both archives plus docker-compose.yaml.
-#   - workflow_dispatch   Builds the requested architectures and keeps them as
-#                         workflow artifacts. Set `release_tag` to also attach
-#                         them to an existing release.
+#   - workflow_dispatch   Creates a build Release when release_tag is empty.
+#                         Set release_tag to attach to an existing release.
 #
 # Registry pushes, multiplatform manifests, and Cosign signing stay in
 # docker-multiplatform.yml. This workflow never pushes to a registry.
 #
 # Release assets:
-#   mcpgateway-<version>-linux-<arch>.tar.gz         docker save archive, both images
+#   contextforge-<version>-linux-<arch>.tar.gz      complete offline deployment
+#   contextforge-<version>-linux-<arch>.tar.gz.sha256  checksum
+#   mcpgateway-<version>-linux-<arch>.tar.gz         docker save archive, three images
 #   mcpgateway-<version>-linux-<arch>.tar.gz.sha256  checksum
 #   contextforge-deployment-docs-<version>-linux-<arch>.tar.gz  deployment guides and parent helper
 #   docker-compose.yaml                              stack: gateway + phoenix + postgres
 #
 # Load and run on the target host:
-#   sha256sum --check mcpgateway-<version>-linux-amd64.tar.gz.sha256
-#   docker load < mcpgateway-<version>-linux-amd64.tar.gz
-#   docker compose -f docker-compose.yaml up -d
+#   sha256sum --check contextforge-<version>-linux-amd64.tar.gz.sha256
+#   tar -xzf contextforge-<version>-linux-amd64.tar.gz
+#   cd contextforge-<version>-linux-amd64
+#   sha256sum -c SHA256SUMS
+#   docker load -i images.tar.gz
+#   bash init-env.sh
+#   docker compose up -d --pull never
 #
 # Images inside each archive:
 #   mcpgateway/mcpgateway:<version>   mcpgateway/mcpgateway:<tag>
 #   mcpgateway/mcpgateway:latest      ghcr.io/<owner>/<repo>:<tag>
 #   arizephoenix/phoenix:latest
+#   postgres:16-alpine
 #
 # The compose file is generated from docker-compose.phoenix-bundle.yml, with the
 # gateway image pinned to the released version.
@@ -45,7 +49,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Existing release tag to attach the bundle to (empty keeps workflow artifacts only)"
+        description: "Existing release tag to attach to (empty creates a new build Release)"
         required: false
         type: string
       source_ref:
@@ -71,9 +75,14 @@ on:
         required: false
         default: "arizephoenix/phoenix:latest"
         type: string
+      postgres_image:
+        description: "PostgreSQL image to bundle"
+        required: false
+        default: "postgres:16-alpine"
+        type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.event.inputs.release_tag || github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -97,7 +106,14 @@ jobs:
       release_tag: ${{ steps.meta.outputs.release_tag }}
       upload_release: ${{ steps.meta.outputs.upload_release }}
       phoenix_image: ${{ steps.meta.outputs.phoenix_image }}
+      postgres_image: ${{ steps.meta.outputs.postgres_image }}
     steps:
+      - name: Checkout the requested source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          ref: ${{ github.event.inputs.source_ref || github.event.release.tag_name || github.event.inputs.release_tag || github.sha }}
+          persist-credentials: false
+
       - name: Resolve tag, version and build matrix
         id: meta
         shell: bash
@@ -108,9 +124,12 @@ jobs:
           INPUT_SOURCE_REF: ${{ github.event.inputs.source_ref }}
           INPUT_ARCHITECTURES: ${{ github.event.inputs.architectures }}
           INPUT_PHOENIX_IMAGE: ${{ github.event.inputs.phoenix_image }}
+          INPUT_POSTGRES_IMAGE: ${{ github.event.inputs.postgres_image }}
           REF: ${{ github.ref }}
           SHA: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           set -euo pipefail
 
@@ -151,14 +170,21 @@ jobs:
             fi
           fi
 
-          if [[ -n "${RELEASE_TARGET}" ]]; then
-            RAW_TAG="${RELEASE_TARGET}"
-          else
-            RAW_TAG="dev-${SHA:0:7}"
+          SHA="$(git rev-parse HEAD)"
+          CHECKOUT_REF="${SHA}"
+          if [[ -z "${RELEASE_TARGET}" ]]; then
+            RELEASE_TARGET="build-${SHA:0:7}-${RUN_ID}-${RUN_ATTEMPT}"
+            UPLOAD_RELEASE="true"
           fi
+          git check-ref-format "refs/tags/${RELEASE_TARGET}"
+          if [[ "${RELEASE_TARGET}" == -* ]]; then
+            echo 'Release tag cannot start with a dash.' >&2
+            exit 1
+          fi
+          RAW_TAG="${RELEASE_TARGET}"
 
           TAG="$(sanitize "${RAW_TAG}")"
-          if [[ -z "${TAG}" ]]; then
+          if [[ -z "${TAG}" || ${#TAG} -gt 128 ]]; then
             echo "Cannot derive a valid Docker tag from '${RAW_TAG}'" >&2
             exit 1
           fi
@@ -173,9 +199,19 @@ jobs:
 
           # Trace backend bundled alongside the gateway image.
           PHOENIX_IMAGE="${INPUT_PHOENIX_IMAGE:-arizephoenix/phoenix:latest}"
-          if [[ "${PHOENIX_IMAGE}" != *:* ]]; then
+          if [[ "${PHOENIX_IMAGE##*/}" != *:* ]]; then
             PHOENIX_IMAGE="${PHOENIX_IMAGE}:latest"
           fi
+          POSTGRES_IMAGE="${INPUT_POSTGRES_IMAGE:-postgres:16-alpine}"
+          if [[ "${POSTGRES_IMAGE##*/}" != *:* ]]; then
+            POSTGRES_IMAGE="${POSTGRES_IMAGE}:latest"
+          fi
+          for image in "${PHOENIX_IMAGE}" "${POSTGRES_IMAGE}"; do
+            if [[ ! "${image}" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
+              echo "Invalid bundle image reference" >&2
+              exit 1
+            fi
+          done
 
           MATRIX="["
           SEP=""
@@ -201,6 +237,7 @@ jobs:
             echo "release_tag=${RELEASE_TARGET}"
             echo "upload_release=${UPLOAD_RELEASE}"
             echo "phoenix_image=${PHOENIX_IMAGE}"
+            echo "postgres_image=${POSTGRES_IMAGE}"
           } >> "${GITHUB_OUTPUT}"
 
           {
@@ -213,6 +250,7 @@ jobs:
             echo "| Checkout ref | ${CHECKOUT_REF} |"
             echo "| Architectures | ${ARCHS} |"
             echo "| Phoenix image | ${PHOENIX_IMAGE} |"
+            echo "| PostgreSQL image | ${POSTGRES_IMAGE} |"
             if [[ -n "${RELEASE_TARGET}" ]]; then
               echo "| Attach to release | ${RELEASE_TARGET} |"
             else
@@ -228,8 +266,6 @@ jobs:
     needs: prepare
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
-    permissions:
-      contents: write # attach the archive to the GitHub Release
     strategy:
       fail-fast: false
       matrix:
@@ -243,6 +279,7 @@ jobs:
       UPLOAD_RELEASE: ${{ needs.prepare.outputs.upload_release }}
       ENABLE_RUST: ${{ github.event.inputs.enable_rust == 'true' }}
       PHOENIX_IMAGE: ${{ needs.prepare.outputs.phoenix_image }}
+      POSTGRES_IMAGE: ${{ needs.prepare.outputs.postgres_image }}
     steps:
       - name: Checkout code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -325,6 +362,7 @@ jobs:
 
           container="phoenix-bundle-smoke"
           docker rm -f "${container}" >/dev/null 2>&1 || true
+          trap 'docker rm -f "${container}" >/dev/null 2>&1 || true' EXIT
           docker run -d --name "${container}" -p 16006:6006 "${PHOENIX_IMAGE}" >/dev/null
 
           ready="false"
@@ -344,13 +382,17 @@ jobs:
           fi
           echo "Phoenix ${PHOENIX_IMAGE} is healthy."
 
-      - name: Save both images to one gzipped archive
+      - name: Pull PostgreSQL for the deployment architecture
+        shell: bash
+        run: docker pull --platform "${{ matrix.platform }}" "${POSTGRES_IMAGE}"
+
+      - name: Save all deployment images to one gzipped archive
         shell: bash
         run: |
           set -euo pipefail
           archive="mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
 
-          # One archive holds the gateway and the trace backend, so an air-gapped
+          # One archive holds all Compose images, so an air-gapped
           # host needs a single `docker load`.
           docker save \
             "${IMAGE_REPO}:${IMAGE_VERSION}" \
@@ -358,6 +400,7 @@ jobs:
             "${IMAGE_REPO}:latest" \
             "${GHCR_IMAGE}:${IMAGE_TAG}" \
             "${PHOENIX_IMAGE}" \
+            "${POSTGRES_IMAGE}" \
             | gzip -9 > "${archive}"
 
           # Confirm the archive is a docker save archive before publishing it.
@@ -369,7 +412,7 @@ jobs:
             exit 1
           fi
 
-          # Confirm both images are really inside, not only the gateway. The two
+          # Confirm all deployment images are inside. The two
           # image stores record tags in different files, so read both.
           rm -rf /tmp/bundle-check && mkdir -p /tmp/bundle-check
           tar -xzf "${archive}" -C /tmp/bundle-check manifest.json index.json 2>/dev/null || true
@@ -378,7 +421,7 @@ jobs:
             echo "Archive ${archive} carries no docker image metadata." >&2
             exit 1
           fi
-          for ref in "${IMAGE_REPO}:${IMAGE_VERSION}" "${PHOENIX_IMAGE}"; do
+          for ref in "${IMAGE_REPO}:${IMAGE_VERSION}" "${PHOENIX_IMAGE}" "${POSTGRES_IMAGE}"; do
             if ! grep -qF "${ref}" /tmp/bundle-refs.txt; then
               echo "Archive ${archive} does not contain ${ref}." >&2
               exit 1
@@ -401,49 +444,79 @@ jobs:
             infra/portal-session-bridge/portal-client.js
           sha256sum "${docs_archive}" > "${docs_archive}.sha256"
 
+      - name: Package complete offline deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker image inspect "${IMAGE_REPO}:${IMAGE_VERSION}" "${PHOENIX_IMAGE}" "${POSTGRES_IMAGE}" > "${RUNNER_TEMP}/bundle-images.json"
+          python3 .github/scripts/package_release_bundle.py \
+            --version "${IMAGE_VERSION}" --architecture "${{ matrix.suffix }}" \
+            --gateway-image "${IMAGE_REPO}:${IMAGE_VERSION}" \
+            --phoenix-image "${PHOENIX_IMAGE}" --postgres-image "${POSTGRES_IMAGE}" \
+            --image-archive "mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz" \
+            --image-metadata "${RUNNER_TEMP}/bundle-images.json" --output-dir release-assets \
+            --build-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+      - name: Verify deployment from the complete archive without pulling images
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-assets
+          archive="contextforge-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
+          sha256sum -c "${archive}.sha256"
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}"
+          cd "${RUNNER_TEMP}/${archive%.tar.gz}"
+          sha256sum -c SHA256SUMS
+          docker load -i images.tar.gz
+          bash init-env.sh
+          export COMPOSE_PROJECT_NAME="release-smoke-${GITHUB_RUN_ID}"
+          cleanup() {
+            status=$?
+            docker compose logs --no-color --tail 50 || true
+            docker compose down --volumes --remove-orphans
+            test -z "$(docker compose ps -aq)"
+            exit "${status}"
+          }
+          trap cleanup EXIT
+          docker compose config --quiet
+          docker compose up -d --pull never --wait --wait-timeout 300
+          curl -fsS http://127.0.0.1:4444/health | jq -e '.status == "healthy"'
+          curl -fsS http://127.0.0.1:4444/admin/login > login.html
+          grep -q '<html' login.html
+          asset="$(grep -oE '/static/[^" ]+\.css' login.html | head -1)"
+          test -n "${asset}"
+          curl -fsS "http://127.0.0.1:4444${asset}" > /dev/null
+
+      - name: Collect release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"* release-assets/
+          cp "contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"* release-assets/
+
       - name: Upload bundle artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: docker-release-bundle-${{ matrix.suffix }}
-          path: |
-            mcpgateway-${{ env.IMAGE_VERSION }}-linux-${{ matrix.suffix }}.tar.gz
-            mcpgateway-${{ env.IMAGE_VERSION }}-linux-${{ matrix.suffix }}.tar.gz.sha256
-            contextforge-deployment-docs-${{ env.IMAGE_VERSION }}-linux-${{ matrix.suffix }}.tar.gz
-            contextforge-deployment-docs-${{ env.IMAGE_VERSION }}-linux-${{ matrix.suffix }}.tar.gz.sha256
+          path: release-assets/*
           if-no-files-found: error
           retention-days: 14
-
-      - name: Attach the bundle to the GitHub Release
-        if: env.UPLOAD_RELEASE == 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          archive="mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
-
-          gh release upload "${RELEASE_TAG}" \
-            "${archive}" "${archive}.sha256" \
-            "contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz" \
-            "contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz.sha256" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --clobber
-
-          echo "Attached ${archive} to release ${RELEASE_TAG}."
 
       - name: Summarize the bundle
         shell: bash
         run: |
           set -euo pipefail
-          archive="mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
-
           {
-            echo "### ${archive}"
+            echo "### contextforge-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
             echo "Deployment guides and parent helper: contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
             echo ""
             echo '```bash'
-            echo "docker load < ${archive}"
-            echo "docker compose -f docker-compose.yaml up -d"
+            echo "tar -xzf contextforge-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
+            echo "cd contextforge-${IMAGE_VERSION}-linux-${{ matrix.suffix }}"
+            echo "sha256sum -c SHA256SUMS"
+            echo "docker load -i images.tar.gz"
+            echo "bash init-env.sh"
+            echo "docker compose up -d --pull never"
             echo '```'
             echo ""
             echo "Images inside the archive:"
@@ -452,22 +525,20 @@ jobs:
             echo "- ${IMAGE_REPO}:latest"
             echo "- ${GHCR_IMAGE}:${IMAGE_TAG}"
             echo "- ${PHOENIX_IMAGE}"
+            echo "- ${POSTGRES_IMAGE}"
             echo ""
             echo "Traces land in the Phoenix project \`mcp-gateway\` (http://localhost:6006)."
           } >> "${GITHUB_STEP_SUMMARY}"
 
   # ---------------------------------------------------------------
-  # Attach the compose file that runs the bundled images together.
-  # Generated from docker-compose.phoenix-bundle.yml with the gateway
-  # image pinned to the released version, so it works right after
-  # `docker load`.
+  # Publish only after every requested architecture passes deployment checks.
   # ---------------------------------------------------------------
-  compose-asset:
-    name: Attach docker-compose.yaml
+  publish-release:
+    name: Publish complete Release
     needs: [prepare, bundle]
     if: needs.prepare.result == 'success' && needs.prepare.outputs.upload_release == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 20
     permissions:
       contents: write
     steps:
@@ -477,32 +548,73 @@ jobs:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           persist-credentials: false
 
-      - name: Generate docker-compose.yaml with the released tag
+      - name: Download all deployment assets
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          pattern: docker-release-bundle-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Check assets before publishing
         shell: bash
         env:
-          IMAGE_REPO: ${{ needs.prepare.outputs.image_repo }}
           IMAGE_VERSION: ${{ needs.prepare.outputs.version }}
+          MATRIX: ${{ needs.prepare.outputs.matrix }}
         run: |
           set -euo pipefail
-          pinned="${IMAGE_REPO}:${IMAGE_VERSION}"
-          sed "s#\${GATEWAY_IMAGE:-mcpgateway/mcpgateway:latest}#${pinned}#" docker-compose.phoenix-bundle.yml > docker-compose.yaml
-          if ! grep -qF "image: ${pinned}" docker-compose.yaml; then
-            echo "Pinned gateway image not found in the generated compose file." >&2
-            exit 1
-          fi
-          echo "Generated docker-compose.yaml pinning ${pinned}"
+          cd release-assets
+          test -s docker-compose.yaml
+          while IFS= read -r suffix; do
+            for prefix in contextforge mcpgateway contextforge-deployment-docs; do
+              archive="${prefix}-${IMAGE_VERSION}-linux-${suffix}.tar.gz"
+              test -s "${archive}"
+              sha256sum -c "${archive}.sha256"
+            done
+          done < <(printf '%s' "${MATRIX}" | jq -r '.[].suffix')
 
-      - name: Attach the compose file to the GitHub Release
+      - name: Create or update the complete GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.checkout_ref }}
         run: |
           set -euo pipefail
-          gh release upload "${RELEASE_TAG}" docker-compose.yaml \
+          created=false
+          if ! gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" > /dev/null 2>&1; then
+            {
+              echo 'Download contextforge-*-linux-<architecture>.tar.gz and its .sha256 file for offline deployment.'
+              echo 'The complete archive includes gateway, Phoenix, PostgreSQL, source, configuration, and deployment guides.'
+              echo "Source commit: ${SOURCE_SHA}"
+              echo "Build: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            } > release-notes.md
+            gh release create "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+              --target "${SOURCE_SHA}" --title "ContextForge ${RELEASE_TAG}" \
+              --notes-file release-notes.md --draft --prerelease --latest=false
+            created=true
+          fi
+          tag_uri="${RELEASE_TAG//\//%2F}"
+          tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${tag_uri}" --jq .sha)"
+          test "${tag_sha}" = "${SOURCE_SHA}" || {
+            echo 'Release tag and built source commit differ.' >&2
+            exit 1
+          }
+          gh release upload "${RELEASE_TAG}" release-assets/* \
             --repo "${GITHUB_REPOSITORY}" \
             --clobber
-          echo "Attached docker-compose.yaml to release ${RELEASE_TAG}."
+          gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json assets > release-metadata.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          assets = {item['name']: item['size'] for item in json.loads(Path('release-metadata.json').read_text())['assets']}
+          for path in Path('release-assets').iterdir():
+              assert assets.get(path.name) == path.stat().st_size, f'Missing or incomplete release asset: {path.name}'
+          PY
+          if [[ "${created}" == true ]]; then
+            gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false --latest=false
+          fi
+          url="$(gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq .url)"
+          echo "Release: ${url}" >> "${GITHUB_STEP_SUMMARY}"
 
   # ---------------------------------------------------------------
   # Fail the run when an expected archive is missing from the release.
@@ -511,7 +623,7 @@ jobs:
   # ---------------------------------------------------------------
   verify-release:
     name: Verify release assets
-    needs: [prepare, bundle, compose-asset]
+    needs: [prepare, bundle, publish-release]
     if: >-
       always() &&
       needs.prepare.result == 'success' &&
@@ -538,7 +650,11 @@ jobs:
           while IFS= read -r suffix; do
             for name in \
               "mcpgateway-${IMAGE_VERSION}-linux-${suffix}.tar.gz" \
-              "mcpgateway-${IMAGE_VERSION}-linux-${suffix}.tar.gz.sha256"; do
+              "mcpgateway-${IMAGE_VERSION}-linux-${suffix}.tar.gz.sha256" \
+              "contextforge-${IMAGE_VERSION}-linux-${suffix}.tar.gz" \
+              "contextforge-${IMAGE_VERSION}-linux-${suffix}.tar.gz.sha256" \
+              "contextforge-deployment-docs-${IMAGE_VERSION}-linux-${suffix}.tar.gz" \
+              "contextforge-deployment-docs-${IMAGE_VERSION}-linux-${suffix}.tar.gz.sha256"; do
               if ! grep -qx "${name}" <<< "${assets}"; then
                 echo "::error::Release ${RELEASE_TAG} is missing asset ${name}"
                 missing=1

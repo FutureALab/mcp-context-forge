@@ -2,7 +2,7 @@
 # ContextForge + Arize Phoenix — self-contained observability bundle stack
 # =============================================================================
 #
-# Brings up the two images shipped in the release bundle, plus the database:
+# Start the three images shipped in the release bundle:
 #
 #   gateway    ${GATEWAY_IMAGE:-mcpgateway/mcpgateway:latest}   this service
 #   phoenix    arizephoenix/phoenix:latest                      trace backend
@@ -67,7 +67,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # PostgreSQL — the gateway's data store
-  # Not part of the release bundle tar; swap to an external database with
+  # Included in the release bundle; swap to an external database with
   # GATEWAY_DATABASE_URL when you already run one.
   # ---------------------------------------------------------------------------
   postgres:

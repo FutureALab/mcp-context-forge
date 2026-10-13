@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-10-13: Complete offline Release bundles
+
+- Add automatic build Releases after all requested architectures pass deployment checks.
+- Package gateway, Phoenix, PostgreSQL, committed source, Compose, templates, guides, and checksums.
+- Pass 13 packaging/publication tests, Python quality checks, workflow Bash syntax, and generated Compose validation.
+- Local gateway/Phoenix images and make are absent. Full image startup remains a GitHub Actions check.
+- No local services start. Preserve unrelated local edits and await authorization before pushing.
+- See [[tasks/2026-10-13-offline-release-bundle]].
+
 ## 2026-10-10: Intranet deployment delivery
 
 - Documented first Cookie exchange, parent-token reuse, iframe messages, account switching, and logout limits.
