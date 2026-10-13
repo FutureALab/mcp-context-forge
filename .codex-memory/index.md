@@ -1,5 +1,7 @@
 # Project Memory
 
+- [[tasks/2026-10-13-user-filters]]: User search, role filters, and team filters.
+
 - [[tasks/2026-10-13-browser-session]]: Unified browser login and Key issuance.
 
 - [[tasks/2026-10-13-portal-admin-login]]: Platform administrator login through the parent Cookie bridge.

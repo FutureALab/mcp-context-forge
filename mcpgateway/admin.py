@@ -38,7 +38,7 @@ import re
 import secrets
 import tempfile
 import time
-from typing import Any
+from typing import Annotated, Any
 from typing import cast as typing_cast
 from typing import Dict, List, Optional, Union
 import urllib.parse
@@ -105,7 +105,7 @@ from mcpgateway.common.query_params import (
 from mcpgateway.common.validators import SecurityValidator
 from mcpgateway.config import settings, UI_HIDABLE_HEADER_ITEMS, UI_HIDABLE_SECTIONS, UI_HIDE_SECTION_ALIASES
 from mcpgateway.db import A2AAgent as DbA2AAgent
-from mcpgateway.db import EmailApiToken, EmailTeam, EmailUser, extract_json_field
+from mcpgateway.db import EmailApiToken, EmailTeam, EmailUser, extract_json_field, Role
 from mcpgateway.db import Gateway as DbGateway
 from mcpgateway.db import get_db, GlobalConfig, ObservabilitySavedQuery, ObservabilitySpan, ObservabilityTrace
 from mcpgateway.db import Prompt as DbPrompt
@@ -7849,6 +7849,9 @@ async def admin_users_partial_html(
     per_page: int = Query(settings.pagination_default_page_size, ge=1, le=settings.pagination_max_page_size, description="Items per page"),
     render: QueryRenderModeUserSelector = None,
     team_id: Optional[str] = Depends(_validated_team_id_param),
+    search: Annotated[str, Query(max_length=255)] = "",
+    role_id: Annotated[str, Query(max_length=36)] = "",
+    filter_team_id: Annotated[str, Query(max_length=36)] = "",
     db: Session = Depends(get_db),
     user=Depends(get_current_user_with_permissions),
 ) -> Response:
@@ -7864,6 +7867,9 @@ async def admin_users_partial_html(
         per_page: Items per page. Default: 50.
         render: Render mode - 'selector' returns user selector items, 'controls' returns pagination controls.
         team_id: Optional team ID to pre-select members in selector mode
+        search: Email or full-name prefix to match.
+        role_id: Assigned role ID or administrator flag to match.
+        filter_team_id: Active team membership to match in the users list.
         db: Database session
         user: Current authenticated user context
 
@@ -7879,8 +7885,14 @@ async def admin_users_partial_html(
 
         auth_service = EmailAuthService(db)
 
-        # List users with page-based pagination
-        paginated_result = await auth_service.list_users(page=page, per_page=per_page)
+        search, role_id, filter_team_id = search.strip(), role_id.strip(), filter_team_id.strip()
+        if request.query_params.get("clear_filters") == "1":
+            search = role_id = filter_team_id = ""
+        query_params = {key: value for key, value in {"search": search, "role_id": role_id, "filter_team_id": filter_team_id}.items() if value}
+        if query_params:
+            paginated_result = await auth_service.list_users(page=page, per_page=per_page, search=search or None, role_id=role_id or None, team_id=filter_team_id or None)
+        else:
+            paginated_result = await auth_service.list_users(page=page, per_page=per_page)
         users_db = paginated_result.data
         pagination = typing_cast(PaginationMeta, paginated_result.pagination)
 
@@ -7941,6 +7953,11 @@ async def admin_users_partial_html(
             except Exception as e:
                 LOGGER.warning(f"Could not fetch team members for team {team_id}: {e}")
 
+        filter_roles, filter_teams = [], []
+        if render != "selector":
+            filter_roles = [{"id": role.id, "name": role.name, "scope": role.scope} for role in db.execute(select(Role).where(Role.is_active.is_(True)).order_by(Role.name, Role.scope)).scalars().all()]
+            filter_teams = [{"id": team.id, "name": team.name} for team in db.execute(select(EmailTeam).where(EmailTeam.is_active.is_(True)).order_by(EmailTeam.name)).scalars().all()]
+
         # End the read-only transaction early to avoid idle-in-transaction under load
         db.commit()
 
@@ -7972,7 +7989,7 @@ async def admin_users_partial_html(
                     "hx_target": "#users-list-container",
                     "hx_indicator": "#users-loading",
                     "hx_swap": "outerHTML",
-                    "query_params": {},
+                    "query_params": query_params,
                     "root_path": _resolve_root_path(request),
                 },
             )
@@ -7987,6 +8004,9 @@ async def admin_users_partial_html(
                     "pagination": pagination.model_dump(),
                     "root_path": _resolve_root_path(request),
                     "current_user_email": current_user_email,
+                    "query_params": query_params,
+                    "user_filter_roles": filter_roles,
+                    "user_filter_teams": filter_teams,
                 },
             )
 

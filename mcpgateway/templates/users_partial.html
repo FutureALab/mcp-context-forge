@@ -1,11 +1,42 @@
-<!-- htmlhint doctype-first:false -->
+<!-- htmlhint doctype-first:false, tag-pair:false -->
+{% set query_params = query_params | default({}) %}
 <div
   id="users-list-container"
-  hx-get="{{ root_path }}/admin/users/partial?page={{ pagination.page }}&per_page={{ pagination.per_page }}"
+  hx-get="{{ root_path }}/admin/users/partial?page={{ pagination.page }}&per_page={{ pagination.per_page }}{% if query_params %}&{{ query_params | urlencode }}{% endif %}"
   hx-trigger="refreshUsers"
   hx-swap="outerHTML"
   hx-indicator="#users-loading"
 >
+  <form id="users-filter-form" class="flex flex-wrap items-end gap-3 mb-5" hx-get="{{ root_path }}/admin/users/partial" hx-target="#users-list-container" hx-swap="outerHTML" hx-indicator="#users-loading">
+    <input type="hidden" name="page" value="1" />
+    <input type="hidden" name="per_page" value="{{ pagination.per_page }}" />
+    <div class="flex-1 min-w-48">
+      <label for="users-search-input" class="block text-sm font-medium mb-1 dark:text-white">查找用户</label>
+      <input id="users-search-input" name="search" type="search" maxlength="255" value="{{ query_params.get('search', '') }}" placeholder="输入邮箱或姓名开头" class="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" />
+    </div>
+    <div>
+      <label for="users-role-filter" class="block text-sm font-medium mb-1 dark:text-white">用户角色</label>
+      <select id="users-role-filter" name="role_id" class="px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+        <option value="">所有角色</option>
+        <option value="__admin__" {{ 'selected' if query_params.get('role_id') == '__admin__' else '' }}>平台管理员</option>
+        <option value="__member__" {{ 'selected' if query_params.get('role_id') == '__member__' else '' }}>普通用户</option>
+        {% for role in user_filter_roles | default([]) %}
+        <option value="{{ role.id }}" {{ 'selected' if query_params.get('role_id') == role.id else '' }}>{{ role.name }} · {{ {'global': '全局', 'team': '团队', 'personal': '个人'}.get(role.scope, role.scope) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="users-team-filter" class="block text-sm font-medium mb-1 dark:text-white">所属团队</label>
+      <select id="users-team-filter" name="filter_team_id" class="px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+        <option value="">所有团队</option>
+        {% for team in user_filter_teams | default([]) %}
+        <option value="{{ team.id }}" {{ 'selected' if query_params.get('filter_team_id') == team.id else '' }}>{{ team.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">查找</button>
+    <button type="submit" name="clear_filters" value="1" class="px-4 py-2 border rounded-lg dark:text-white">重置</button>
+  </form>
   {% if data %}
   <div class="space-y-4">
     {% for user in data %}
@@ -135,6 +166,5 @@
   {% set hx_indicator = '#users-loading' %}
   {% set hx_swap = 'outerHTML' %}
   {% set table_name = 'users' %}
-  {% set query_params = {} %}
   {% include 'pagination_controls.html' %}
 </div>

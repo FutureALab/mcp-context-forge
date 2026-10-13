@@ -27,3 +27,5 @@ Verification:
 
 The temporary gateway requires cleanup after the next user filtering verification.
 The user requests user search, role filters, and team filters next.
+
+Follow-up: [[2026-10-13-user-filters]] records the completed filters and temporary service cleanup.

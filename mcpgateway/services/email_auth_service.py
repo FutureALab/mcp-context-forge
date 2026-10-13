@@ -1476,6 +1476,8 @@ class EmailAuthService:
         page: Optional[int] = None,
         per_page: Optional[int] = None,
         search: Optional[str] = None,
+        role_id: Optional[str] = None,
+        team_id: Optional[str] = None,
     ) -> UsersListResult:
         """List all users with cursor or page-based pagination support and optional search.
 
@@ -1492,6 +1494,8 @@ class EmailAuthService:
             page: Page number for page-based pagination (1-indexed). Mutually exclusive with cursor.
             per_page: Items per page for page-based pagination
             search: Optional search term to filter by email or full name (case-insensitive)
+            role_id: Active assigned role ID, or __admin__ or __member__ for the account administrator flag.
+            team_id: Active team membership to match. Team roles must apply to this team when both filters exist.
 
         Returns:
             UsersListResult with data and optional pagination metadata.
@@ -1526,6 +1530,33 @@ class EmailAuthService:
                     )
                 )
 
+            if team_id:
+                query = query.where(
+                    select(EmailTeamMember.user_email)
+                    .join(EmailTeam, EmailTeam.id == EmailTeamMember.team_id)
+                    .where(EmailTeamMember.user_email == EmailUser.email, EmailTeamMember.team_id == team_id, EmailTeamMember.is_active.is_(True), EmailTeam.is_active.is_(True))
+                    .exists()
+                )
+            if role_id == "__admin__":
+                query = query.where(EmailUser.is_admin.is_(True))
+            elif role_id == "__member__":
+                query = query.where(EmailUser.is_admin.is_(False))
+            elif role_id:
+                assigned_role = (
+                    select(UserRole.user_email)
+                    .join(Role, Role.id == UserRole.role_id)
+                    .where(
+                        UserRole.user_email == EmailUser.email,
+                        UserRole.role_id == role_id,
+                        UserRole.is_active.is_(True),
+                        Role.is_active.is_(True),
+                        or_(UserRole.expires_at.is_(None), UserRole.expires_at > utc_now()),
+                    )
+                )
+                if team_id:
+                    assigned_role = assigned_role.where(or_(UserRole.scope == "global", UserRole.scope_id == team_id))
+                query = query.where(assigned_role.exists())
+
             # Page-based pagination: use unified_paginate
             if page is not None:
                 pag_result = await unified_paginate(
@@ -1536,7 +1567,7 @@ class EmailAuthService:
                     cursor=None,
                     limit=None,
                     base_url="/admin/users",
-                    query_params={},
+                    query_params={key: value for key, value in {"search": search, "role_id": role_id, "team_id": team_id}.items() if value},
                 )
                 return UsersListResult(data=pag_result["data"], pagination=pag_result["pagination"], links=pag_result["links"])
 
