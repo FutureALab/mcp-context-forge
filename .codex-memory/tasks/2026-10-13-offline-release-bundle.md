@@ -2,7 +2,7 @@
 
 Date: 2026-10-13
 Scope: global
-Status: implemented; live build verification pending
+Status: pushed; live build verification pending
 
 ## Goal
 
@@ -38,9 +38,15 @@ Status: implemented; live build verification pending
 - Workflow YAML, 13 Bash steps, init-env.sh, and generated Compose configuration pass checks.
 - No local services or containers start during these checks.
 
+## Publication
+
+- The user authorizes the push on 2026-10-13.
+- Commit 43e7ff3e416386372c8fc5bdf25794d3da4bd911 reaches origin/feature_20260917_dev.
+- GitHub reports the matching branch commit after the push.
+- The user plans to run the packaging workflow. No workflow run starts during this push.
+
 ## Remaining Checks
 
-- Push is not authorized and has not occurred. The workflow changes remain local until pushed.
 - Build and start the gateway/Phoenix/PostgreSQL bundle in GitHub Actions. Local gateway and Phoenix images are absent.
 - Run repository-wide make gates where make is installed. No PR readiness claim is made.
 - Validate the package on the target Kylin host.
