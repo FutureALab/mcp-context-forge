@@ -19,7 +19,7 @@
   const passwordMode = document.getElementById("member-mode-password");
   const portalSso = form.dataset.portalSso === "true";
   const portalParentOrigin = form.dataset.parentOrigin;
-  const hasSession = form.dataset.sessionCookie === "true";
+  let hasSession = form.dataset.sessionCookie === "true";
   if (hasSession) {
     ssoFields.classList.add("hidden");
     ssoMode.textContent = "已登录账号";
@@ -79,6 +79,34 @@
     }
     return data;
   }
+  async function loginWithPassword(current) {
+    const destination = `${form.dataset.root}/admin/api-key`;
+    const response = await fetch(`${form.dataset.root}/admin/login`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": csrf() },
+      body: new URLSearchParams({ email: email.value.trim(), password: password.value, next: destination }).toString(),
+    });
+    const redirected = new URL(response.url, window.location.origin);
+    if (redirected.pathname === `${form.dataset.root}/admin/change-password-required`) {
+      window.location.assign(redirected.href);
+      throw new Error("请先修改密码，再打开领取页面。");
+    }
+    if (!response.ok || redirected.pathname !== destination || redirected.searchParams.has("error")) {
+      throw new Error("登录失败，请检查账号、密码和系统登录要求。");
+    }
+    if (current !== version) return;
+    hasSession = true;
+    mode = "sso";
+    password.value = "";
+    email.required = false;
+    password.required = false;
+    passwordFields.classList.add("hidden");
+    ssoFields.classList.add("hidden");
+    ssoMode.textContent = "已登录账号";
+    ssoMode.setAttribute("aria-pressed", "true");
+    passwordMode.setAttribute("aria-pressed", "false");
+  }
   function updateServers() {
     server.replaceChildren(new Option("请选择虚拟 MCP", ""));
     servers
@@ -133,7 +161,7 @@
     if (portalSso) {
       if (window.parent === window || !portalParentOrigin) throw new Error("请从内网父平台打开领取页面。");
       window.parent.postMessage({ type: "contextforge-portal-cookie-required", purpose: "key" }, portalParentOrigin);
-      message.textContent = "领取凭据已过期，请刷新父页面。";
+      message.textContent = "登录已过期，请刷新父页面。";
       return;
     }
     if (hasSession) {
@@ -169,10 +197,9 @@
     message.textContent = "正在查询…";
     try {
       const requested = email.value.trim();
-      const data = mode === "sso" ? await post("sso/options", {}) : await post("options", {
-        email: requested,
-        password: password.value,
-      });
+      if (mode === "password") await loginWithPassword(current);
+      if (current !== version) return;
+      const data = await post("sso/options", {});
       if (current !== version) return;
       account = data.email || requested;
       servers = data.servers;
@@ -219,8 +246,7 @@
       control.disabled = true;
     });
     try {
-      const data = await post(mode === "sso" ? "sso/issue" : "issue", {
-        ...(mode === "password" ? { email: account, password: password.value } : {}),
+      const data = await post("sso/issue", {
         team_id: team.value === publicChoice ? null : team.value,
         server_id: server.value,
         days: Number(document.getElementById("member-days").value),

@@ -125,6 +125,10 @@ onBeforeUnmount(() => stopListening?.())
 
 请求 `purpose=login` 或 `purpose=key` 时，网关都设置一小时的 HttpOnly `jwt_token`。
 工作区和领取页共用登录会话。已登录时直接打开 `/admin/api-key`，无需再次交换或设置 `member_key_proof`。
+
+领取页的账号密码登录调用 `/admin/login`。OAuth 领取入口也生成 `jwt_token`，旧的 `member_key_proof` 不再通过鉴权。
+
+`/admin/api-key/options`、`/admin/api-key/issue` 与对应的 `/sso/` 接口统一验证登录会话，不再单独校验请求体邮箱密码。
 Key 页仍需选择 Team、虚拟 MCP 和有效期，再通过自助领取接口获得实际 API Key。
 
 成功响应的结构如下。这里的 token 是占位示例：

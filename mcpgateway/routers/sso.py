@@ -25,11 +25,11 @@ from mcpgateway.common.validators import SafeIdentifier, SafeName
 from mcpgateway.config import settings
 from mcpgateway.db import EmailUser, get_db, SSOAuthSession
 from mcpgateway.middleware.rbac import get_current_user_with_permissions, require_permission
+from mcpgateway.routers.email_auth import create_access_token
 from mcpgateway.services.logging_service import LoggingService
 from mcpgateway.services.sso_service import MEMBER_KEY_STATE_PREFIX, SSOService, invalidate_trusted_provider_cache
 from mcpgateway.services.team_management_service import TeamManagementService
 from mcpgateway.utils.log_sanitizer import sanitize_for_log
-from mcpgateway.utils.member_key_proof import create_member_key_proof, MEMBER_KEY_PROOF_COOKIE, MEMBER_KEY_PROOF_TTL_SECONDS
 from mcpgateway.utils.paths import resolve_root_path
 from mcpgateway.utils.verify_credentials import invalidate_external_identity_cache
 
@@ -445,17 +445,14 @@ async def handle_sso_callback(
                 if email and db.scalar(select(EmailUser.id).where(func.lower(EmailUser.email) == email)) is None:
                     return RedirectResponse(url=f"{root_path}/admin/api-key?error=unregistered", status_code=302)
             return RedirectResponse(url=failure_url, status_code=302)
-        use_secure = (settings.environment == "production") or settings.secure_cookies
         key_response = RedirectResponse(url=f"{root_path}/admin/api-key?sso=success", status_code=302)
-        key_response.set_cookie(
-            key=MEMBER_KEY_PROOF_COOKIE,
-            value=create_member_key_proof(member.email, provider_id),
-            max_age=MEMBER_KEY_PROOF_TTL_SECONDS,
-            httponly=True,
-            secure=use_secure,
-            samesite=settings.cookie_samesite,
-            path=f"{root_path}/admin/api-key",
-        )
+        access_token, _ = await create_access_token(member)
+        from mcpgateway.utils.security_cookies import CookieTooLargeError, set_auth_cookie
+
+        try:
+            set_auth_cookie(key_response, access_token, remember_me=False)
+        except CookieTooLargeError:
+            return RedirectResponse(url=f"{root_path}/admin/api-key?error=token_too_large", status_code=302)
         return key_response
 
     # Authenticate or create user

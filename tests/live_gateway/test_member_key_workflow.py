@@ -37,34 +37,37 @@ class TestMemberKeyWorkflow(unittest.TestCase):
             self.assertEqual(public.post("/admin/api-key/issue", json={"password": password, "email": email, "team_id": team, "server_id": server}).status_code, 403)
             public.headers["X-CSRF-Token"] = public.cookies["mcpgateway_csrf_token"]
             public.headers["Origin"] = origin
-            options = public.post("/admin/api-key/options", json={"password": password, "email": email})
+            for endpoint in ("options", "issue"):
+                missing = public.post(f"/admin/api-key/{endpoint}", json={"email": email, "password": password, "team_id": team, "server_id": server})
+                self.assertEqual(missing.status_code, 401)
+            login = public.post("/admin/login", data={"email": email, "password": password, "next": "/admin/api-key"})
+            self.assertEqual(login.status_code, 303)
+            self.assertEqual(login.headers["location"], "/admin/api-key")
+            public.get("/admin/api-key")
+            public.headers["X-CSRF-Token"] = public.cookies["mcpgateway_csrf_token"]
+            options = public.post("/admin/api-key/options", json={})
             self.assertEqual(options.status_code, 200, options.text)
             self.assertIn(server, [s["id"] for s in options.json()["servers"]])
             public_server = os.getenv("MEMBER_TEST_PUBLIC_SERVER")
             if public_server:
                 public_option = next(s for s in options.json()["servers"] if s["id"] == public_server)
                 self.assertIn(team, public_option["eligible_team_ids"])
-            for endpoint in ("options", "issue"):
-                wrong = public.post(f"/admin/api-key/{endpoint}", json={"email": email, "password": "incorrect", "team_id": team, "server_id": server})
-                self.assertEqual(wrong.status_code, 403)
-                missing = public.post(f"/admin/api-key/{endpoint}", json={"email": email, "team_id": team, "server_id": server})
-                self.assertEqual(missing.status_code, 422)
-            bad = public.post("/admin/api-key/issue", json={"password": password, "email": email, "team_id": "wrong-team", "server_id": server})
+            bad = public.post("/admin/api-key/issue", json={"team_id": "wrong-team", "server_id": server})
             self.assertEqual(bad.status_code, 403, bad.text)
-            issued = public.post("/admin/api-key/issue", json={"password": password, "email": email, "team_id": team, "server_id": server, "days": 7})
+            issued = public.post("/admin/api-key/issue", json={"team_id": team, "server_id": server, "days": 7})
             self.assertEqual(issued.status_code, 200, issued.text if issued.status_code != 200 else "")
             key = issued.json()["api_key"]
             limit = datetime.fromisoformat(issued.json()["created_at"]) + timedelta(days=365)
             for days in (180, 365, 30):
-                renewed = public.post("/admin/api-key/issue", json={"password": password, "email": email, "team_id": team, "server_id": server, "days": days})
+                renewed = public.post("/admin/api-key/issue", json={"team_id": team, "server_id": server, "days": days})
                 self.assertEqual(renewed.status_code, 200)
                 self.assertTrue(renewed.json()["renewed"])
                 self.assertEqual(renewed.json()["token_id"], issued.json()["token_id"])
-                self.assertEqual(renewed.json()["api_key"], "")
+                self.assertEqual(renewed.json()["api_key"], key)
                 self.assertEqual(datetime.fromisoformat(renewed.json()["expires_at"]), min(datetime.fromisoformat(issued.json()["expires_at"]) + timedelta(days=days), limit))
                 issued = renewed
             self.assertIn("no-store", issued.headers["cache-control"])
-            self.assertNotIn("jwt_token", public.cookies)
+            self.assertIn("jwt_token", public.cookies)
             mcp_headers = {"Authorization": f"Bearer {key}", "Accept": "application/json, text/event-stream"}
             response = public.post(
                 f"/servers/{server}/mcp",

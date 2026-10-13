@@ -10,11 +10,14 @@ const template = (name) =>
 const el = (id) => document.getElementById(id);
 const response = (data) => ({ ok: true, json: async () => data });
 
-test("self-service sends passwords and invalidates changed account input", async () => {
+test("self-service logs in once and issues through the shared session", async () => {
   document.body.innerHTML = template("member_key");
   const fetchMock = vi.fn(async (url) => {
     if (url.endsWith("/auth/sso/providers")) {
       return response([{ id: "example", display_name: "Example" }]);
+    }
+    if (url.endsWith("/admin/login")) {
+      return { ok: true, url: `${window.location.origin}/admin/api-key` };
     }
     if (url.endsWith("options")) {
       return response({
@@ -40,7 +43,7 @@ test("self-service sends passwords and invalidates changed account input", async
   el("member-password").value = "fixture-password";
   el("load-memberships").click();
   await vi.waitFor(() => expect(el("member-team").disabled).toBe(false));
-  expect(JSON.parse(fetchMock.mock.calls[1][1].body).password).toBe(
+  expect(new URLSearchParams(fetchMock.mock.calls[1][1].body).get("password")).toBe(
     "fixture-password"
   );
   el("member-team").value = "my-team";
@@ -77,11 +80,15 @@ test("self-service sends passwords and invalidates changed account input", async
   el("member-transport").value = "streamableHttp";
   el("member-transport").dispatchEvent(new Event("change"));
   expect(JSON.parse(el("member-config-value").value).mcpServers["Public MCP"].url).toBe(`${window.location.origin}/servers/public-server/mcp/`);
-  expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({
-    password: "fixture-password",
+  expect(fetchMock.mock.calls[1][0]).toBe("/admin/login");
+  expect(new URLSearchParams(fetchMock.mock.calls[1][1].body).get("next")).toBe("/admin/api-key");
+  expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toEqual({
     team_id: "my-team",
     server_id: "public-server",
+    days: 30,
   });
+  expect(el("member-password").value).toBe("");
+  expect(el("member-password").required).toBe(false);
   fetchMock.mockResolvedValueOnce(response({ renewed: true, api_key: "fixture-key", server_id: "public-server", server_name: "Public MCP", expires_at: "2027-10-17T12:00:00Z" }));
   el("member-days").value = "365";
   el("member-key-form").dispatchEvent(new Event("submit", { cancelable: true }));
@@ -89,7 +96,7 @@ test("self-service sends passwords and invalidates changed account input", async
   expect(el("member-key-result").classList.contains("hidden")).toBe(false);
   expect(el("member-key-value").value).toBe("fixture-key");
   expect(JSON.parse(el("member-config-value").value).mcpServers["Public MCP"].headers.Authorization).toBe("Bearer fixture-key");
-  expect(JSON.parse(fetchMock.mock.calls[3][1].body).days).toBe(365);
+  expect(JSON.parse(fetchMock.mock.calls[4][1].body).days).toBe(365);
   const writeText = vi.fn().mockResolvedValue();
   vi.stubGlobal("navigator", { clipboard: { writeText } });
   el("copy-member-key").click();
@@ -109,6 +116,23 @@ test("self-service sends passwords and invalidates changed account input", async
   expect(el("issue-member-key").disabled).toBe(true);
   expect(el("member-key-value").value).toBe("");
   expect(el("member-config-value").value).toBe("");
+  vi.unstubAllGlobals();
+});
+
+test("failed system login cannot query resources or issue keys", async () => {
+  document.body.innerHTML = template("member_key");
+  const fetchMock = vi.fn(async (url) => url.endsWith("/auth/sso/providers")
+    ? response([])
+    : { ok: true, url: `${window.location.origin}/admin/login?error=invalid_credentials` });
+  vi.stubGlobal("fetch", fetchMock);
+  await import("../../../mcpgateway/static/member-key.js?failed-system-login");
+  await vi.waitFor(() => expect(el("member-password-fields").classList.contains("hidden")).toBe(false));
+  el("member-email").value = "member@example.com";
+  el("member-password").value = "wrong-password";
+  el("load-memberships").click();
+  await vi.waitFor(() => expect(el("member-key-message").textContent).toContain("登录失败"));
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/auth/sso/providers", "/admin/login"]);
+  expect(el("issue-member-key").disabled).toBe(true);
   vi.unstubAllGlobals();
 });
 

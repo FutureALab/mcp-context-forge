@@ -4603,6 +4603,7 @@ async def admin_login_handler(request: Request, db: Session = Depends(get_db)) -
         password_val = form.get("password")
         email = email_val if isinstance(email_val, str) else None
         password = password_val if isinstance(password_val, str) else None
+        destination = f"{root_path}/admin/api-key" if form.get("next") == f"{root_path}/admin/api-key" else f"{root_path}/admin"
 
         if not email or not password:
             params = "error=missing_fields"
@@ -4702,7 +4703,7 @@ async def admin_login_handler(request: Request, db: Session = Depends(get_db)) -
             token, _ = await create_access_token(user, jti=session_jti)  # expires_seconds not needed here
 
             # Create redirect response
-            response = RedirectResponse(url=f"{root_path}/admin", status_code=303)
+            response = RedirectResponse(url=destination, status_code=303)
 
             # Set JWT token as secure cookie
             try:

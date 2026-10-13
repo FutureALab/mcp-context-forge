@@ -18,6 +18,44 @@ import httpx
 class TestMemberSessionKey(unittest.TestCase):
     """Exercise portal login, session validation, and scoped Key issuance."""
 
+    def test_password_login_uses_the_same_key_session(self):
+        """Use system login for both Key endpoints and reject independent credentials."""
+        fixture_path = os.getenv("MEMBER_SESSION_TEST_FIXTURE")
+        if not fixture_path:
+            self.skipTest("Set MEMBER_SESSION_TEST_FIXTURE for an isolated gateway")
+        fixture = json.loads(Path(fixture_path).read_text(encoding="utf-8"))
+        origin = os.getenv("GATEWAY_URL", "http://127.0.0.1:4450")
+        email = os.getenv("MEMBER_SESSION_EMAIL", "session-member@example.com")
+        body = {"team_id": "session-team", "server_id": "session-server", "days": 7}
+        with httpx.Client(base_url=origin, timeout=30, trust_env=False, headers={"Accept": "text/html, application/json", "X-Forwarded-For": "192.0.2.146"}) as client:
+            client.get("/admin/api-key")
+            client.headers.update({"Origin": origin, "X-CSRF-Token": client.cookies["mcpgateway_csrf_token"]})
+            self.assertEqual(client.post("/admin/api-key/issue", json={**body, "email": email, "password": fixture["password"]}).status_code, 401)
+            login = client.post("/admin/login", data={"email": email, "password": fixture["password"], "next": "/admin/api-key"})
+            self.assertEqual(login.status_code, 303)
+            self.assertEqual(login.headers["location"], "/admin/api-key")
+            self.assertIn("jwt_token", client.cookies)
+            self.assertNotIn("member_key_proof", client.cookies)
+            page = client.get(login.headers["location"])
+            self.assertIn('data-session-cookie="true"', page.text)
+            client.headers["X-CSRF-Token"] = client.cookies["mcpgateway_csrf_token"]
+            for prefix in ("", "sso/"):
+                options = client.post(f"/admin/api-key/{prefix}options", json={"email": "session-disabled@example.com"})
+                self.assertEqual(options.status_code, 200, options.text)
+                self.assertEqual(options.json()["email"], email)
+                issued = client.post(f"/admin/api-key/{prefix}issue", json=body)
+                self.assertEqual(issued.status_code, 200, "Shared password-session issuance must succeed")
+                self.assertEqual(issued.json()["email"], email)
+            client.headers["X-Forwarded-For"] = "192.0.2.147"
+            unsafe = client.post("/admin/login", data={"email": email, "password": fixture["password"], "next": "https://other.test"})
+            self.assertEqual(unsafe.headers["location"], "/admin")
+            client.cookies.delete("jwt_token")
+            client.get("/admin/api-key")
+            client.headers["X-CSRF-Token"] = client.cookies["mcpgateway_csrf_token"]
+            failed = client.post("/admin/login", data={"email": email, "password": "incorrect", "next": "/admin/api-key"})  # pragma: allowlist secret
+            self.assertIn("error=invalid_credentials", failed.headers["location"])
+            self.assertNotIn("jwt_token", client.cookies)
+
     def test_administrator_portal_login_and_key_session(self):
         """Allow administrator portal sessions while preserving resource checks."""
         if not os.getenv("MEMBER_SESSION_TEST_FIXTURE"):

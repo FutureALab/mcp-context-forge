@@ -9,7 +9,7 @@ Tests for SSO router endpoints and helpers.
 # Standard
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 # Third-Party
 import pytest
@@ -204,7 +204,7 @@ async def test_initiate_member_key_sso_marks_state(monkeypatch: pytest.MonkeyPat
             return "https://auth.example.com?state=mk%3Afixture"
 
     monkeypatch.setattr(sso_router, "SSOService", DummyService)
-    await sso_router.initiate_sso_login("provider", MagicMock(), MagicMock(), redirect_uri="https://gateway.example/auth/sso/callback/provider", flow="member_key", db=MagicMock())
+    await sso_router.initiate_sso_login("provider", MagicMock(), MagicMock(), redirect_uri="https://gateway.example/auth/sso/callback/provider", scopes=None, flow="member_key", db=MagicMock())
     assert received == [("https://gateway.example/auth/sso/callback/provider", "member_key")]
 
 
@@ -355,7 +355,7 @@ async def test_member_key_sso_rejects_unregistered_account(monkeypatch: pytest.M
 
 @pytest.mark.asyncio
 async def test_member_key_sso_returns_to_key_page(monkeypatch: pytest.MonkeyPatch):
-    """Return a registered OAuth user with a Key-only proof and no login session."""
+    """Return a registered OAuth user with the shared browser login session."""
     monkeypatch.setattr(sso_router.settings, "sso_enabled", True)
     verified_providers = []
 
@@ -374,6 +374,8 @@ async def test_member_key_sso_returns_to_key_page(monkeypatch: pytest.MonkeyPatc
             pytest.fail("Key authorization must not create a gateway session")
 
     monkeypatch.setattr(sso_router, "SSOService", DummyService)
+    mint_session = AsyncMock(return_value=("fixture-session", 3600))
+    monkeypatch.setattr(sso_router, "create_access_token", mint_session)
     import mcpgateway.utils.security_cookies as cookie_module
 
     set_cookie = MagicMock()
@@ -386,10 +388,10 @@ async def test_member_key_sso_returns_to_key_page(monkeypatch: pytest.MonkeyPatc
     response = await sso_router.handle_sso_callback("example", "code", "mk:fixture.state", request=request, response=MagicMock(), db=db)
     assert response.headers["location"] == "/admin/api-key?sso=success"
     assert verified_providers == ["example"]
-    assert not set_cookie.called
-    assert "member_key_proof=" in response.headers["set-cookie"]
-    assert "jwt_token=" not in response.headers["set-cookie"]
-    assert "Path=/admin/api-key" in response.headers["set-cookie"]
+    mint_session.assert_awaited_once()
+    assert mint_session.call_args.args[0].email == "member@example.com"
+    set_cookie.assert_called_once_with(response, "fixture-session", remember_me=False)
+    assert "member_key_proof=" not in response.headers.get("set-cookie", "")
 
 
 def test_member_key_proof_cannot_be_reused_as_gateway_login(monkeypatch: pytest.MonkeyPatch):
@@ -456,7 +458,7 @@ async def test_handle_sso_callback_success_sets_cookie(monkeypatch: pytest.Monke
     assert isinstance(response, RedirectResponse)
     assert response.status_code == 302
     assert response.headers.get("location", "").endswith("/admin")
-    assert creation_flags == [True]
+    assert creation_flags == [None]
     assert set_cookie.called
 
 

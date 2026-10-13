@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 import openpyxl
-from pydantic import BaseModel, EmailStr, Field, SecretStr
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -38,14 +38,12 @@ from mcpgateway.db import EmailApiToken, EmailTeam, EmailTeamMember, EmailUser, 
 from mcpgateway.middleware.rbac import get_current_user_with_permissions, require_permission
 from mcpgateway.routers.auth import get_session_user
 from mcpgateway.routers.tokens import _require_authenticated_session
-from mcpgateway.services.email_auth_service import EmailAuthService
 from mcpgateway.services.audit_trail_service import get_audit_trail_service
 from mcpgateway.services.server_key_inventory import inventory_query, inventory_record, inventory_secret
 from mcpgateway.services.mcp_usage_service import invocation_audit, usage_overview
 from mcpgateway.services.server_member_service import issue_member_key, registered_user
 from mcpgateway.services.server_service import ServerService
 from mcpgateway.services.team_management_service import MemberAlreadyExistsError, TeamManagementError, TeamManagementService
-from mcpgateway.utils.member_key_proof import MEMBER_KEY_PROOF_COOKIE, read_member_key_proof
 from mcpgateway.utils.paths import resolve_root_path
 from mcpgateway.utils.verify_credentials import get_auth_header_value, verify_jwt_token_cached
 
@@ -73,23 +71,8 @@ async def mcp_usage_audit(
     return JSONResponse(jsonable_encoder(invocation_audit(db, days, search, gateway_id, server_id, status, offset, limit)), headers={"Cache-Control": "no-store"})
 
 
-class AccountRequest(BaseModel):
-    """An existing account supplied by the visitor."""
-
-    email: EmailStr
-    password: SecretStr = Field(min_length=1, max_length=1024)
-
-
-class MemberKeyRequest(AccountRequest):
-    """A server-scoped key request with a bounded lifetime."""
-
-    team_id: str | None = Field(default=None, min_length=1, max_length=36)
-    server_id: str = Field(min_length=1, max_length=36)
-    days: int = Field(default=30, ge=1, le=365)
-
-
 class SsoMemberKeyRequest(BaseModel):
-    """A server-scoped key request authorized by an SSO browser session."""
+    """A server-scoped key request authorized by a browser login session."""
 
     team_id: str | None = Field(default=None, min_length=1, max_length=36)
     server_id: str = Field(min_length=1, max_length=36)
@@ -147,18 +130,8 @@ def require_public_csrf(request: Request) -> None:
         raise HTTPException(403, "请刷新页面后重试")
 
 
-async def authenticate_member(request: Request, body: AccountRequest, db: Session) -> EmailUser:
-    """Verify the local password with the existing account lockout policy."""
-    user = await EmailAuthService(db).authenticate_user(
-        str(body.email), body.password.get_secret_value(), ip_address=request.client.host if request.client else None, user_agent=request.headers.get("user-agent")
-    )
-    if user is None:
-        raise HTTPException(403, "邮箱或密码错误，或账号不可用")
-    return user
-
-
 async def authenticate_sso_member(request: Request, db: Session) -> EmailUser:
-    """Accept a verified browser session or a legacy Key proof.
+    """Use the same verified browser session as the system login.
 
     Args:
         request: Browser request with Cookie credentials.
@@ -170,17 +143,13 @@ async def authenticate_sso_member(request: Request, db: Session) -> EmailUser:
     if request.headers.get("authorization") or get_auth_header_value(request.headers):
         raise HTTPException(403, "请使用领取页面完成鉴权")
     session_token = request.cookies.get("jwt_token")
-    if session_token:
-        payload = await verify_jwt_token_cached(session_token, request)
-        if payload.get("token_use") != "session":
-            raise HTTPException(403, "请使用登录会话领取 Key")
-        user = await get_session_user(request, credentials=None)
-        return registered_user(db, user.email)
-    email, provider = read_member_key_proof(request.cookies.get(MEMBER_KEY_PROOF_COOKIE))
-    user = registered_user(db, email)
-    if not user.auth_provider or user.auth_provider.lower() != provider.lower():
-        raise HTTPException(403, "OAuth 账号不匹配或不可用")
-    return user
+    if not session_token:
+        raise HTTPException(401, "请先登录系统")
+    payload = await verify_jwt_token_cached(session_token, request)
+    if payload.get("token_use") != "session":
+        raise HTTPException(403, "请使用登录会话领取 Key")
+    user = await get_session_user(request, credentials=None)
+    return registered_user(db, user.email)
 
 
 async def member_options_for_user(db: Session, user: EmailUser, token_teams: list[str] | None = None) -> JSONResponse:
@@ -221,7 +190,7 @@ async def member_options_for_user(db: Session, user: EmailUser, token_teams: lis
     )
 
 
-async def issue_for_user(db: Session, user: EmailUser, body: MemberKeyRequest | SsoMemberKeyRequest, token_teams: list[str] | None = None) -> JSONResponse:
+async def issue_for_user(db: Session, user: EmailUser, body: SsoMemberKeyRequest, token_teams: list[str] | None = None) -> JSONResponse:
     """Apply the shared rate limit and resource checks before key issuance."""
     if body.team_id and token_teams is not None and body.team_id not in token_teams:
         raise HTTPException(403, "当前登录会话不能访问所选 Team")
@@ -272,44 +241,26 @@ async def member_key_page(request: Request):
 
 
 @router.post("/api-key/options")
-@rate_limit(requests_per_minute=20)
-async def member_key_options(request: Request, body: AccountRequest, db: Session = Depends(get_db)):
-    """List active teams and servers accessible to the supplied account."""
-    require_self_service("password")
-    require_public_csrf(request)
-    user = await authenticate_member(request, body, db)
-    return await member_options_for_user(db, user)
-
-
-@router.post("/api-key/issue")
-@rate_limit(requests_per_minute=10)
-async def member_key_issue(request: Request, body: MemberKeyRequest, db: Session = Depends(get_db)):
-    """Issue a key after password, membership, and visibility checks."""
-    require_self_service("password")
-    require_public_csrf(request)
-    user = await authenticate_member(request, body, db)
-    return await issue_for_user(db, user, body)
-
-
 @router.post("/api-key/sso/options")
 @rate_limit(requests_per_minute=20)
 async def member_key_sso_options(request: Request, db: Session = Depends(get_db)):
-    """Check the registered SSO account and list its available resources."""
+    """List resources available to the verified browser login account."""
     require_self_service("sso")
     require_public_csrf(request)
     user = await authenticate_sso_member(request, db)
-    token_teams = get_scoped_resource_access_context(request, user)[1] if request.cookies.get("jwt_token") else None
+    token_teams = get_scoped_resource_access_context(request, user)[1]
     return await member_options_for_user(db, user, token_teams)
 
 
+@router.post("/api-key/issue")
 @router.post("/api-key/sso/issue")
 @rate_limit(requests_per_minute=10)
 async def member_key_sso_issue(request: Request, body: SsoMemberKeyRequest, db: Session = Depends(get_db)):
-    """Issue a key for the SSO session's account after access checks."""
+    """Issue a key for the browser login account after access checks."""
     require_self_service("sso")
     require_public_csrf(request)
     user = await authenticate_sso_member(request, db)
-    token_teams = get_scoped_resource_access_context(request, user)[1] if request.cookies.get("jwt_token") else None
+    token_teams = get_scoped_resource_access_context(request, user)[1]
     return await issue_for_user(db, user, body, token_teams)
 
 

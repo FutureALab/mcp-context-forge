@@ -109,7 +109,11 @@ window.addEventListener("message", (event) => {
 | `jwt_token` | 网关 | HttpOnly 登录 Cookie，工作区与领取页共用 |
 | `mcpgateway_csrf_token` | 网关 | 防止跨站伪造操作；网关页面自动处理，父页面无需设置 |
 
+登录页和领取页统一使用 `jwt_token`。账号密码、OAuth 和父页面登录都生成同一种登录会话。
+
 父页面不需要设置 `member_key_proof`，也不需要直接调用领取页内部接口。
+
+旧的 `/admin/api-key/options`、`/admin/api-key/issue` 也改为验证 `jwt_token`，不再接受单独的邮箱密码鉴权。
 接口失败返回 `{"detail":"具体原因"}`；示例会把原因显示在父页面。
 `401` 表示身份缺失或无效，`403` 表示账号不可用或来源不匹配，`404` 表示功能未启用。
 `422` 表示请求参数错误，`429` 表示请求过多，`503` 表示父页面来源尚未配置。
