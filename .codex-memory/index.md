@@ -1,5 +1,7 @@
 # Project Memory
 
+- [[tasks/2026-10-13-portal-admin-login]]: Platform administrator login through the parent Cookie bridge.
+
 - [[tasks/2026-10-12-unified-key-session]]: Shared login session for the workspace and API Key self-service.
 
 - [[tasks/2026-10-12-parent-integration-guide]]: Independent intranet parent integration and authentication interface guide.

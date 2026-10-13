@@ -80,8 +80,8 @@ def _read_portal_token(token: str, db: Session) -> tuple[EmailUser, int] | None:
     if payload.get("token_use") != _TOKEN_USE or not isinstance(payload.get("sub"), str):
         return None
     user = db.get(EmailUser, payload["sub"])
-    if user is None or not user.is_active or user.is_admin:
-        raise HTTPException(403, "MCP 账号不存在、已停用或需管理员登录")
+    if user is None or not user.is_active:
+        raise HTTPException(403, "MCP 账号不存在或已停用")
     return user, payload["exp"]
 
 
@@ -116,8 +116,6 @@ async def exchange_portal_cookies(request: Request, body: PortalExchangeRequest,
         except EmailValidationError as exc:
             raise HTTPException(401, "父平台账号邮箱无效") from exc
         user = registered_user(db, email)
-        if user.is_admin:
-            raise HTTPException(403, "请使用管理员登录入口")
         portal_token, expires_at = _create_portal_token(user)
     else:
         user, expires_at = authorization

@@ -33,6 +33,7 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
         self.db.add(EmailUser(email="local@example.com", auth_provider="local", is_active=True, is_admin=True))
         self.db.add(EmailUser(email="admin@example.com", auth_provider="portal", is_active=True, is_admin=True))
         self.db.add(EmailUser(email="disabled@example.com", auth_provider="portal", is_active=False, is_admin=False))
+        self.db.add(EmailUser(email="disabled-admin@example.com", auth_provider="portal", is_active=False, is_admin=True))
         self.db.commit()
         self.app = FastAPI()
         self.app.include_router(router)
@@ -97,6 +98,43 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(refreshed.status_code, 200, refreshed.text)
             self.assertNotEqual(refreshed.json()["token"], expired)
 
+    async def test_administrators_receive_and_reuse_session_cookies(self):
+        """Allow enabled administrators through both portal exchange purposes."""
+        with (
+            patch("mcpgateway.routers.portal_sso.settings.portal_sso_enabled", True),
+            patch("mcpgateway.routers.portal_sso.settings.self_service_api_keys_enabled", True),
+            patch("mcpgateway.routers.portal_sso.settings.portal_sso_parent_origin", "http://portal.test"),
+        ):
+            for email in ("admin@example.com", "local@example.com"):
+                for purpose in ("login", "key"):
+                    with self.subTest(email=email, purpose=purpose):
+                        result = await self.exchange(purpose, email=email)
+                        self.assertEqual(result.status_code, 200, result.text)
+                        self.assertEqual(result.json()["next"], "/admin" if purpose == "login" else "/admin/api-key")
+                        claims = jwt.decode(result.cookies["jwt_token"], options={"verify_signature": False})
+                        self.assertEqual(claims["sub"], self.db.query(EmailUser).filter_by(email=email).one().id)
+                        self.assertEqual(claims["token_use"], "session")
+                        self.assertIn("HttpOnly", result.headers["set-cookie"])
+                        token = result.json()["token"]
+                        reused = await self.exchange(purpose, email=None, username=None, token=token)
+                        self.assertEqual(reused.status_code, 200, reused.text)
+                        self.assertEqual(reused.json()["token"], token)
+                        self.assertEqual((await self.exchange(purpose, email=email, origin="http://other.test")).status_code, 403)
+                        self.assertEqual((await self.exchange(purpose, email=None, username=None, token=token, origin="http://other.test")).status_code, 403)
+
+            switched = await self.exchange(email="member@example.com", token=token)
+            self.assertEqual(switched.status_code, 200, switched.text)
+            claims = jwt.decode(switched.cookies["jwt_token"], options={"verify_signature": False})
+            self.assertEqual(claims["sub"], self.db.query(EmailUser).filter_by(email="member@example.com").one().id)
+
+            admin = self.db.query(EmailUser).filter_by(email="local@example.com").one()
+            admin.is_active = False
+            self.db.commit()
+            self.assertEqual((await self.exchange(email=None, username=None, token=token)).status_code, 403)
+            self.db.delete(admin)
+            self.db.commit()
+            self.assertEqual((await self.exchange(email=None, username=None, token=token)).status_code, 403)
+
     async def test_parent_token_rechecks_account_and_cookie_switch(self):
         """Reject disabled accounts and honor a new parent account cookie."""
         with patch("mcpgateway.routers.portal_sso.settings.portal_sso_enabled", True), patch("mcpgateway.routers.portal_sso.settings.self_service_api_keys_enabled", True), patch(
@@ -114,10 +152,13 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
             switched_user = self.db.query(EmailUser).filter_by(email="local-member@example.com").one()
             switched_user.is_admin = True
             self.db.commit()
+            self.assertEqual((await self.exchange(email=None, username=None, token=switched.json()["token"])).status_code, 200)
+            switched_user.is_active = False
+            self.db.commit()
             self.assertEqual((await self.exchange(email=None, username=None, token=switched.json()["token"])).status_code, 403)
 
     async def test_denial_paths(self):
-        """Reject missing cookies, disabled users, administrators, and wrong Origin."""
+        """Reject missing cookies, disabled users, and wrong Origin."""
         with patch("mcpgateway.routers.portal_sso.settings.portal_sso_enabled", True), patch("mcpgateway.routers.portal_sso.settings.self_service_api_keys_enabled", True), patch(
             "mcpgateway.routers.portal_sso.settings.portal_sso_parent_origin", "http://portal.test"
         ):
@@ -125,16 +166,17 @@ class TestPortalCookieExchange(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((await self.exchange(email=None)).status_code, 401)
             self.assertEqual((await self.exchange(username=None)).status_code, 401)
             self.assertEqual((await self.exchange(email="invalid-email")).status_code, 401)
-            self.assertEqual((await self.exchange(email="local@example.com")).status_code, 403)
-            self.assertEqual((await self.exchange(email="admin@example.com")).status_code, 403)
             self.assertEqual((await self.exchange(email="disabled@example.com")).status_code, 403)
+            self.assertEqual((await self.exchange(email="disabled-admin@example.com")).status_code, 403)
             self.assertEqual((await self.exchange(email="unknown@example.com")).status_code, 403)
             self.assertEqual((await self.exchange("key", email="unknown@example.com")).status_code, 403)
             self.assertEqual((await self.exchange("invalid")).status_code, 422)
             with patch("mcpgateway.routers.portal_sso.settings.self_service_api_keys_enabled", False):
                 self.assertEqual((await self.exchange("key")).status_code, 404)
+                self.assertEqual((await self.exchange("key", email="admin@example.com")).status_code, 404)
             with patch("mcpgateway.routers.portal_sso.settings.portal_sso_enabled", False):
                 self.assertEqual((await self.exchange()).status_code, 404)
+                self.assertEqual((await self.exchange(email="admin@example.com")).status_code, 404)
 
     async def test_only_registered_users_can_exchange_cookies(self):
         """Reject unknown accounts without creating them, and accept a registered local user."""

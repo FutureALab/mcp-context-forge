@@ -21,8 +21,8 @@
 | 父平台地址 | 浏览器实际 Origin，例如 `http://devops.com`，不含路径 |
 | 网关地址 | 示例为 `http://devops.com:18090`，可配置反向代理路径前缀 |
 | 用户身份 | 父平台用户资料中的邮箱必须与 MCP 本地账号邮箱一致 |
-| 账号状态 | MCP 账号已注册、启用，且不是平台管理员 |
-| 工作区权限 | 账号具有有效 Team 和所需角色；交换成功不等于工作区授权成功 |
+| 账号状态 | MCP 账号已注册、启用；普通用户和平台管理员均可登录 |
+| 工作区权限 | 普通账号具有有效 Team 和所需角色；平台管理员按其角色授权 |
 | Key 权限 | 启用自助领取，并给用户配置可见虚拟 MCP、Team 和相应权限 |
 | 浏览器 | 通过 HTTP/HTTPS 打开父页面，不使用 `file://` |
 
@@ -31,9 +31,9 @@
 1. 父页面确认用户已经登录，然后写入 `mcp_username`、`mcp_email`。退出登录时删除这两个 Cookie。
 2. 父页面调用 `POST /auth/portal/exchange`，请求体为 `{"purpose":"login"}` 或 `{"purpose":"key"}`。网关检查来源、身份 Cookie 和 MCP 已注册账号，返回 `token`、`expires_at`、`next`。
 3. 父页面保存 `token`。默认有效期为 12 小时。下次请求传 `{"purpose":"login","token":"..."}` 或 `{"purpose":"key","token":"..."}`。有效 token 可直接复用；失效时网关重新检查身份 Cookie 并返回新 token。两者都无效时提示刷新页面。
-4. 网关还会为 iframe 设置凭据。`login` 获取一小时的 HttpOnly `jwt_token`；`key` 获取五分钟的 HttpOnly `member_key_proof`。父页面将 `next` 加载到 iframe。
+4. 两种入口都设置一小时的 HttpOnly `jwt_token`，共用登录会话。父页面将 `next` 加载到 iframe。
 
-两个入口均只接受已经注册、启用的普通账号，未注册邮箱不会自动创建账号。账号以邮箱为唯一标识；`mcp_username` 必须存在，但不与显示名匹配。平台管理员仍使用原有管理员登录入口。Team、虚拟 MCP 的可见性和领取权限仍由网关检查。
+两个入口均接受已经注册、启用的普通账号和平台管理员，未注册邮箱不会自动创建账号。账号以邮箱为唯一标识；`mcp_username` 必须存在，但不与显示名匹配。网关数据库决定管理员身份和角色权限。Team、虚拟 MCP 的可见性和领取权限仍由网关检查。
 
 ## Cookie 与网关配置
 
@@ -151,7 +151,7 @@ Key 页仍需选择 Team、虚拟 MCP 和有效期，再通过自助领取接口
 
 一个有效父平台 token 可以用于工作区和 Key 页两种交换。
 有效 token 的复用不会延长它的 `expires_at`，但会重新设置对应 iframe 凭据。
-网关每次检查 token 对应账号是否存在、启用且为普通账号。
+网关每次检查 token 对应账号是否存在且启用，普通用户和平台管理员均可复用授权。
 token 失效时，网关尝试从身份 Cookie 重新授权，并返回新的 token。
 有效 token 可以在身份 Cookie 缺失时使用；这是当前接口的实际行为。
 如果请求携带的 `mcp_email` 与 token 所属账号不同，网关放弃旧 token，改按新 Cookie 匹配账号。
@@ -257,10 +257,11 @@ const stopListening = listenForCredentialExpiry(frame, config, error => {
 | --- | --- |
 | 首次 `purpose=login` | HTTP 200，返回三项字段，工作区 iframe 成功打开 |
 | 复用 token 且不带身份 Cookie | HTTP 200，重新设置对应凭据 |
-| 用同一 token 打开 Key 页 | 只建立领取校验；领取后显示 API Key 和 MCP 客户端配置 |
+| 用同一 token 打开 Key 页 | 建立相同登录会话；领取后显示 API Key 和 MCP 客户端配置 |
 | token 过期但身份 Cookie 有效 | HTTP 200，返回新 token 和新过期时间 |
 | token 与 Cookie 所属邮箱不同 | 按 Cookie 中新账号交换，不保留旧用户 iframe |
-| 未注册、停用、管理员账号 | 拒绝父平台桥接；管理员走独立登录入口 |
+| 未注册、停用账号 | 拒绝父平台桥接 |
+| 平台管理员账号 | 允许父平台桥接，网关数据库决定权限 |
 | 工作区缺少 Team 或角色 | 显示访问拒绝，不陷入自动刷新循环 |
 | 普通账号领取 Key | 只能访问当前账号有权限的 Team 和虚拟 MCP |
 | 父平台退出 | 清空本地存储和 iframe；按上文记录服务端剩余有效期 |
@@ -273,7 +274,7 @@ const stopListening = listenForCredentialExpiry(frame, config, error => {
 | 503 未配置父平台来源 | 检查 `PORTAL_SSO_PARENT_ORIGIN` |
 | 403 来源不匹配 | 比对真实 `Origin` 的协议、域名、端口；不能填写页面路径 |
 | 401 登录已过期 | 查看请求 Cookie 是否有两项身份字段，检查 Domain、Path 和 token |
-| 403 账号拒绝 | 检查注册、停用状态和平台管理员标记 |
+| 403 账号拒绝 | 检查注册、停用状态 |
 | `Failed to fetch` | 检查 DNS、端口、CORS 预检、HTTPS 页面请求 HTTP、Nginx |
 | HTTP 200 但 iframe 回登录页 | 查看 `Set-Cookie`、浏览器拒绝原因和下一请求的 Cookie |
 | iframe 拒绝显示 | 检查网关及 Nginx 的 `X-Frame-Options`、CSP 和 iframe sandbox |
@@ -331,7 +332,7 @@ const stopListening = listenForCredentialExpiry(frame, config, error => {
 - 有效 token 可在没有身份 Cookie 时复用；过期 token 须由身份 Cookie 重新授权。
 - 两种交换均设置 `jwt_token`。领取接口验证现有登录会话，不要求独立的 `member_key_proof`。
 - 过期、撤销、伪造的会话和 API token 均不能领取 Key。会话限定的 Team 仍限制领取范围。
-- 未注册用户不能通过登录或领取入口，管理员不能通过 Cookie 桥接。领取前检查有效 Team、所选虚拟 MCP 和 `servers.use` 权限。
+- 未注册和停用用户不能通过登录或领取入口。普通用户和平台管理员均可通过 Cookie 桥接。领取前检查有效 Team、所选虚拟 MCP 和 `servers.use` 权限。
 - 从父页面打开两个 iframe 入口，并使用领取的 API Key 调用所选 MCP。
 
 前端可以改写 `mcp_username` 和 `mcp_email`。此模式不验证父平台登录状态，适用于用户已经接受该信任边界的受控内网部署。网关不会把 Cookie 中的管理员标记当作权限来源。
