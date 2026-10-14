@@ -1,5 +1,13 @@
 # Progress
 
+## 2026-10-14: Detailed offline Release deployment guide
+
+- Expand the packaged README with asset choices, existing PostgreSQL, environment settings, two Compose examples, and operational steps.
+- Validate both Compose examples and all 12 Bash blocks. Both architecture packaging regressions pass.
+- A fresh reader confirms download, configuration, HTTP login, optional Phoenix, and upgrade instructions are clear.
+- No services start. Target-host connectivity and business acceptance remain operator checks.
+- See [[tasks/2026-10-14-offline-release-deployment-guide]].
+
 ## 2026-10-13: External database and Release publication fix
 
 - Supersede the original three-image bundle. Keep gateway and Phoenix; require an existing PostgreSQL connection.
