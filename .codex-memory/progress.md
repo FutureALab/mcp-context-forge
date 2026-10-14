@@ -1,5 +1,13 @@
 # Progress
 
+## 2026-10-14: Single release package and automatic numbering
+
+- Supersede standalone image, document, and Compose assets. Publish one complete archive and checksum per architecture.
+- Use the selected v<application-version>-r.<run-number> convention. Retries retain their Release number.
+- Pass 22 regressions, Python checks, CLI packaging integration, extracted Compose validation, and Bash syntax checks.
+- Preserve old Releases. No services start. New live build/publication and target-host checks remain pending.
+- See [[tasks/2026-10-14-single-release-package]].
+
 ## 2026-10-14: Detailed offline Release deployment guide
 
 - Expand the packaged README with asset choices, existing PostgreSQL, environment settings, two Compose examples, and operational steps.

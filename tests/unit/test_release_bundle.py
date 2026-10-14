@@ -37,6 +37,7 @@ def _bundle_inputs(tmp_path: Path) -> tuple[Path, argparse.Namespace]:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("local-only", encoding="utf-8")
     (root / "application.py").write_text("committed-source", encoding="utf-8")
+    (root / "pyproject.toml").write_text('[project]\nversion = "1.0.10"\n', encoding="utf-8")
     for command in (
         ["git", "init", "--quiet"],
         ["git", "add", "."],
@@ -56,6 +57,8 @@ def _bundle_inputs(tmp_path: Path) -> tuple[Path, argparse.Namespace]:
     metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
     args = argparse.Namespace(
         version="build-test",
+        release_tag="v1.0.10-r.8",
+        application_version="1.0.10",
         architecture="amd64",
         gateway_image=refs[0],
         phoenix_image=refs[1],
@@ -77,6 +80,7 @@ def test_complete_archive_and_committed_source(bundle_inputs: tuple[Path, argpar
         image["Architecture"] = architecture
     args.image_metadata.write_text(json.dumps(metadata))
     output = PACKAGER["package"](root, args)
+    assert {path.name for path in args.output_dir.iterdir()} == {output.name, output.name + ".sha256"}
     assert output.with_suffix(".gz.sha256").read_text().split()[0] == hashlib.sha256(output.read_bytes()).hexdigest()
     extracted = tmp_path / "extracted"
     with tarfile.open(output) as archive:
@@ -97,6 +101,8 @@ def test_complete_archive_and_committed_source(bundle_inputs: tuple[Path, argpar
     version = json.loads((staging / "VERSION.json").read_text())
     assert version["source_sha"] == subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     assert version["platform"] == f"linux/{architecture}"
+    assert version["release_tag"] == "v1.0.10-r.8"
+    assert version["application_version"] == "1.0.10"
     assert [image["ref"] for image in version["images"]] == [args.gateway_image, args.phoenix_image]
     with tarfile.open(staging / "images.tar.gz") as images:
         stream = images.extractfile("manifest.json")
@@ -186,6 +192,7 @@ def test_workflow_saves_only_gateway_and_phoenix(bundle_inputs: tuple[Path, argp
         "IMAGE_TAG": "release-test",
         "GHCR_IMAGE": "ghcr.io/example/project",
         "PHOENIX_IMAGE": args.phoenix_image,
+        "RUNNER_TEMP": f"/{tmp_path.drive[0].lower()}{tmp_path.as_posix()[2:]}" if os.name == "nt" else tmp_path.as_posix(),
     }
     command_path = f"/{commands.drive[0].lower()}{commands.as_posix()[2:]}" if os.name == "nt" else commands.as_posix()
     script = workflow_step("bundle", "Save all deployment images to one gzipped archive")
@@ -193,7 +200,7 @@ def test_workflow_saves_only_gateway_and_phoenix(bundle_inputs: tuple[Path, argp
     script = f'export PATH="{command_path}:$PATH"\n' + script
     subprocess.run([bash_executable(), "-c", script], cwd=tmp_path, env=env, check=True, capture_output=True)
     assert log.read_text().splitlines() == [f"save {args.gateway_image} mcpgateway/mcpgateway:release-test mcpgateway/mcpgateway:latest ghcr.io/example/project:release-test {args.phoenix_image}"]
-    saved = tmp_path / f"mcpgateway-{args.version}-linux-{args.architecture}.tar.gz"
+    saved = tmp_path / f"images-{args.architecture}.tar.gz"
     with tarfile.open(saved) as archive:
         stream = archive.extractfile("manifest.json")
         assert stream is not None
@@ -215,21 +222,82 @@ def test_workflow_resolves_actual_source(bundle_inputs: tuple[Path, argparse.Nam
         "REF": "refs/heads/dispatched-branch",
         "SHA": "incorrect-dispatched-sha",
         "REPOSITORY": "Example/Project",
-        "RUN_ID": "123",
-        "RUN_ATTEMPT": "2",
+        "RUN_NUMBER": "8",
         "GITHUB_OUTPUT": output.as_posix(),
         "GITHUB_STEP_SUMMARY": (tmp_path / "summary").as_posix(),
     }
-    subprocess.run([bash_executable(), "-c", workflow_step("prepare", "Resolve tag, version and build matrix")], cwd=root, env=env, check=True, capture_output=True)
+    commands = tmp_path / "bin"
+    commands.mkdir()
+    runner = commands / "python3"
+    runner.write_text(f"#!/usr/bin/env bash\nexec '{Path(sys.executable).as_posix()}' \"$@\"\n", encoding="utf-8", newline="\n")
+    runner.chmod(0o755)
+    command_path = f"/{commands.drive[0].lower()}{commands.as_posix()[2:]}" if os.name == "nt" else commands.as_posix()
+    script = f'export PATH="{command_path}:$PATH"\n' + workflow_step("prepare", "Resolve tag, version and build matrix")
+    subprocess.run([bash_executable(), "-c", script], cwd=root, env=env, check=True, capture_output=True)
     values = dict(line.split("=", 1) for line in output.read_text().splitlines())
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     assert values["checkout_ref"] == sha
-    assert values["release_tag"] == (release_tag or f"build-{sha[:7]}-123-2")
+    assert values["release_tag"] == (release_tag or "v1.0.10-r.8")
+    assert values["application_version"] == "1.0.10"
     assert values["upload_release"] == "true"
     assert values["phoenix_image"] == "registry.example:5000/phoenix:latest"
     assert "postgres_image" not in values
     expected = ["amd64", "arm64"] if event == "release" or architectures == "both" else ["amd64"]
     assert [entry["suffix"] for entry in json.loads(values["matrix"])] == expected
+    if not release_tag:
+        retry_env = env | {"RUN_ATTEMPT": "99", "GITHUB_OUTPUT": (tmp_path / "retry").as_posix()}
+        subprocess.run([bash_executable(), "-c", script], cwd=root, env=retry_env, check=True, capture_output=True)
+        retry = dict(line.split("=", 1) for line in (tmp_path / "retry").read_text().splitlines())
+        assert retry["release_tag"] == values["release_tag"]
+        next_env = env | {"RUN_NUMBER": "9", "GITHUB_OUTPUT": (tmp_path / "next").as_posix()}
+        subprocess.run([bash_executable(), "-c", script], cwd=root, env=next_env, check=True, capture_output=True)
+        following = dict(line.split("=", 1) for line in (tmp_path / "next").read_text().splitlines())
+        assert following["release_tag"] == "v1.0.10-r.9"
+        invalid = subprocess.run([bash_executable(), "-c", script], cwd=root, env=env | {"RUN_NUMBER": "invalid"}, check=False, capture_output=True)
+        assert invalid.returncode != 0
+
+
+@pytest.mark.parametrize("architectures,failure", [("amd64", ""), ("both", ""), ("amd64", "extra"), ("amd64", "missing"), ("amd64", "checksum")])
+def test_publish_requires_only_complete_archives(tmp_path: Path, architectures: str, failure: str) -> None:
+    """Reject incomplete or duplicate publication files and accept both architecture bundles."""
+    assets = tmp_path / "release-assets"
+    assets.mkdir()
+    suffixes = ["amd64", "arm64"] if architectures == "both" else ["amd64"]
+    for suffix in suffixes:
+        archive = assets / f"contextforge-1.0.10-r.8-linux-{suffix}.tar.gz"
+        archive.write_bytes(f"complete-bundle-{suffix}".encode())
+        archive.with_suffix(".gz.sha256").write_text(f"{hashlib.sha256(archive.read_bytes()).hexdigest()}  {archive.name}\n", newline="\n")
+    if failure == "extra":
+        (assets / "docker-compose.yaml").write_text("duplicate")
+    elif failure == "missing":
+        archive.with_suffix(".gz.sha256").unlink()
+    elif failure == "checksum":
+        archive.write_bytes(b"damaged")
+    commands = tmp_path / "bin"
+    commands.mkdir()
+    jq = commands / "jq"
+    jq.write_text(
+        f'#!/usr/bin/env bash\nexec \'{Path(sys.executable).as_posix()}\' -c \'import json,sys; sys.stdout.buffer.write(("\\n".join(item["suffix"] for item in json.load(sys.stdin))+"\\n").encode())\'\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    jq.chmod(0o755)
+    env = os.environ | {"IMAGE_VERSION": "1.0.10-r.8", "MATRIX": json.dumps([{"suffix": suffix} for suffix in suffixes])}
+    command_path = f"/{commands.drive[0].lower()}{commands.as_posix()[2:]}" if os.name == "nt" else commands.as_posix()
+    script = f'export PATH="{command_path}:$PATH"\n' + workflow_step("publish-release", "Check assets before publishing")
+    result = subprocess.run([bash_executable(), "-c", script], cwd=tmp_path, env=env, check=False, capture_output=True)
+    assert (result.returncode == 0) == (failure == ""), result.stderr.decode("utf-8", errors="replace")
+    gh = commands / "gh"
+    gh.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "${GH_TEST_ASSET_NAMES}"\n', encoding="utf-8", newline="\n")
+    gh.chmod(0o755)
+    env |= {
+        "GH_TEST_ASSET_NAMES": "\n".join(path.name for path in assets.iterdir()),
+        "RELEASE_TAG": "v1.0.10-r.8",
+        "GITHUB_REPOSITORY": "example/project",
+    }
+    verify_script = f'export PATH="{command_path}:$PATH"\n' + workflow_step("verify-release", "Confirm every bundle is attached")
+    remote = subprocess.run([bash_executable(), "-c", verify_script], cwd=tmp_path, env=env, check=False, capture_output=True)
+    assert (remote.returncode == 0) == (failure != "missing"), remote.stderr.decode("utf-8", errors="replace")
 
 
 def test_init_env_preserves_existing_secrets(tmp_path: Path) -> None:
@@ -303,6 +371,7 @@ def test_publish_only_complete_release(tmp_path: Path, existing: str, failure: s
         "GH_TEST_FAIL_TAG": "true" if failure == "tag" else "false",
         "RELEASE_TAG": "build-test",
         "SOURCE_SHA": "built-commit",
+        "APPLICATION_VERSION": "1.0.10",
         "GITHUB_REPOSITORY": "example/project",
         "GITHUB_RUN_ID": "123",
         "GITHUB_SERVER_URL": "https://github.com",

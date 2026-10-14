@@ -113,7 +113,15 @@ def package(root: Path, args: argparse.Namespace) -> Path:
         compose = compose.replace("  gateway:\n", "  gateway:\n    env_file: .env\n")
         (staging / "docker-compose.yaml").write_text(compose, encoding="utf-8", newline="\n")
         sha = archive_source(root, staging / "source.tar.gz")
-        metadata = {"version": args.version, "source_sha": sha, "platform": f"linux/{args.architecture}", "build_url": args.build_url, "images": images}
+        metadata = {
+            "version": args.version,
+            "release_tag": args.release_tag,
+            "application_version": args.application_version,
+            "source_sha": sha,
+            "platform": f"linux/{args.architecture}",
+            "build_url": args.build_url,
+            "images": images,
+        }
         (staging / "VERSION.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         sums = [f"{checksum(path)}  {path.relative_to(staging).as_posix()}\n" for path in sorted(staging.rglob("*")) if path.is_file()]
         (staging / "SHA256SUMS").write_text("".join(sums), encoding="utf-8")
@@ -121,7 +129,6 @@ def package(root: Path, args: argparse.Namespace) -> Path:
         with tarfile.open(destination, "w:gz") as archive:
             archive.add(staging, arcname=name)
         destination.with_suffix(".gz.sha256").write_text(f"{checksum(destination)}  {destination.name}\n", encoding="utf-8")
-        shutil.copyfile(staging / "docker-compose.yaml", args.output_dir / "docker-compose.yaml")
     return destination
 
 
@@ -129,6 +136,8 @@ def main() -> None:
     """Read build arguments and create the deployment archive."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--release-tag", required=True)
+    parser.add_argument("--application-version", required=True)
     parser.add_argument("--architecture", required=True, choices=("amd64", "arm64"))
     parser.add_argument("--gateway-image", required=True)
     parser.add_argument("--phoenix-image", required=True)

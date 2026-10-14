@@ -1,5 +1,7 @@
 # Project Memory
 
+- [[tasks/2026-10-14-single-release-package]]: One complete archive per architecture and automatic Release numbers.
+
 - [[tasks/2026-10-14-offline-release-deployment-guide]]: Required assets, environment settings, Compose choices, and upgrade instructions.
 
 - [[tasks/2026-10-13-offline-release-bundle]]: Complete offline deployment archives and automatic build Releases.

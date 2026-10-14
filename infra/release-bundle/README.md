@@ -2,20 +2,50 @@
 
 更新日期：2026-10-14。本文面向部署人员，说明文件选择、`.env`、Compose、启动验收和升级。
 
-本次实例为 [build-1168227-38372867939-1](https://github.com/FutureALab/mcp-context-forge/releases/tag/build-1168227-38372867939-1)。
+新版 Release 只上传一个完整部署包和对应校验文件，每个架构各一份。
+本文的实际部署实例仍取自旧版 [build-1168227-38372867939-1](https://github.com/FutureALab/mcp-context-forge/releases/tag/build-1168227-38372867939-1)。
 现场使用现有 PostgreSQL。默认运行网关和 Phoenix；只需网关时，使用第 7 节配置。
 
 ## 1. 必须下载哪些文件
 
-首次部署只下载以下两个文件，放在同一目录，并保留原文件名：
+### 1.1 新版只下载完整包和校验文件
+
+发布编号自动使用 `v<应用版本>-r.<发布流水号>`，例如 `v1.0.10-r.8`。
+应用版本读取构建提交的 `pyproject.toml`。流水号使用该工作流的 `github.run_number`。
+每次新任务流水号递增，失败任务可能留下编号间隔；同一任务重试沿用编号。
+编号显示在 Release 标题、Git 标签和包内 `VERSION.json` 中。
+它是部署包发布编号，包内应用版本单独记录，不自动修改应用代码版本。
+
+编号为 `v1.0.10-r.8` 时，下载以下两个文件即可：
+
+```text
+contextforge-1.0.10-r.8-linux-amd64.tar.gz
+contextforge-1.0.10-r.8-linux-amd64.tar.gz.sha256
+```
+
+包内包含镜像、源码、`docker-compose.yaml`、`.env.example`、密钥脚本和全部部署文档。
+不再单独提供 `mcpgateway-…` 镜像包、文档包或 Compose 附件。
+选择 `both` 架构时，amd64 和 arm64 各提供一份完整包及校验文件。
+GitHub 自动显示的 `Source code (zip/tar.gz)` 是平台源码下载入口，部署无需下载。
+
+在 Actions 打开 `Docker Release Bundle`，选择构建分支和服务器架构。
+`release_tag` 留空时自动编号；`source_ref` 留空时构建所选分支。
+`release_tag` 填写已有标签时，按该标签的提交重新构建或补充架构。
+自动编号带 `-r.N`，GitHub 标记为预发布包。
+
+### 1.2 旧版 Release 的文件
+
+历史 Release 保持原样，不删除已经发布的资产。
+针对本文旧版实例，首次部署只下载以下两个文件，放在同一目录并保留原文件名：
 
 1. `contextforge-build-1168227-38372867939-1-linux-amd64.tar.gz`
 2. `contextforge-build-1168227-38372867939-1-linux-amd64.tar.gz.sha256`
 
-第一个是约 443 MB 的完整包，包含镜像、Compose、配置模板、密钥生成脚本、源码和文档。
+这个旧版完整包约 443 MB，包含镜像、Compose、配置模板、密钥生成脚本、源码和文档。
 第二个用于校验下载和传输是否完整。每个 `.sha256` 只校验同名归档。
 
-下表中的 `…` 表示版本 `build-1168227-38372867939-1`：
+以下表格仅解释旧版文件；新版不再上传这些单独镜像、文档和 Compose 文件。
+表中的 `…` 表示版本 `build-1168227-38372867939-1`：
 
 | Release 文件 | 用途 | 下载完整包后是否还要下载 |
 | --- | --- | --- |
@@ -468,7 +498,7 @@ tar -xzf source.tar.gz -C source
 单独解压，避免覆盖部署文件。正常容器部署无需解压源码。
 源码包不包含离线重建的完整工具链或依赖缓存。
 
-### 10.2 单独镜像归档
+### 10.2 旧版单独镜像归档
 
 ```bash
 IMAGE_BUNDLE='mcpgateway-build-1168227-38372867939-1-linux-amd64.tar.gz'
@@ -479,7 +509,7 @@ docker load -i "$IMAGE_BUNDLE"
 沿用现有 `.env` 和 Compose，并按新标签更新镜像配置。
 新部署缺少模板和生成脚本时，下载完整包。
 
-### 10.3 单独文档归档
+### 10.3 旧版单独文档归档
 
 ```bash
 DOCS_BUNDLE='contextforge-deployment-docs-build-1168227-38372867939-1-linux-amd64.tar.gz'
@@ -531,5 +561,6 @@ docker compose -p "$DEPLOY_PROJECT" -f "$DEPLOY_FILE" up -d --pull never --wait 
 本文依据该 Release 的公开文件清单、Compose 和仓库配置编写。
 数据库地址、密码、域名、端口和证书由现场替换。
 新版本自动打包时，会把仓库中的本 README 放入完整部署包。
+新版下载文件名使用第 1.1 节的编号，操作命令中的文件名替换为实际下载名称。
 已经发布的旧归档不会因 README 更新而改变，本文的新详细说明以仓库文件为准。
 真实现场数据库网络、业务 MCP 和麒麟验收需要在目标环境执行。

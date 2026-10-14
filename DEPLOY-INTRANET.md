@@ -1,9 +1,10 @@
 # ContextForge 内网部署与用户访问指南（使用现有 PostgreSQL）
 
-## 完整离线 Release 包（2026-10-13）
+## 完整离线 Release 包（2026-10-14）
 
 更新后的 `Docker Release Bundle` 工作流在成功打包后自动创建构建 Release。
-手动运行时，`release_tag` 留空即可创建新版本；填写已有标签则将产物附加到对应 Release。
+手动运行时，`release_tag` 留空自动生成 `v<应用版本>-r.<工作流流水号>`，例如 `v1.0.10-r.8`。
+同一工作流任务重试沿用编号。填写已有标签则将产物附加到对应 Release。
 从 Releases 下载 `contextforge-<版本>-linux-<架构>.tar.gz` 和同名 `.sha256` 文件。
 
 完整包包含网关、Phoenix 两个镜像、对应提交的工程源码、固定镜像标签的 Compose、配置模板和部署文档。
@@ -13,7 +14,8 @@
 首次部署运行 `bash init-env.sh` 生成密钥；升级保留原 `.env`。
 
 默认 Compose 连接现有 PostgreSQL。首次启动前，在 `.env` 中填写 `GATEWAY_DATABASE_URL`。
-已有镜像归档和独立文档包继续提供。操作系统的 Docker、Compose 和命令工具由运维提前准备。
+新版每个架构只提供完整包和校验文件，取消单独镜像、文档和 Compose 附件。
+旧 Release 保持原样。操作系统的 Docker、Compose 和命令工具由运维提前准备。
 
 ## 最新父页面与麒麟部署入口（2026-10-10）
 
@@ -23,9 +25,8 @@
 - [父页面 Cookie 交换、token 复用、Vue 示例、退出及故障排查](infra/portal-session-bridge/README.md)
 - [父页面前端 helper](infra/portal-session-bridge/portal-client.js)
 
-最新发布工作流会将上述材料打成独立文档包，并附带 SHA-256 校验文件。
-文档包名为 `contextforge-deployment-docs-<版本>-linux-<架构>.tar.gz`。
-镜像归档仍用 `docker load` 导入；文档包用 `tar -xzf` 解压，两者不能混用。
+最新发布工作流将上述材料放入完整包，不再另发独立文档包。
+完整包用 `tar -xzf` 解压，其中的 `images.tar.gz` 用 `docker load` 导入。
 已下载的旧发布包不会自动获得新文档或编译后的中文，需使用更新后重新构建的包。
 
 最新 iframe 方案只运行网关，复用外部 PostgreSQL 和现有 Nginx，不要求 Phoenix 或 OIDC。
@@ -80,6 +81,9 @@ uname -m
 使用固定内网 IP 或稳定的内网 DNS 名称，避免用户地址随服务器重启而变化。
 
 ## 2. 准备安装文件
+
+新版完整包先按包内 `README.md` 校验、解压，再执行 `docker load -i images.tar.gz`。
+以下布局和单独镜像归档命令仅供旧 Release 或已有部署使用。
 
 将文件放入部署目录，例如 `/opt/contextforge`。
 如果 Actions 下载的是 ZIP，先解压外层 ZIP。

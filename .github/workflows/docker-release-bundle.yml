@@ -6,9 +6,8 @@
 # Publish a Release after every requested architecture passes deployment checks.
 #
 # Triggers:
-#   - release: published  Builds amd64 and arm64 bundles for the released tag and
-#                         attaches both archives plus docker-compose.yaml.
-#   - workflow_dispatch   Creates a build Release when release_tag is empty.
+#   - release: published  Builds one complete bundle per architecture.
+#   - workflow_dispatch   Creates v<application-version>-r.<run-number> Releases.
 #                         Set release_tag to attach to an existing release.
 #
 # Registry pushes, multiplatform manifests, and Cosign signing stay in
@@ -17,10 +16,6 @@
 # Release assets:
 #   contextforge-<version>-linux-<arch>.tar.gz      complete offline deployment
 #   contextforge-<version>-linux-<arch>.tar.gz.sha256  checksum
-#   mcpgateway-<version>-linux-<arch>.tar.gz         docker save archive, two images
-#   mcpgateway-<version>-linux-<arch>.tar.gz.sha256  checksum
-#   contextforge-deployment-docs-<version>-linux-<arch>.tar.gz  deployment guides and parent helper
-#   docker-compose.yaml                              gateway + phoenix; existing PostgreSQL
 #
 # Load and run on the target host:
 #   sha256sum --check contextforge-<version>-linux-amd64.tar.gz.sha256
@@ -49,7 +44,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Existing release tag to attach to (empty creates a new build Release)"
+        description: "Existing release tag (empty creates v<application-version>-r.<run-number>)"
         required: false
         type: string
       source_ref:
@@ -94,6 +89,7 @@ jobs:
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
       version: ${{ steps.meta.outputs.version }}
+      application_version: ${{ steps.meta.outputs.application_version }}
       image_repo: ${{ steps.meta.outputs.image_repo }}
       ghcr_image: ${{ steps.meta.outputs.ghcr_image }}
       checkout_ref: ${{ steps.meta.outputs.checkout_ref }}
@@ -121,8 +117,7 @@ jobs:
           REF: ${{ github.ref }}
           SHA: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
 
@@ -165,8 +160,13 @@ jobs:
 
           SHA="$(git rev-parse HEAD)"
           CHECKOUT_REF="${SHA}"
+          APPLICATION_VERSION="$(python3 -c 'from pathlib import Path; import tomllib; print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])')"
           if [[ -z "${RELEASE_TARGET}" ]]; then
-            RELEASE_TARGET="build-${SHA:0:7}-${RUN_ID}-${RUN_ATTEMPT}"
+            if [[ ! "${APPLICATION_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || ! "${RUN_NUMBER}" =~ ^[1-9][0-9]*$ ]]; then
+              echo 'Automatic release numbering requires a numeric application version and run number.' >&2
+              exit 1
+            fi
+            RELEASE_TARGET="v${APPLICATION_VERSION}-r.${RUN_NUMBER}"
             UPLOAD_RELEASE="true"
           fi
           git check-ref-format "refs/tags/${RELEASE_TARGET}"
@@ -217,6 +217,7 @@ jobs:
           {
             echo "tag=${TAG}"
             echo "version=${VERSION}"
+            echo "application_version=${APPLICATION_VERSION}"
             echo "image_repo=${IMAGE_REPO}"
             echo "ghcr_image=${GHCR_IMAGE}"
             echo "checkout_ref=${CHECKOUT_REF}"
@@ -233,6 +234,7 @@ jobs:
             echo "| --- | --- |"
             echo "| Docker tag | ${TAG} |"
             echo "| Version | ${VERSION} |"
+            echo "| Application version | ${APPLICATION_VERSION} |"
             echo "| Checkout ref | ${CHECKOUT_REF} |"
             echo "| Architectures | ${ARCHS} |"
             echo "| Phoenix image | ${PHOENIX_IMAGE} |"
@@ -261,6 +263,7 @@ jobs:
       GHCR_IMAGE: ${{ needs.prepare.outputs.ghcr_image }}
       IMAGE_TAG: ${{ needs.prepare.outputs.tag }}
       IMAGE_VERSION: ${{ needs.prepare.outputs.version }}
+      APPLICATION_VERSION: ${{ needs.prepare.outputs.application_version }}
       RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
       UPLOAD_RELEASE: ${{ needs.prepare.outputs.upload_release }}
       ENABLE_RUST: ${{ github.event.inputs.enable_rust == 'true' }}
@@ -315,9 +318,7 @@ jobs:
 
           reported="$(docker run --rm --entrypoint python3 "${image}" -c 'import mcpgateway; print(mcpgateway.__version__)')"
           echo "Image reports mcpgateway ${reported}"
-          if [[ "${reported}" != "${IMAGE_VERSION}" ]]; then
-            echo "::warning::Image reports version ${reported}, bundle version is ${IMAGE_VERSION}."
-          fi
+          test "${reported}" = "${APPLICATION_VERSION}"
 
           docker run --rm --entrypoint /bin/sh "${image}" -c 'test -x /app/docker-entrypoint.sh'
           echo "Gateway entrypoint present."
@@ -371,7 +372,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive="mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
+          archive="${RUNNER_TEMP}/images-${{ matrix.suffix }}.tar.gz"
 
           # One archive holds all Compose images, so an air-gapped
           # host needs a single `docker load`.
@@ -409,20 +410,7 @@ jobs:
             echo "Archive contains ${ref}"
           done
 
-          sha256sum "${archive}" | tee "${archive}.sha256"
-          ls -lh "${archive}" "${archive}.sha256"
-
-      - name: Package intranet deployment and parent integration guides
-        shell: bash
-        run: |
-          set -euo pipefail
-          docs_archive="contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
-          tar -czf "${docs_archive}" \
-            DEPLOY-INTRANET.md \
-            docs/docs/deployment/intranet-portal-gateway.md \
-            infra/portal-session-bridge/README.md \
-            infra/portal-session-bridge/portal-client.js
-          sha256sum "${docs_archive}" > "${docs_archive}.sha256"
+          ls -lh "${archive}"
 
       - name: Package complete offline deployment
         shell: bash
@@ -431,9 +419,10 @@ jobs:
           docker image inspect "${IMAGE_REPO}:${IMAGE_VERSION}" "${PHOENIX_IMAGE}" > "${RUNNER_TEMP}/bundle-images.json"
           python3 .github/scripts/package_release_bundle.py \
             --version "${IMAGE_VERSION}" --architecture "${{ matrix.suffix }}" \
+            --release-tag "${RELEASE_TAG}" --application-version "${APPLICATION_VERSION}" \
             --gateway-image "${IMAGE_REPO}:${IMAGE_VERSION}" \
             --phoenix-image "${PHOENIX_IMAGE}" \
-            --image-archive "mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz" \
+            --image-archive "${RUNNER_TEMP}/images-${{ matrix.suffix }}.tar.gz" \
             --image-metadata "${RUNNER_TEMP}/bundle-images.json" --output-dir release-assets \
             --build-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
@@ -495,13 +484,6 @@ jobs:
           test -n "${asset}"
           curl -fsS "http://127.0.0.1:4444${asset}" > /dev/null
 
-      - name: Collect release assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          cp "mcpgateway-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"* release-assets/
-          cp "contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"* release-assets/
-
       - name: Upload bundle artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -516,7 +498,8 @@ jobs:
           set -euo pipefail
           {
             echo "### contextforge-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
-            echo "Deployment guides and parent helper: contextforge-deployment-docs-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
+            echo "Release number: ${RELEASE_TAG}"
+            echo 'The archive includes images, source, Compose, environment templates, and deployment guides.'
             echo ""
             echo '```bash'
             echo "tar -xzf contextforge-${IMAGE_VERSION}-linux-${{ matrix.suffix }}.tar.gz"
@@ -571,14 +554,14 @@ jobs:
         run: |
           set -euo pipefail
           cd release-assets
-          test -s docker-compose.yaml
+          expected=0
           while IFS= read -r suffix; do
-            for prefix in contextforge mcpgateway contextforge-deployment-docs; do
-              archive="${prefix}-${IMAGE_VERSION}-linux-${suffix}.tar.gz"
-              test -s "${archive}"
-              sha256sum -c "${archive}.sha256"
-            done
+            archive="contextforge-${IMAGE_VERSION}-linux-${suffix}.tar.gz"
+            test -s "${archive}"
+            sha256sum -c "${archive}.sha256"
+            expected=$((expected + 2))
           done < <(printf '%s' "${MATRIX}" | jq -r '.[].suffix')
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq "${expected}"
 
       - name: Create or update the complete GitHub Release
         shell: bash
@@ -586,6 +569,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
           SOURCE_SHA: ${{ needs.prepare.outputs.checkout_ref }}
+          APPLICATION_VERSION: ${{ needs.prepare.outputs.application_version }}
         run: |
           set -euo pipefail
           tag_uri="${RELEASE_TAG//\//%2F}"
@@ -604,6 +588,8 @@ jobs:
               echo 'Download contextforge-*-linux-<architecture>.tar.gz and its .sha256 file for offline deployment.'
               echo 'The complete archive includes gateway, Phoenix, source, configuration, and deployment guides.'
               echo 'Set GATEWAY_DATABASE_URL to an existing PostgreSQL connection before starting.'
+              echo "Release number: ${RELEASE_TAG}"
+              echo "Application version: ${APPLICATION_VERSION}"
               echo "Source commit: ${SOURCE_SHA}"
               echo "Build: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             } > release-notes.md
@@ -664,23 +650,14 @@ jobs:
           missing=0
           while IFS= read -r suffix; do
             for name in \
-              "mcpgateway-${IMAGE_VERSION}-linux-${suffix}.tar.gz" \
-              "mcpgateway-${IMAGE_VERSION}-linux-${suffix}.tar.gz.sha256" \
               "contextforge-${IMAGE_VERSION}-linux-${suffix}.tar.gz" \
-              "contextforge-${IMAGE_VERSION}-linux-${suffix}.tar.gz.sha256" \
-              "contextforge-deployment-docs-${IMAGE_VERSION}-linux-${suffix}.tar.gz" \
-              "contextforge-deployment-docs-${IMAGE_VERSION}-linux-${suffix}.tar.gz.sha256"; do
+              "contextforge-${IMAGE_VERSION}-linux-${suffix}.tar.gz.sha256"; do
               if ! grep -qx "${name}" <<< "${assets}"; then
                 echo "::error::Release ${RELEASE_TAG} is missing asset ${name}"
                 missing=1
               fi
             done
           done < <(printf '%s' "${MATRIX}" | jq -r '.[].suffix')
-
-          if ! grep -qx "docker-compose.yaml" <<< "${assets}"; then
-            echo "::error::Release ${RELEASE_TAG} is missing asset docker-compose.yaml"
-            missing=1
-          fi
 
           if ((missing == 1)); then
             echo "Release ${RELEASE_TAG} is incomplete." >&2
